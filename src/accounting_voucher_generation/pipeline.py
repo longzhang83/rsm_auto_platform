@@ -253,7 +253,6 @@ def _map_subject(expense_col: str, row: pd.Series, subject_map: Dict[str, str], 
 	subject_field = str(row.get(config.expense_subject_col, "")).strip()
 	summary_field = str(row.get(config.expense_summary_col, "")).strip()
 
-	expense_name = expense_col.strip()
 	if not expense_name:
 		return None
 
@@ -265,7 +264,13 @@ def _map_subject(expense_col: str, row: pd.Series, subject_map: Dict[str, str], 
 	if expense_name in subject_map:
 		return subject_map[expense_name]
 
-	return subject_map.get(subject_field or summary_field or "")
+	if subject_field in subject_map:
+		return subject_map[subject_field]
+
+	if summary_field in subject_map:
+		return subject_map[summary_field]
+
+	return None
 
 
 def _compose_summary(

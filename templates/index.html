@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>会计凭证生成</title>
+		<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+	</head>
+	<body class="bg-slate-100 min-h-screen">
+		<div class="max-w-5xl mx-auto py-12 px-4">
+			<header class="mb-10">
+				<h1 class="text-3xl font-semibold text-slate-800">会计凭证生成服务</h1>
+				<p class="mt-2 text-slate-600">
+					上传费用报销、人员信息和科目映射文件，系统将生成凭证并提供压缩包下载。提交后可继续下载更新后的翻译映射表以复用。
+				</p>
+			</header>
+
+			<section class="bg-white shadow rounded-lg p-6">
+				<form id="voucher-form" class="space-y-6" enctype="multipart/form-data">
+					<div>
+						<h2 class="text-xl font-medium text-slate-700 mb-4">必填数据文件</h2>
+						<div class="grid gap-4 md:grid-cols-2">
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">费用报销表（Excel）</span>
+								<input
+									type="file"
+									name="expense_file"
+									accept=".xlsx,.xls"
+									required
+									class="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">人员列表（Excel，留空则使用默认）</span>
+								<input
+									type="file"
+									name="employee_file"
+									accept=".xlsx,.xls"
+									class="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">科目映射（CSV，留空则使用默认）</span>
+								<input
+									type="file"
+									name="subject_file"
+									accept=".csv"
+									class="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">翻译映射表（可选，CSV）</span>
+								<input
+									type="file"
+									name="translation_file"
+									accept=".csv"
+									class="block w-full text-sm text-slate-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100"
+								/>
+							</label>
+						</div>
+					</div>
+
+					<div>
+						<h2 class="text-xl font-medium text-slate-700 mb-4">凭证设置</h2>
+						<div class="grid gap-4 md:grid-cols-2">
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">会计期间（yyyymm）</span>
+								<input
+									type="text"
+									name="expense_period"
+									placeholder="例如：202507"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+								<p class="text-xs text-slate-500">若留空，将使用费用表首个工作表名作为期间。</p>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">费用表工作表名称</span>
+								<input
+									type="text"
+									name="expense_sheet"
+									placeholder="默认首个工作表"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">制单人</span>
+								<input
+									type="text"
+									name="preparer"
+									value="cissy"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">凭证类别</span>
+								<input
+									type="text"
+									name="voucher_category"
+									value="记"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">默认贷方科目</span>
+								<input
+									type="text"
+									name="credit_account"
+									value="224104"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+							</label>
+							<label class="flex flex-col gap-2">
+								<span class="font-medium text-slate-700">起始流水号</span>
+								<input
+									type="number"
+									name="start_seq"
+									value="0"
+									min="0"
+									class="rounded-md border-slate-300 focus:border-sky-500 focus:ring-sky-500"
+								/>
+							</label>
+						</div>
+					</div>
+
+					<div class="flex items-center gap-4">
+						<button
+							type="submit"
+							class="inline-flex items-center justify-center rounded-md bg-sky-600 px-4 py-2 text-white font-medium shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-sky-400"
+						>
+							生成凭证
+						</button>
+						<span id="status" class="text-sm text-slate-600"></span>
+					</div>
+				</form>
+			</section>
+
+			<section class="mt-10 text-sm text-slate-600">
+				<h2 class="text-lg font-medium text-slate-700 mb-2">使用说明</h2>
+				<ul class="list-disc pl-5 space-y-1">
+					<li>支持 Excel (`.xlsx`) 和 CSV 文件，请确保格式与原脚本一致。</li>
+					<li>翻译映射表会在生成成功后自动更新并包含在下载的压缩包内，可作为下一次运行的输入。</li>
+					<li>若生成失败，将在状态栏显示错误信息，请根据提示检查数据。</li>
+				</ul>
+			</section>
+		</div>
+
+		<script src="/static/js/app.js" type="module"></script>
+	</body>
+</html>
