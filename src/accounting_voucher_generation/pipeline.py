@@ -176,21 +176,7 @@ def load_employee_data(config: VoucherConfig, *, usecols: Optional[Iterable[str]
 
 def load_subject_mapping(config: VoucherConfig, *, usecols: Optional[Iterable[str]] = None) -> pd.DataFrame:
 	file_path = config.data_dir / config.subject_file
-	for encoding in ("utf-8-sig", "utf-8", "gbk", "gb2312"):
-		try:
-			df = pd.read_csv(file_path, header=0, usecols=usecols, encoding=encoding)
-		except UnicodeDecodeError:
-			continue
-		else:
-			text_samples = ""
-			object_columns = df.select_dtypes(include="object")
-			if not object_columns.empty:
-				text_samples = "".join(object_columns.fillna("").astype(str).agg("".join, axis=1).head(5))
-			if "\ufffd" in text_samples:
-				continue
-			break
-	else:
-		raise ValueError(f"无法读取科目映射文件 {file_path}，请确认编码格式")
+	df = pd.read_csv(file_path, header=0, usecols=usecols, encoding="utf-8-sig")
 	df.columns = [str(col).strip() for col in df.columns]
 	return df
 
@@ -267,26 +253,19 @@ def _map_subject(expense_col: str, row: pd.Series, subject_map: Dict[str, str], 
 	subject_field = str(row.get(config.expense_subject_col, "")).strip()
 	summary_field = str(row.get(config.expense_summary_col, "")).strip()
 
-	candidates: List[str] = []
+	expense_name = expense_col.strip()
+	if not expense_name:
+		return None
 
-	def _add(candidate: str) -> None:
-		value = candidate.strip()
-		if value and value not in candidates:
-			candidates.append(value)
-
-	_add(expense_name)
-	_add(subject_field)
-	_add(summary_field)
-
-	if expense_name and subject_field:
-		_add(f"{expense_name}-{subject_field}")
-		_add(f"{expense_name}{subject_field}")
-		_add(f"{subject_field}-{expense_name}")
-
-	for key in candidates:
-		if key and key in subject_map:
+	if subject_field:
+		key = f"{expense_name}-{subject_field}"
+		if key in subject_map:
 			return subject_map[key]
-	return None
+
+	if expense_name in subject_map:
+		return subject_map[expense_name]
+
+	return subject_map.get(subject_field or summary_field or "")
 
 
 def _compose_summary(
@@ -435,8 +414,6 @@ def generate_vouchers(
 			"voucher_no": voucher_no,
 			"preparer": cfg.preparer,
 			"currency": cfg.currency_name,
-			"dept_code": dept_code or "",
-			"staff_code": emp_code or "",
 		}
 
 		for summary, amount, debit_code in line_items:
@@ -449,6 +426,8 @@ def generate_vouchers(
 			debit_line[OUTPUT_SCHEMA["orig_credit"]] = 0.0
 			debit_line[OUTPUT_SCHEMA["debit_amount"]] = amount
 			debit_line[OUTPUT_SCHEMA["credit_amount"]] = 0.0
+			debit_line[OUTPUT_SCHEMA["dept_code"]] = ""
+			debit_line[OUTPUT_SCHEMA["staff_code"]] = ""
 
 			credit_line = _init_output_row()
 			_apply_payload(credit_line, line_payload)
@@ -457,6 +436,8 @@ def generate_vouchers(
 			credit_line[OUTPUT_SCHEMA["orig_credit"]] = amount
 			credit_line[OUTPUT_SCHEMA["debit_amount"]] = 0.0
 			credit_line[OUTPUT_SCHEMA["credit_amount"]] = amount
+			credit_line[OUTPUT_SCHEMA["dept_code"]] = dept_code or ""
+			credit_line[OUTPUT_SCHEMA["staff_code"]] = emp_code or ""
 
 			voucher_rows.append(debit_line)
 			voucher_rows.append(credit_line)
