@@ -421,6 +421,10 @@ def generate_vouchers(
 			"currency": cfg.currency_name,
 		}
 
+		# 计算总金额，用于合并贷方
+		total_amount = sum(amount for _, amount, _ in line_items)
+
+		# 为每个借方费用项生成分录
 		for summary, amount, debit_code in line_items:
 			line_payload = {**base_payload, "summary": summary}
 
@@ -434,17 +438,42 @@ def generate_vouchers(
 			debit_line[OUTPUT_SCHEMA["dept_code"]] = ""
 			debit_line[OUTPUT_SCHEMA["staff_code"]] = ""
 
+			voucher_rows.append(debit_line)
+
+		# 生成一条合并的贷方分录
+		if total_amount > 0:
+			# 收集所有唯一的中文和英文费用描述
+			chinese_expenses = set()
+			english_expenses = set()
+
+			for summary, amount, debit_code in line_items:
+				# 从summary中提取中文和英文部分
+				parts = summary.split('/')
+				chinese_part = parts[0].split('-', 1)[-1] if len(parts) > 0 and '-' in parts[0] else parts[0] if parts else ""
+				english_part = parts[1].split('-', 1)[-1] if len(parts) > 1 and '-' in parts[1] else parts[1] if len(parts) > 1 else ""
+
+				if chinese_part:
+					chinese_expenses.add(chinese_part.strip())
+				if english_part:
+					english_expenses.add(english_part.strip())
+
+			# 合并费用描述
+			chinese_expense_desc = "&".join(sorted(chinese_expenses)) if chinese_expenses else "费用合并"
+			english_expense_desc = ", ".join(sorted(english_expenses)) if english_expenses else "expenses combined"
+
+			credit_summary = _compose_summary(name_value, chinese_expense_desc, english_name_value, english_expense_desc)
+			credit_payload = {**base_payload, "summary": credit_summary}
+
 			credit_line = _init_output_row()
-			_apply_payload(credit_line, line_payload)
+			_apply_payload(credit_line, credit_payload)
 			credit_line[OUTPUT_SCHEMA["subject_code"]] = credit_code
 			credit_line[OUTPUT_SCHEMA["orig_debit"]] = 0.0
-			credit_line[OUTPUT_SCHEMA["orig_credit"]] = amount
+			credit_line[OUTPUT_SCHEMA["orig_credit"]] = total_amount
 			credit_line[OUTPUT_SCHEMA["debit_amount"]] = 0.0
-			credit_line[OUTPUT_SCHEMA["credit_amount"]] = amount
+			credit_line[OUTPUT_SCHEMA["credit_amount"]] = total_amount
 			credit_line[OUTPUT_SCHEMA["dept_code"]] = dept_code or ""
 			credit_line[OUTPUT_SCHEMA["staff_code"]] = emp_code or ""
 
-			voucher_rows.append(debit_line)
 			voucher_rows.append(credit_line)
 
 	output_dir = cfg.output_dir
