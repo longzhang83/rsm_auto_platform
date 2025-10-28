@@ -306,49 +306,65 @@
           </template>
 
           <div class="template-list space-y-2">
-            <el-button
-              type="primary"
-              plain
-              size="small"
-              @click="downloadTemplate('expense')"
-              class="w-full justify-start text-left"
-            >
-              <el-icon class="mr-2"><Document /></el-icon>
-              费用报销表模板
-            </el-button>
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="downloadTemplate('expense')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><Document /></el-icon>
+                  <span class="template-text">费用报销表模板</span>
+                </span>
+              </el-button>
+            </div>
 
-            <el-button
-              type="primary"
-              plain
-              size="small"
-              @click="downloadTemplate('employee')"
-              class="w-full justify-start text-left"
-            >
-              <el-icon class="mr-2"><User /></el-icon>
-              人员列表模板
-            </el-button>
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="downloadTemplate('employee')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><User /></el-icon>
+                  <span class="template-text">人员列表模板</span>
+                </span>
+              </el-button>
+            </div>
 
-            <el-button
-              type="primary"
-              plain
-              size="small"
-              @click="downloadTemplate('subject')"
-              class="w-full justify-start text-left"
-            >
-              <el-icon class="mr-2"><Tickets /></el-icon>
-              科目映射模板
-            </el-button>
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="downloadTemplate('subject')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><Tickets /></el-icon>
+                  <span class="template-text">科目映射模板</span>
+                </span>
+              </el-button>
+            </div>
 
-            <el-button
-              type="primary"
-              plain
-              size="small"
-              @click="downloadTemplate('translation')"
-              class="w-full justify-start text-left"
-            >
-              <el-icon class="mr-2"><ChatDotRound /></el-icon>
-              翻译映射模板
-            </el-button>
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="downloadTemplate('translation')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><ChatDotRound /></el-icon>
+                  <span class="template-text">翻译映射模板</span>
+                </span>
+              </el-button>
+            </div>
           </div>
         </el-card>
       </div>
@@ -500,7 +516,7 @@ const handleSubmit = async () => {
     }
 
     // 发送请求
-    const response = await fetch('/api/generate', {
+    const response = await fetch('/api/v1/vouchers/generate', {
       method: 'POST',
       body: formData
     })
@@ -719,8 +735,44 @@ const downloadTemplate = async (type) => {
   margin-bottom: 8px;
 }
 
-.template-list .el-button {
+.template-button-container {
   margin-bottom: 8px;
+}
+
+.template-btn {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+
+.template-btn-content {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  text-align: left !important;
+}
+
+.template-icon {
+  margin-right: 8px !important;
+  flex-shrink: 0;
+}
+
+.template-text {
+  flex: 1;
+  text-align: left;
+}
+
+/* 确保Element Plus按钮样式被覆盖 */
+.template-btn :deep(.el-button) {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
+
+.template-btn :deep(.el-button > span) {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  text-align: left !important;
+  justify-content: flex-start !important;
 }
 
 /* 响应式设计 */

@@ -1,79 +1,202 @@
 # Accounting Voucher Generation
 
-本项目提供两种方式生成会计凭证：
+现代化的会计凭证生成与摘要翻译系统，采用前后端分离架构：
 
-1. **Web 界面**：基于 FastAPI + Tailwind CSS，可通过浏览器上传数据并下载凭证。
-2. **命令行工具**：延续原有脚本能力，适合批量或自动化处理。
-
-核心逻辑仍封装在 `src/accounting_voucher_generation` 包中，便于复用。
+- **后端**：基于 FastAPI 的 RESTful API
+- **前端**：基于 Vue.js 的 SPA 界面
+- **核心业务逻辑**：独立的 Python 包，支持复用
 
 ---
 
-## 准备工作
+## 🏗️ 项目结构
+
+```
+accounting-voucher-generation/
+├── backend/              # FastAPI 后端
+│   └── app/             # 分层架构的应用
+├── frontend/            # Vue.js 前端
+├── src/                 # 核心业务逻辑
+├── data/                # 数据文件
+├── docs/                # 文档
+├── scripts/             # 启动脚本
+└── main.py             # CLI 入口
+```
+
+---
+
+## 🚀 快速开始
+
+### 1. 环境准备
 
 ```bash
+# 安装 uv (现代 Python 包管理器)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/macOS
+# 或
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# 安装核心业务逻辑
 pip install -e .
+
+# 安装后端依赖
+cd backend && uv sync
+
+# 安装前端依赖
+cd frontend && npm install
 ```
 
-若使用 `uv` 管理环境，可改用：
+### 2. 环境配置
+
+翻译功能需要设置智谱 API Key：
 
 ```bash
-uv pip install -e .
-```
-
-翻译功能默认调用智谱 GLM，请设置环境变量：
-
-```bash
+# Windows
 set ZHIPUAI_API_KEY=your_api_key
+
+# Linux/Mac
+export ZHIPUAI_API_KEY=your_api_key
 ```
 
-映射表默认保存到 `data/translation_mapping.csv`，也可通过环境变量 `TRANSLATION_MAP_PATH` 或命令行参数自定义。
+### 3. 启动应用
+
+#### 启动完整应用（推荐）
+```bash
+# Windows
+scripts\start-all.bat
+
+# Linux/Mac
+bash scripts/start-all.sh
+```
+
+#### 分别启动
+```bash
+# 启动后端服务器
+scripts\start-backend.bat
+
+# 启动前端开发服务器
+cd frontend
+npm run dev
+```
+
+### 4. 访问应用
+
+- **前端界面**：http://localhost:3000
+- **API 文档**：http://localhost:8888/docs
+- **健康检查**：http://localhost:8888/health
 
 ---
 
-## 运行 Web 版
+## 📁 数据文件
 
-启动 FastAPI：
+在 `data/` 目录下准备以下文件：
+
+- `Expense.xlsx` - 费用报销表（必需）
+- `人员列表.xlsx` - 员工列表（可选）
+- `科目映射.csv` - 科目映射（可选）
+- `translation_mapping.csv` - 翻译映射（自动生成）
+
+---
+
+## 🔧 使用方法
+
+### Web 界面
+
+1. 访问 http://localhost:3000
+2. 选择功能模块（凭证生成或摘要翻译）
+3. 上传所需文件
+4. 配置参数
+5. 下载结果
+
+### API 接口
+
+#### 生成凭证
+```bash
+curl -X POST "http://localhost:8888/api/v1/vouchers/generate" \
+  -F "expense_file=@data/Expense.xlsx" \
+  -F "preparer=cissy" \
+  -F "voucher_category=记" \
+  -F "credit_account=224104"
+```
+
+#### 翻译摘要
+```bash
+curl -X POST "http://localhost:8888/api/v1/translate/translate" \
+  -F "excel_file=@data/Expense.xlsx" \
+  -F "summary_column=费用摘要" \
+  -F "output_column=摘要翻译"
+```
+
+### 命令行工具
 
 ```bash
+# 基本用法
+python main.py --data-dir data --output-dir data/output
+
+# 高级用法
+python main.py \
+  --expense-file Expense.xlsx \
+  --employee-file "人员列表.xlsx" \
+  --subject-file "科目映射.csv" \
+  --translation-map "data/translation_mapping.csv" \
+  --preparer "cissy" \
+  --voucher-category "记" \
+  --credit-account "224104" \
+  --start-seq 0
+```
+
+---
+
+## 📖 API 文档
+
+### 认证
+目前无需认证，所有端点都是公开的。
+
+### 主要端点
+
+#### 凭证管理
+- `POST /api/v1/vouchers/generate` - 生成会计凭证
+
+#### 翻译服务
+- `POST /api/v1/translate/translate` - 翻译摘要文本
+
+#### 系统
+- `GET /` - 根路径信息
+- `GET /health` - 健康检查
+- `GET /docs` - 交互式 API 文档
+
+详细文档请访问：http://localhost:8888/docs
+
+---
+
+## 🛠️ 开发
+
+### 后端开发
+
+```bash
+cd backend
+uv sync                    # 安装依赖
 uv run uvicorn app.main:app --reload
 ```
 
-随后访问 <http://127.0.0.1:8000>：
-
-- 上传 `Expense.xlsx`，其余文件（人员列表、科目映射、翻译映射）可选；如未上传则使用 `data/` 目录下的默认文件。
-- 设置制单人、会计期间、默认贷方科目等选项。
-- 点击“生成凭证”后会下载压缩包，其中包含 `vouchers.csv`、`vouchers.xlsx` 以及更新后的翻译映射表。
-
----
-
-## 命令行模式
-
-仍可通过 `main.py` 批量生成凭证：
+### 前端开发
 
 ```bash
-python main.py --data-dir data --output-dir data/output
+cd frontend
+npm run dev
 ```
 
-常用参数与 `VoucherConfig` 字段一致，可按需覆盖：
+### 测试
 
-- `--expense-file` / `--employee-file` / `--subject-file`
-- `--expense-sheet`、`--expense-period`（yyyymm）
-- `--translation-map`（翻译映射表 CSV）
-- `--preparer`、`--voucher-category`、`--credit-account`、`--start-seq`
+```bash
+# 后端测试
+cd backend
+uv run pytest
 
-生成结果默认位于 `data/output/`。
+# 代码格式化
+uv run black .
+uv run isort .
+```
 
----
-
-## 文件说明
-
-- `app/main.py`：FastAPI 应用入口，处理文件上传、调用核心逻辑并打包结果。
-- `templates/index.html` & `static/js/app.js`：Tailwind CSS + 原生 JS 实现的前端页面。
-- `src/accounting_voucher_generation/pipeline.py`：凭证生成核心流程，支持 DataFrame 输入及映射缓存。
-- `data/translation_mapping.csv`：翻译映射表（若不存在会自动创建，生成成功后会回写新条目）。
-
-如需清空翻译缓存，可执行：
+### 清空翻译缓存
 
 ```bash
 uv run python -c "from src.accounting_voucher_generation.chatglm import clear_translation_cache; clear_translation_cache(drop_mapping_cache=True)"
@@ -81,4 +204,20 @@ uv run python -c "from src.accounting_voucher_generation.chatglm import clear_tr
 
 ---
 
-欢迎根据业务需求扩展路由或前端样式。若在使用中遇到问题，请在状态栏查看错误提示并核对上传的数据格式。
+## 📋 系统要求
+
+- Python 3.10+
+- Node.js 16+
+- uv (推荐) 或 pip
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+---
+
+## 📄 许可证
+
+[请在此处添加许可证信息]

@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
+
+from app.schemas.voucher import VoucherGenerateRequest, VoucherGenerateResponse
+from app.services.voucher_service import VoucherService
+
+router = APIRouter()
+voucher_service = VoucherService()
+
+
+@router.post("/generate", response_model=VoucherGenerateResponse)
+async def generate_vouchers(
+    expense_file: UploadFile = File(...),
+    employee_file: Optional[UploadFile] = File(None),
+    subject_file: Optional[UploadFile] = File(None),
+    translation_file: Optional[UploadFile] = File(None),
+    preparer: str = Form("cissy"),
+    voucher_category: str = Form("记"),
+    credit_account: str = Form("224104"),
+    start_seq: int = Form(0),
+    expense_period: Optional[str] = Form(None),
+    expense_sheet: Optional[str] = Form(None),
+) -> StreamingResponse:
+    """
+    生成会计凭证
+
+    - **expense_file**: 费用报销表文件（必需）
+    - **employee_file**: 员工列表文件（可选）
+    - **subject_file**: 科目映射文件（可选）
+    - **translation_file**: 翻译映射文件（可选）
+    - **preparer**: 制单人名称
+    - **voucher_category**: 凭证类别
+    - **credit_account**: 贷方科目
+    - **start_seq**: 起始序号
+    - **expense_period**: 费用期间
+    - **expense_sheet**: 费用工作表名称
+    """
+    try:
+        print(f"收到请求: expense_file={expense_file.filename}, preparer={preparer}")
+        zip_buffer = await voucher_service.generate_vouchers(
+            expense_file=expense_file,
+            employee_file=employee_file,
+            subject_file=subject_file,
+            translation_file=translation_file,
+            preparer=preparer,
+            voucher_category=voucher_category,
+            credit_account=credit_account,
+            start_seq=start_seq,
+            expense_period=expense_period,
+            expense_sheet=expense_sheet,
+        )
+
+        headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers=headers,
+        )
+
+    except HTTPException as e:
+        print(f"HTTP异常: {e.detail}")
+        raise
+    except Exception as exc:
+        print(f"未知异常: {exc}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"生成凭证时发生错误：{exc}") from exc

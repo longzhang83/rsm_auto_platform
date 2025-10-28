@@ -4,79 +4,97 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The Accounting Voucher Generation project is a bilingual (Chinese-English) web application and CLI tool designed to generate accounting vouchers from expense spreadsheets. It uses FastAPI for the web interface and pandas for data processing, with translation capabilities provided by ZhipuAI's GLM model.
+The Accounting Voucher Generation project is a modern, bilingual (Chinese-English) web application for generating accounting vouchers from expense spreadsheets. It features a frontend-backend separation architecture with Vue.js SPA frontend and FastAPI REST API backend.
 
 ## Tech Stack
 
-- **Backend**: Python 3.10+ with FastAPI
+- **Backend**: Python 3.10+ with FastAPI (modern RESTful API)
+- **Frontend**: Vue.js 3 + Vite + UnoCSS (SPA)
 - **Data Processing**: pandas, openpyxl, xlrd
-- **Translation**: ZhipuAI GLM API
-- **Frontend**: HTML + Tailwind CSS + Vanilla JavaScript
-- **Package Management**: uv (modern Python package manager)
-- **Build System**: setuptools
+- **Translation**: ZhipuAI GLM API with caching
+- **Package Management**: uv (modern Python package manager) + npm
+- **Architecture**: Layered architecture with service layer, API versioning
 
 ## Architecture Overview
 
-### Dual Interface Design
+### Frontend-Backend Separation
 
-1. **Web Interface** (`app/main.py`): FastAPI-based web application
-2. **CLI Interface** (`main.py`, `src/accounting_voucher_generation/cli.py`): Command-line tool
+1. **Frontend** (`frontend/`): Vue.js SPA providing user interface
+2. **Backend** (`backend/app/`): FastAPI RESTful API with layered architecture
+3. **Core Logic** (`src/accounting_voucher_generation/`): Reusable business logic
+4. **CLI Tool** (`main.py`): Command-line interface for automation
+
+### Backend Architecture (FastAPI Best Practices)
+
+#### Layered Structure:
+- **API Layer** (`api/`): HTTP request handling, routing, and responses
+- **Service Layer** (`services/`): Business logic implementation
+- **Schema Layer** (`schemas/`): Data validation and serialization using Pydantic
+- **Core Layer** (`core/`): Configuration and infrastructure
+- **Utils Layer** (`utils/`): Utility functions
+
+#### API Versioning:
+- `/api/v1/` endpoints for current version
+- Future-proof design for `/api/v2/`, etc.
 
 ### Core Components
 
-#### 1. Pipeline Module (`src/accounting_voucher_generation/pipeline.py`)
-- Contains the main business logic for voucher generation
-- `VoucherConfig` dataclass for configuration management
-- `generate_vouchers()` function that orchestrates the entire process
-- Handles data loading, mapping, translation, and voucher generation
+#### 1. Business Logic (`src/accounting_voucher_generation/`)
+- **pipeline.py**: Core voucher generation with `VoucherConfig` and `generate_vouchers()`
+- **summary_translator.py**: Translation service with batch processing
+- **chatglm.py**: ZhipuAI GLM integration with rate limiting and caching
+- **cli.py**: Command-line interface
 
-#### 2. Translation Module (`src/accounting_voucher_generation/chatglm.py`)
-- ZhipuAI GLM integration for Chinese-to-English translation
-- Rate-limited API calls with caching
-- Batch translation capabilities
-- Persistent translation mapping storage
+#### 2. Backend Services (`backend/app/services/`)
+- **voucher_service.py**: Voucher generation business logic
+- **translate_service.py**: Translation service orchestration
 
-#### 3. CLI Interface (`src/accounting_voucher_generation/cli.py`)
-- Command-line argument parsing
-- Integration with pipeline module
-- Comprehensive parameter support
+#### 3. API Endpoints (`backend/app/api/v1/endpoints/`)
+- **vouchers.py**: Voucher generation endpoints
+- **translate.py**: Translation endpoints
 
-#### 4. Web Application (`app/main.py`)
-- FastAPI server with file upload handling
-- Multi-format Excel file support (.xlsx, .xls)
-- Streaming response for generated files
-- Jinja2 templates for frontend
+#### 4. Data Models (`backend/app/schemas/`)
+- **voucher.py**: Voucher-related Pydantic models
+- **translate.py**: Translation-related Pydantic models
 
 ## Key Directories and Files
 
 ```
-D:\360MoveData\Users\long\Desktop\accounting-voucher-generation├── app/                          # Web application directory
-│   └── main.py                   # FastAPI application entry point
-├── src/
+accounting-voucher-generation/
+├── backend/                     # FastAPI backend application
+│   ├── app/
+│   │   ├── main.py             # FastAPI app entry point
+│   │   ├── core/               # Configuration and settings
+│   │   ├── api/                # API routes and versioning
+│   │   │   └── v1/             # API v1 endpoints
+│   │   ├── services/           # Business logic layer
+│   │   ├── schemas/            # Pydantic models
+│   │   └── utils/              # Utility functions
+│   ├── tests/                  # Backend tests
+│   └── requirements.txt        # Backend dependencies
+├── frontend/                   # Vue.js SPA frontend
+│   ├── src/                    # Vue source code
+│   ├── package.json            # Frontend dependencies
+│   └── vite.config.js          # Vite configuration
+├── src/                        # Core business logic (reusable)
 │   └── accounting_voucher_generation/
-│       ├── __init__.py           # Package initialization
-│       ├── pipeline.py           # Core voucher generation logic
-│       ├── cli.py                # CLI interface
-│       └── chatglm.py            # Translation and AI integration
-├── data/                         # Input data and generated outputs
-│   ├── Expense.xlsx             # Main expense file (required)
-│   ├── 人员列表.xlsx             # Employee list (optional)
-│   ├── 科目映射.csv              # Subject mapping (optional)
-│   ├── translation_mapping.csv  # Translation cache (auto-generated)
-│   └── output/                  # Generated vouchers directory
-│       ├── vouchers.csv         # CSV output
-│       └── vouchers.xlsx        # Excel output
-├── templates/
-│   └── index.html               # Main web interface
-├── static/
-│   └── js/
-│       └── app.js               # Frontend JavaScript
-├── main.py                      # CLI entry point
-├── pyproject.toml               # Project configuration
-├── uv.lock                      # uv lock file
-├── README.md                    # Project documentation (Chinese)
-├── start.bat                    # Windows start script
-└── start.sh                     # Unix-like start script
+│       ├── pipeline.py         # Voucher generation logic
+│       ├── summary_translator.py
+│       ├── chatglm.py          # Translation integration
+│       └── cli.py              # CLI interface
+├── data/                       # Data files
+│   ├── Expense.xlsx           # Main expense file (required)
+│   ├── 人员列表.xlsx           # Employee list (optional)
+│   ├── 科目映射.csv            # Subject mapping (optional)
+│   └── translation_mapping.csv # Translation cache
+├── docs/                       # Documentation
+│   └── BACKEND_STRUCTURE.md    # Architecture documentation
+├── scripts/                    # Startup and utility scripts
+│   ├── start-all.bat          # Start both frontend and backend
+│   └── start-backend.bat      # Start backend only
+├── main.py                     # CLI entry point
+├── pyproject.toml              # Project configuration
+└── README.md                   # Project documentation
 ```
 
 ## Development Workflow
@@ -84,128 +102,141 @@ D:\360MoveData\Users\long\Desktop\accounting-voucher-generation├── app/   
 ### Setup Instructions
 
 ```bash
-# Install dependencies
+# Install uv (modern Python package manager)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Linux/macOS
+# or
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Install core business logic
 pip install -e .
-# OR using uv
-uv pip install -e .
+
+# Install backend dependencies
+cd backend && uv sync
+
+# Install frontend dependencies
+cd frontend && npm install
 
 # Set environment variable for translation API
-export ZHIPUAI_API_KEY=your_api_key
-# OR on Windows
-set ZHIPUAI_API_KEY=your_api_key
+export ZHIPUAI_API_KEY=your_api_key  # Linux/Mac
+# OR
+set ZHIPUAI_API_KEY=your_api_key     # Windows
 ```
 
 ### Running the Application
 
-#### Web Interface (Recommended)
+#### Full Stack Application (Recommended)
 ```bash
-# Start FastAPI server
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8888
-```
-- Access at http://localhost:8888
-- Upload files via web interface
-- Download generated voucher bundle
-
-#### Command Line Interface
-```bash
-# Basic usage
-python main.py --data-dir data --output-dir data/output
-
-# Advanced usage with custom parameters
-python main.py   --expense-file Expense.xlsx   --employee-file "人员列表.xlsx"   --subject-file "科目映射.csv"   --translation-map "data/translation_mapping.csv"   --preparer "cissy"   --voucher-category "记"   --credit-account "224104"   --start-seq 0
+# Use the convenience script
+scripts\start-all.bat  # Windows
+bash scripts/start-all.sh  # Linux/Mac
 ```
 
-### Build Process
-- No explicit build process required
-- Uses setuptools for package management
-- Python wheels are built automatically with `pip install`
+#### Individual Services
+```bash
+# Backend only
+scripts\start-backend.bat          # Windows
+bash scripts/start-backend.sh     # Linux/macOS
+# OR
+cd backend && uv run uvicorn app.main:app --reload
 
-## Testing Approach
-- No formal test suite found in the codebase
-- Manual testing through both web interface and CLI
-- Error handling and validation in production code
+# Frontend only
+cd frontend && npm run dev
+```
 
-## Key Architectural Patterns
+### Access Points
 
-### 1. Configuration Management
-- Centralized `VoucherConfig` dataclass with default values
-- Path resolution and validation
-- Extensible parameter system
+- **Frontend Application**: http://localhost:3000
+- **Backend API**: http://localhost:8888
+- **API Documentation**: http://localhost:8888/docs
+- **Health Check**: http://localhost:8888/health
 
-### 2. Data Processing Pipeline
-- DataFrame-based processing with pandas
-- Flexible column mapping and validation
-- Progress tracking with tqdm integration
+## API Design
 
-### 3. Translation System
-- LRU caching for translation results
-- Batch processing for efficiency
-- Rate limiting to respect API constraints
-- Persistent mapping storage
+### Current Endpoints
 
-### 4. Error Handling
-- Comprehensive exception handling in web interface
-- Graceful fallbacks for missing optional files
-- Detailed error messages in Chinese
+#### Voucher Management
+- `POST /api/v1/vouchers/generate` - Generate accounting vouchers
 
-### 5. File Format Support
-- Multi-version Excel support (.xlsx with openpyxl, .xls with xlrd)
-- CSV support for mappings and translations
-- Streaming responses for large files
+#### Translation Service
+- `POST /api/v1/translate/translate` - Translate summary texts
 
-## Special Development Practices
+#### System
+- `GET /` - Root information
+- `GET /health` - Health check endpoint
 
-### API Integration
-- Rate-limited API calls to ZhipuAI
-- Automatic retry logic for failed translations
-- Translation cache to avoid redundant calls
+### API Architecture Features
 
-### Data Validation
-- Column name standardization (strip whitespace)
-- Amount validation and coercion
-- Missing data handling
+- **CORS Configuration**: Supports frontend development server
+- **File Upload Handling**: Multi-format support (.xlsx, .xls, .csv)
+- **Streaming Responses**: Efficient file downloads
+- **Error Handling**: Comprehensive HTTP exception handling
+- **Auto Documentation**: OpenAPI/Swagger generation
 
-### Output Generation
-- Dual output format (CSV and Excel)
-- Automatic file type detection
-- Bundle packaging with translation mapping updates
+## Development Patterns
+
+### Backend Development
+1. **Layered Architecture**: Clear separation between API, service, and model layers
+2. **Dependency Injection**: FastAPI's dependency system for reusable components
+3. **Type Safety**: Full type hints with Pydantic validation
+4. **Async Programming**: Non-blocking request handling
+5. **Configuration Management**: Environment-based configuration with Pydantic Settings
+
+### Frontend Development
+1. **Component-Based**: Vue.js composition API
+2. **State Management**: Pinia for application state
+3. **API Communication**: Axios with proxy configuration
+4. **Styling**: UnoCSS for utility-first styling
+
+### Testing Strategy
+1. **Backend Tests**: pytest with async support
+2. **API Testing**: Integration tests for endpoints
+3. **Error Handling**: Comprehensive exception testing
+
+## Special Features
+
+### Translation System
+- **Rate Limiting**: Respects API rate limits (0.6 RPS default)
+- **Caching**: LRU cache + persistent CSV mapping
+- **Batch Processing**: Efficient bulk translation
+- **Format Support**: Chinese-English format (e.g., "差旅费-Business travel expenses")
+
+### File Processing
+- **Multi-format Support**: .xlsx, .xls, .csv files
+- **Fallback Parsing**: Multiple Excel engines (openpyxl, xlrd)
+- **Validation**: File type and size validation
+- **Streaming**: Memory-efficient large file handling
+
+### Configuration Management
+- **Environment Variables**: Support for .env files
+- **Default Values**: Sensible defaults for all settings
+- **Validation**: Pydantic-based configuration validation
 
 ## Environment Variables
-- `ZHIPUAI_API_KEY`: ZhipuAI API key for translation
-- `TRANSLATION_MAP_PATH`: Custom translation mapping file path
 
-## Default Configuration
-- **Default preparer**: "cissy"
-- **Default voucher category**: "记"
-- **Default credit account**: "224104"
-- **Default port**: 8888
-- **Translation workers**: 3
-- **Translation RPS**: 0.6
+- `ZHIPUAI_API_KEY`: ZhipuAI API key for translation (required)
+- `DEBUG`: Enable debug mode
+- `HOST`: Backend server host (default: 0.0.0.0)
+- `PORT`: Backend server port (default: 8888)
 
 ## Working with This Codebase
 
-### File Requirements
-- **Expense.xlsx**: Required main expense file
-- **人员列表.xlsx**: Optional employee list
-- **科目映射.csv**: Optional subject mapping
-- **translation_mapping.csv**: Auto-generated translation cache
-
 ### Key Entry Points
-1. **Web Application**: `app/main.py` - FastAPI server
-2. **CLI Tool**: `main.py` - Command-line interface
-3. **Core Logic**: `src/accounting_voucher_generation/pipeline.py`
+1. **Backend Server**: `backend/app/main.py`
+2. **Frontend Application**: `frontend/src/main.js`
+3. **CLI Tool**: `main.py`
+4. **Core Logic**: `src/accounting_voucher_generation/pipeline.py`
 
-### Common Operations
-1. **Start development server**: Use `start.bat` or `start.sh`
-2. **Clear translation cache**:
-   ```bash
-   uv run python -c "from src.accounting_voucher_generation.chatglm import clear_translation_cache; clear_translation_cache(drop_mapping_cache=True)"
-   ```
-3. **Customize translation mapping**: Edit `data/translation_mapping.csv`
+### Common Development Tasks
+1. **Start Development**: Use `scripts\start-all.bat`
+2. **API Testing**: Visit http://localhost:8888/docs
+3. **Add New Endpoints**: Create in `backend/app/api/v1/endpoints/`
+4. **Add Business Logic**: Implement in `backend/app/services/`
+5. **Frontend Features**: Develop in `frontend/src/`
 
-### Error Handling
-- Check status messages in web interface for detailed errors
-- Verify file formats and column names match expected structure
-- Ensure ZHIPUAI_API_KEY is properly set
+### Error Handling Guidelines
+- Use FastAPI's `HTTPException` for API errors
+- Provide detailed error messages in Chinese for user-facing errors
+- Log technical errors for debugging
+- Graceful fallbacks for optional features
 
-This codebase demonstrates a well-structured approach to financial data processing with modern Python practices, providing both web and CLI interfaces while maintaining clean separation of concerns and robust error handling.
+This codebase demonstrates modern Python web development with FastAPI, Vue.js, and clean architecture principles.

@@ -570,7 +570,7 @@ const startTranslation = async (formData) => {
     }, 500)
 
     // 发送翻译请求
-    const response = await fetch('/api/translate', {
+    const response = await fetch('/api/v1/translate/translate', {
       method: 'POST',
       body: formData
     })
