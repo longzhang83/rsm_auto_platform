@@ -4,7 +4,8 @@
       "Bash(dir:*)",
       "Bash(python:*)",
       "Bash(pip install:*)",
-      "Bash(uv run python:*)"
+      "Bash(uv run python:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

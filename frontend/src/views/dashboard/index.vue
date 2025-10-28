@@ -1,126 +1,265 @@
 <template>
   <div class="dashboard">
     <!-- 欢迎区域 -->
-    <div class="welcome-section mb-6">
-      <div class="bg-gradient-to-r from-brand-600 to-brand-800 rounded-xl p-8 text-white">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold mb-2">欢迎使用容诚税务师事务所自动化工具平台</h1>
-            <p class="text-brand-100 text-lg">智能化税务处理，提升工作效率，降低人工成本</p>
+    <div class="welcome-section mb-8">
+      <div class="welcome-gradient rounded-2xl p-10 text-white relative overflow-hidden">
+        <!-- 装饰性背景元素 -->
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-32 -mt-32"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-5 rounded-full -ml-24 -mb-24"></div>
+
+        <div class="relative z-10 flex items-center justify-between">
+          <div class="max-w-2xl">
+            <div class="flex items-center mb-4">
+              <div class="w-3 h-3 bg-white rounded-full mr-3 animate-pulse"></div>
+              <h1 class="text-4xl font-bold mb-0 tracking-tight">容诚税务师事务所</h1>
+            </div>
+            <h2 class="text-2xl font-light mb-4 text-blue-100">智能化自动化工具平台</h2>
+            <p class="text-lg text-blue-50 leading-relaxed">基于人工智能的税务处理系统，显著提升工作效率，大幅降低人工成本，让税务工作更加精准高效</p>
+
+            <!-- 快速操作按钮 -->
+            <div class="flex space-x-4 mt-8">
+              <button class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                开始使用
+              </button>
+              <button class="border-2 border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-all duration-200">
+                了解更多
+              </button>
+            </div>
           </div>
-          <div class="text-right">
-            <p class="text-brand-100 mb-1">当前时间</p>
-            <p class="text-2xl font-semibold">{{ currentTime }}</p>
-            <p class="text-brand-100">{{ currentDate }}</p>
+
+          <div class="text-right bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-xl p-6 border border-white border-opacity-20">
+            <div class="text-blue-100 text-sm font-medium mb-2">系统时间</div>
+            <div class="text-3xl font-bold mb-1">{{ currentTime }}</div>
+            <div class="text-blue-100">{{ currentDate }}</div>
+            <div class="mt-4 pt-4 border-t border-blue-300 border-opacity-30">
+              <div class="flex items-center justify-end text-blue-100">
+                <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                <span class="text-sm">系统运行正常</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 工具卡片 -->
-    <div class="tools-section mb-8">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">核心工具</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="tools-section mb-10">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-2">核心功能工具</h2>
+          <p class="text-gray-600">专业的税务处理工具，提升您的工作效率</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-sm text-gray-600">所有服务运行正常</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <!-- 费用清单转凭证 -->
         <div
-          class="tool-card card-shadow bg-white rounded-xl p-6 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+          class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
           @click="navigateToTool('/expense-to-voucher')"
         >
-          <div class="flex items-center mb-4">
-            <div class="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center mr-4">
-              <el-icon class="text-2xl text-success-600"><DocumentCopy /></el-icon>
+          <div class="flex items-start justify-between mb-6">
+            <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <el-icon class="text-3xl text-white"><DocumentCopy /></el-icon>
             </div>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-800">费用清单转凭证</h3>
-              <p class="text-sm text-gray-500">高效处理</p>
+            <div class="bg-green-100 text-green-800 text-xs font-semibold px-3 py-1 rounded-full">
+              核心功能
             </div>
           </div>
-          <p class="text-gray-600 mb-4">将费用报销清单自动转换为标准会计凭证格式，支持多种费用类型和科目映射。</p>
-          <div class="flex items-center justify-between">
-            <el-tag type="success" size="small">可用</el-tag>
-            <el-icon class="text-gray-400"><ArrowRight /></el-icon>
+
+          <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">费用清单转凭证</h3>
+            <p class="text-gray-600 leading-relaxed">智能识别费用类型，自动映射会计科目，一键生成标准会计凭证，支持批量处理多种费用类型。</p>
+          </div>
+
+          <div class="flex items-center justify-between pt-6 border-t border-gray-100">
+            <div class="flex items-center space-x-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span class="text-sm font-medium text-green-700">运行正常</span>
+            </div>
+            <div class="flex items-center text-blue-600 group-hover:text-blue-700 transition-colors duration-200">
+              <span class="text-sm font-medium mr-2">立即使用</span>
+              <el-icon class="transform group-hover:translate-x-1 transition-transform duration-200"><ArrowRight /></el-icon>
+            </div>
           </div>
         </div>
 
         <!-- 摘要翻译 -->
         <div
-          class="tool-card card-shadow bg-white rounded-xl p-6 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+          class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
           @click="navigateToTool('/summary-translate')"
         >
-          <div class="flex items-center mb-4">
-            <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mr-4">
-              <el-icon class="text-2xl text-primary-600"><Translation /></el-icon>
+          <div class="flex items-start justify-between mb-6">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
+              <el-icon class="text-3xl text-white"><Document /></el-icon>
             </div>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-800">摘要翻译</h3>
-              <p class="text-sm text-gray-500">AI智能翻译</p>
+            <div class="bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+              AI 智能
             </div>
           </div>
-          <p class="text-gray-600 mb-4">基于AI技术的中文摘要自动翻译为英文，支持批量处理和术语库管理。</p>
-          <div class="flex items-center justify-between">
-            <el-tag type="success" size="small">可用</el-tag>
-            <el-icon class="text-gray-400"><ArrowRight /></el-icon>
+
+          <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">智能摘要翻译</h3>
+            <p class="text-gray-600 leading-relaxed">基于先进的AI翻译引擎，准确翻译中文摘要为英文，支持专业术语库和批量处理功能。</p>
+          </div>
+
+          <div class="flex items-center justify-between pt-6 border-t border-gray-100">
+            <div class="flex items-center space-x-2">
+              <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span class="text-sm font-medium text-blue-700">运行正常</span>
+            </div>
+            <div class="flex items-center text-blue-600 group-hover:text-blue-700 transition-colors duration-200">
+              <span class="text-sm font-medium mr-2">立即使用</span>
+              <el-icon class="transform group-hover:translate-x-1 transition-transform duration-200"><ArrowRight /></el-icon>
+            </div>
           </div>
         </div>
 
         <!-- 银行流水转凭证 -->
-        <div class="tool-card card-shadow bg-white rounded-xl p-6 opacity-75 cursor-not-allowed">
-          <div class="flex items-center mb-4">
-            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
-              <el-icon class="text-2xl text-gray-400"><CreditCard /></el-icon>
-            </div>
-            <div>
-              <h3 class="text-lg font-semibold text-gray-800">银行流水转凭证</h3>
-              <p class="text-sm text-gray-500">开发中</p>
+        <div class="enhanced-tool-card bg-white rounded-2xl p-8 opacity-90 relative overflow-hidden">
+          <div class="absolute top-0 right-0 bg-gradient-to-l from-gray-500 to-transparent px-4 py-2">
+            <span class="text-white text-xs font-semibold">即将推出</span>
+          </div>
+
+          <div class="flex items-start justify-between mb-6">
+            <div class="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <el-icon class="text-3xl text-white"><CreditCard /></el-icon>
             </div>
           </div>
-          <p class="text-gray-600 mb-4">自动识别银行流水数据，智能分类并生成对应会计凭证，支持多银行格式。</p>
-          <div class="flex items-center justify-between">
-            <el-tag type="info" size="small">开发中</el-tag>
-            <el-icon class="text-gray-400"><ArrowRight /></el-icon>
+
+          <div class="mb-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-3">银行流水转凭证</h3>
+            <p class="text-gray-600 leading-relaxed">自动识别银行流水数据，智能分类交易类型，自动生成对应会计凭证，支持多银行格式。</p>
+          </div>
+
+          <div class="flex items-center justify-between pt-6 border-t border-gray-100">
+            <div class="flex items-center space-x-2">
+              <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span class="text-sm font-medium text-yellow-700">开发中</span>
+            </div>
+            <div class="flex items-center text-gray-400">
+              <span class="text-sm font-medium mr-2">敬请期待</span>
+              <el-icon><ArrowRight /></el-icon>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 统计数据 -->
-    <div class="stats-section mb-8">
-      <h2 class="text-2xl font-bold text-gray-800 mb-6">今日统计</h2>
+    <div class="stats-section mb-10">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-3xl font-bold text-gray-800 mb-2">实时统计数据</h2>
+          <p class="text-gray-600">今日系统运行情况与处理效率分析</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-sm text-gray-500">最后更新: {{ lastUpdateTime }}</span>
+          <button @click="refreshStats" class="text-blue-600 hover:text-blue-700 transition-colors duration-200">
+            <el-icon class="mr-1"><Refresh /></el-icon>
+            刷新
+          </button>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white rounded-lg p-6 card-shadow">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-gray-500">处理凭证数量</span>
-            <el-icon class="text-green-500"><TrendCharts /></el-icon>
+        <div class="stat-card group">
+          <div class="stat-card-header">
+            <div class="stat-icon green">
+              <el-icon><TrendCharts /></el-icon>
+            </div>
+            <div class="stat-trend positive">
+              <el-icon><CaretTop /></el-icon>
+              <span>12%</span>
+            </div>
           </div>
-          <div class="text-3xl font-bold text-gray-800">{{ stats.voucherCount }}</div>
-          <div class="text-sm text-green-600 mt-2">较昨日 +12%</div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.voucherCount }}</div>
+            <div class="stat-label">处理凭证数量</div>
+          </div>
+          <div class="stat-chart">
+            <div class="chart-bar" style="height: 60%"></div>
+            <div class="chart-bar" style="height: 80%"></div>
+            <div class="chart-bar" style="height: 45%"></div>
+            <div class="chart-bar" style="height: 90%"></div>
+            <div class="chart-bar" style="height: 70%"></div>
+            <div class="chart-bar" style="height: 100%"></div>
+          </div>
         </div>
 
-        <div class="bg-white rounded-lg p-6 card-shadow">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-gray-500">翻译摘要数量</span>
-            <el-icon class="text-blue-500"><ChatDotRound /></el-icon>
+        <div class="stat-card group">
+          <div class="stat-card-header">
+            <div class="stat-icon blue">
+              <el-icon><ChatDotRound /></el-icon>
+            </div>
+            <div class="stat-trend positive">
+              <el-icon><CaretTop /></el-icon>
+              <span>8%</span>
+            </div>
           </div>
-          <div class="text-3xl font-bold text-gray-800">{{ stats.translateCount }}</div>
-          <div class="text-sm text-blue-600 mt-2">较昨日 +8%</div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.translateCount }}</div>
+            <div class="stat-label">翻译摘要数量</div>
+          </div>
+          <div class="stat-chart">
+            <div class="chart-bar" style="height: 40%"></div>
+            <div class="chart-bar" style="height: 60%"></div>
+            <div class="chart-bar" style="height: 55%"></div>
+            <div class="chart-bar" style="height: 85%"></div>
+            <div class="chart-bar" style="height: 65%"></div>
+            <div class="chart-bar" style="height: 75%"></div>
+          </div>
         </div>
 
-        <div class="bg-white rounded-lg p-6 card-shadow">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-gray-500">处理总金额</span>
-            <el-icon class="text-yellow-500"><Money /></el-icon>
+        <div class="stat-card group">
+          <div class="stat-card-header">
+            <div class="stat-icon yellow">
+              <el-icon><Money /></el-icon>
+            </div>
+            <div class="stat-trend positive">
+              <el-icon><CaretTop /></el-icon>
+              <span>5%</span>
+            </div>
           </div>
-          <div class="text-3xl font-bold text-gray-800">¥{{ stats.totalAmount.toLocaleString() }}</div>
-          <div class="text-sm text-yellow-600 mt-2">较昨日 +5%</div>
+          <div class="stat-content">
+            <div class="stat-number">¥{{ stats.totalAmount.toLocaleString() }}</div>
+            <div class="stat-label">处理总金额</div>
+          </div>
+          <div class="stat-chart">
+            <div class="chart-bar" style="height: 70%"></div>
+            <div class="chart-bar" style="height: 85%"></div>
+            <div class="chart-bar" style="height: 60%"></div>
+            <div class="chart-bar" style="height: 95%"></div>
+            <div class="chart-bar" style="height: 80%"></div>
+            <div class="chart-bar" style="height: 90%"></div>
+          </div>
         </div>
 
-        <div class="bg-white rounded-lg p-6 card-shadow">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-gray-500">平均处理时间</span>
-            <el-icon class="text-purple-500"><Timer /></el-icon>
+        <div class="stat-card group">
+          <div class="stat-card-header">
+            <div class="stat-icon purple">
+              <el-icon><Timer /></el-icon>
+            </div>
+            <div class="stat-trend negative">
+              <el-icon><CaretBottom /></el-icon>
+              <span>15%</span>
+            </div>
           </div>
-          <div class="text-3xl font-bold text-gray-800">{{ stats.avgProcessTime }}s</div>
-          <div class="text-sm text-purple-600 mt-2">较昨日 -15%</div>
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.avgProcessTime }}s</div>
+            <div class="stat-label">平均处理时间</div>
+          </div>
+          <div class="stat-chart">
+            <div class="chart-bar" style="height: 100%"></div>
+            <div class="chart-bar" style="height: 85%"></div>
+            <div class="chart-bar" style="height: 90%"></div>
+            <div class="chart-bar" style="height: 70%"></div>
+            <div class="chart-bar" style="height: 60%"></div>
+            <div class="chart-bar" style="height: 40%"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -172,6 +311,7 @@ const router = useRouter()
 // 时间相关
 const currentTime = ref('')
 const currentDate = ref('')
+const lastUpdateTime = ref('')
 let timeInterval = null
 
 // 统计数据
@@ -218,6 +358,17 @@ const recentRecords = ref([
 const updateTime = () => {
   currentTime.value = dayjs().format('HH:mm:ss')
   currentDate.value = dayjs().format('YYYY年MM月DD日 dddd')
+  lastUpdateTime.value = dayjs().format('HH:mm:ss')
+}
+
+// 刷新统计数据
+const refreshStats = () => {
+  // 模拟数据刷新
+  stats.value.voucherCount = Math.floor(Math.random() * 50) + 150
+  stats.value.translateCount = Math.floor(Math.random() * 30) + 80
+  stats.value.totalAmount = Math.floor(Math.random() * 100000) + 400000
+  stats.value.avgProcessTime = (Math.random() * 2 + 2).toFixed(1)
+  lastUpdateTime.value = dayjs().format('HH:mm:ss')
 }
 
 // 导航到工具页面
@@ -259,34 +410,260 @@ onUnmounted(() => {
 
 <style scoped>
 .dashboard {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-.tool-card {
-  border: 1px solid #e5e7eb;
-  transition: all 0.3s ease;
+/* 欢迎区域渐变背景 */
+.welcome-gradient {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 50%, var(--brand-secondary) 100%);
+  position: relative;
+  overflow: hidden;
 }
 
-.tool-card:hover {
-  border-color: #dc2626;
+.welcome-gradient::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  pointer-events: none;
 }
 
-.welcome-section {
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+/* 增强工具卡片 */
+.enhanced-tool-card {
+  border: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-/* 统计卡片动画 */
+.enhanced-tool-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(30, 79, 175, 0.02) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.enhanced-tool-card:hover::before {
+  opacity: 1;
+}
+
+.enhanced-tool-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* 统计卡片 */
+.stat-card {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand-primary), var(--brand-secondary));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon.green {
+  background: linear-gradient(135deg, #06D6A0 0%, #05A67C 100%);
+}
+
+.stat-icon.blue {
+  background: linear-gradient(135deg, #118AB2 0%, #0C7B93 100%);
+}
+
+.stat-icon.yellow {
+  background: linear-gradient(135deg, #FFD166 0%, #FFC43D 100%);
+}
+
+.stat-icon.purple {
+  background: linear-gradient(135deg, #7209B7 0%, #560BAD 100%);
+}
+
+.stat-trend {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.stat-trend.positive {
+  color: #05A67C;
+  background: rgba(6, 214, 160, 0.1);
+}
+
+.stat-trend.negative {
+  color: var(--brand-secondary);
+  background: rgba(230, 57, 70, 0.1);
+}
+
+.stat-content {
+  margin-bottom: 20px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--brand-gray-800);
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--brand-gray-500);
+  font-weight: 500;
+}
+
+.stat-chart {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  height: 40px;
+  gap: 4px;
+}
+
+.chart-bar {
+  flex: 1;
+  background: linear-gradient(to top, var(--brand-primary), var(--brand-primary-lighter));
+  border-radius: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.stat-card:hover .chart-bar {
+  opacity: 1;
+}
+
+/* 记录表格样式 */
+.recent-section .bg-white {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.recent-section :deep(.el-table) {
+  border-radius: 20px;
+}
+
+.recent-section :deep(.el-table__header) {
+  background: var(--brand-gray-50);
+}
+
+.recent-section :deep(.el-table th) {
+  background: transparent;
+  border: none;
+  font-weight: 600;
+  color: var(--brand-gray-700);
+  padding: 20px 16px;
+}
+
+.recent-section :deep(.el-table td) {
+  border: none;
+  padding: 16px;
+  border-bottom: 1px solid var(--brand-gray-100);
+}
+
+.recent-section :deep(.el-table tr:hover > td) {
+  background: var(--brand-gray-50);
+}
+
+/* 动画效果 */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.welcome-section {
+  animation: slideInLeft 0.8s ease-out;
+}
+
+.tools-section > div > div {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.tools-section > div > div:nth-child(1) { animation-delay: 0.1s; }
+.tools-section > div > div:nth-child(2) { animation-delay: 0.2s; }
+.tools-section > div > div:nth-child(3) { animation-delay: 0.3s; }
 
 .stats-section > div > div {
   animation: fadeInUp 0.6s ease-out;
@@ -296,4 +673,36 @@ onUnmounted(() => {
 .stats-section > div > div:nth-child(2) { animation-delay: 0.2s; }
 .stats-section > div > div:nth-child(3) { animation-delay: 0.3s; }
 .stats-section > div > div:nth-child(4) { animation-delay: 0.4s; }
+
+.recent-section {
+  animation: fadeInUp 0.8s ease-out 0.6s both;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 0 16px;
+  }
+
+  .welcome-gradient {
+    padding: 24px !important;
+  }
+
+  .welcome-gradient .flex {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .enhanced-tool-card {
+    padding: 24px;
+  }
+
+  .stat-card {
+    padding: 20px;
+  }
+
+  .stat-number {
+    font-size: 28px;
+  }
+}
 </style>

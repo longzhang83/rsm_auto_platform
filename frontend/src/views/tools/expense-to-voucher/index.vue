@@ -134,12 +134,32 @@
 
             <!-- 凭证设置 -->
             <div class="settings-section mb-6">
-              <h3 class="text-base font-semibold text-gray-700 mb-4 flex items-center">
-                <el-icon class="mr-2 text-brand-600"><Setting /></el-icon>
-                凭证设置
-              </h3>
+              <div
+                class="settings-header cursor-pointer flex items-center justify-between mb-4"
+                @click="toggleSettings"
+              >
+                <h3 class="text-base font-semibold text-gray-700 flex items-center">
+                  <el-icon class="mr-2 text-brand-600"><Setting /></el-icon>
+                  凭证设置
+                </h3>
+                <el-icon
+                  class="text-gray-400 transition-transform duration-300"
+                  :class="{ 'rotate-180': settingsExpanded }"
+                >
+                  <ArrowDown />
+                </el-icon>
+              </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <transition
+                name="slide"
+                mode="out-in"
+                @enter="enter"
+                @after-enter="afterEnter"
+                @leave="leave"
+                @after-leave="afterLeave"
+              >
+                <div v-show="settingsExpanded" class="settings-content">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <el-form-item label="会计期间" prop="period">
                   <el-input
                     v-model="form.period"
@@ -196,7 +216,9 @@
                     style="width: 100%"
                   />
                 </el-form-item>
-              </div>
+                  </div>
+                </div>
+              </transition>
             </div>
 
             <!-- 操作按钮 -->
@@ -289,7 +311,7 @@
               plain
               size="small"
               @click="downloadTemplate('expense')"
-              class="w-full justify-start"
+              class="w-full justify-start text-left"
             >
               <el-icon class="mr-2"><Document /></el-icon>
               费用报销表模板
@@ -300,7 +322,7 @@
               plain
               size="small"
               @click="downloadTemplate('employee')"
-              class="w-full justify-start"
+              class="w-full justify-start text-left"
             >
               <el-icon class="mr-2"><User /></el-icon>
               人员列表模板
@@ -311,7 +333,7 @@
               plain
               size="small"
               @click="downloadTemplate('subject')"
-              class="w-full justify-start"
+              class="w-full justify-start text-left"
             >
               <el-icon class="mr-2"><Tickets /></el-icon>
               科目映射模板
@@ -322,9 +344,9 @@
               plain
               size="small"
               @click="downloadTemplate('translation')"
-              class="w-full justify-start"
+              class="w-full justify-start text-left"
             >
-              <el-icon class="mr-2"><Translation /></el-icon>
+              <el-icon class="mr-2"><ChatDotRound /></el-icon>
               翻译映射模板
             </el-button>
           </div>
@@ -370,6 +392,40 @@ const rules = {
 
 const loading = ref(false)
 const formRef = ref(null)
+
+// 凭证设置收缩状态
+const settingsExpanded = ref(false) // 默认收缩
+
+// 切换设置显示/隐藏
+const toggleSettings = () => {
+  settingsExpanded.value = !settingsExpanded.value
+}
+
+// 动画钩子函数
+const enter = (element) => {
+  element.style.height = '0'
+  element.style.overflow = 'hidden'
+}
+
+const afterEnter = (element) => {
+  element.style.height = element.scrollHeight + 'px'
+  setTimeout(() => {
+    element.style.height = 'auto'
+    element.style.overflow = 'visible'
+  }, 300)
+}
+
+const leave = (element) => {
+  element.style.height = element.scrollHeight + 'px'
+  element.style.overflow = 'hidden'
+  setTimeout(() => {
+    element.style.height = '0'
+  }, 10)
+}
+
+const afterLeave = (element) => {
+  element.style.overflow = 'visible'
+}
 
 // 文件处理函数
 const handleExpenseFileChange = (file) => {
@@ -484,7 +540,7 @@ const handleReset = () => {
 }
 
 // 下载模板
-const downloadTemplate = (type) => {
+const downloadTemplate = async (type) => {
   const templates = {
     expense: '费用报销表模板.xlsx',
     employee: '人员列表模板.xlsx',
@@ -492,8 +548,82 @@ const downloadTemplate = (type) => {
     translation: '翻译映射模板.csv'
   }
 
-  ElMessage.info(`正在下载 ${templates[type]}...`)
-  // 这里实现实际的模板下载逻辑
+  try {
+    ElMessage.info(`正在准备下载 ${templates[type]}...`)
+
+    // 模拟文件下载
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // 创建示例内容
+    let content, mimeType, fileName
+
+    switch(type) {
+      case 'expense':
+        // 创建Excel费用报销表模板
+        content = `费用报销表模板,日期,费用类型,金额,报销人,部门,备注
+        2025-01-15,交通费,150,张三,销售部,客户拜访交通费
+        2025-01-16,餐饮费,200,李四,市场部,客户聚餐
+        2025-01-17,住宿费,300,王五,技术部,出差住宿`
+        mimeType = 'text/csv;charset=utf-8'
+        fileName = '费用报销表模板.csv'
+        break
+
+      case 'employee':
+        // 创建人员列表模板
+        content = `员工编号,姓名,部门,职位,邮箱
+        E001,张三,销售部,销售经理,zhangsan@company.com
+        E002,李四,市场部,市场专员,lisi@company.com
+        E003,王五,技术部,开发工程师,wangwu@company.com`
+        mimeType = 'text/csv;charset=utf-8'
+        fileName = '人员列表模板.csv'
+        break
+
+      case 'subject':
+        // 创建科目映射模板
+        content = `科目名称,科目编码,科目类型
+        管理费用,6601,损益类
+        销售费用,6602,损益类
+        财务费用,6603,损益类
+        银行存款,1002,资产类
+        应收账款,1122,资产类`
+        mimeType = 'text/csv;charset=utf-8'
+        fileName = '科目映射模板.csv'
+        break
+
+      case 'translation':
+        // 创建翻译映射模板
+        content = `中文摘要,英文翻译
+        办公用品费,Office Supplies
+        交通费,Transportation Fee
+        餐饮费,Meal Expense
+        住宿费,Accommodation Fee
+        客户拜访费,Client Visit Expense`
+        mimeType = 'text/csv;charset=utf-8'
+        fileName = '翻译映射模板.csv'
+        break
+    }
+
+    // 创建Blob对象
+    const blob = new Blob(['\uFEFF' + content], { type: mimeType })
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+
+    // 清理
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success(`${templates[type]} 下载成功！`)
+
+  } catch (error) {
+    console.error('下载失败:', error)
+    ElMessage.error(`下载失败：${error.message}`)
+  }
 }
 </script>
 
@@ -518,6 +648,51 @@ const downloadTemplate = (type) => {
   border-radius: 8px;
   padding: 1.5rem;
   background-color: #fafafa;
+}
+
+.settings-header {
+  user-select: none;
+}
+
+.settings-header:hover .el-icon {
+  color: #6b7280;
+}
+
+.settings-content {
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+}
+
+/* 收缩动画 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.slide-enter-from {
+  max-height: 0;
+  opacity: 0;
+}
+
+.slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.slide-enter-to {
+  max-height: 500px;
+  opacity: 1;
+}
+
+.slide-leave-from {
+  max-height: 500px;
+  opacity: 1;
+}
+
+/* 箭头旋转动画 */
+.rotate-180 {
+  transform: rotate(180deg);
 }
 
 .upload-demo :deep(.el-upload-dragger) {

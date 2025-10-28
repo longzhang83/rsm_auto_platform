@@ -89,7 +89,18 @@ const resolvePath = (routePath) => {
   if (isExternal(props.basePath)) {
     return props.basePath
   }
-  return props.basePath + '/' + routePath
+
+  // If basePath is already the full path (for top-level routes), just return it
+  if (props.basePath && !routePath) {
+    return props.basePath
+  }
+
+  // For nested routes, construct the proper path
+  if (routePath) {
+    return '/' + routePath
+  }
+
+  return '/'
 }
 </script>
 

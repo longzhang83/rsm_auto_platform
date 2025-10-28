@@ -146,6 +146,26 @@ Thumbs.db
 dist/
 build/
 
+# Static assets (generated files will be replaced)
+public/icons/*.png
+public/images/*.jpg
+public/images/*.png
+public/images/*.webp
+public/files/*.xlsx
+public/files/*.csv
+public/files/*.docx
+public/logo.png
+public/favicon.ico
+
+# Keep documentation and source files
+!public/icons/*.md
+!public/images/*.md
+!public/logo.svg
+!public/vite.svg
+!public/manifest.json
+!public/robots.txt
+!public/README.md
+
 # Vite
 .vite/
 

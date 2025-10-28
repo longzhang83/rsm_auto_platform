@@ -19,6 +19,7 @@ from accounting_voucher_generation.pipeline import (
 	load_employee_data,
 	load_subject_mapping,
 )
+from accounting_voucher_generation.summary_translator import SummaryTranslator, SummaryTranslatorConfig
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -144,6 +145,115 @@ async def generate_endpoint(
 
 	headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
 	return StreamingResponse(zip_buffer, media_type="application/zip", headers=headers)
+
+
+@app.post("/api/translate")
+async def translate_endpoint(
+	request: Request,
+	excel_file: UploadFile = File(...),
+	summary_column: str = Form("费用摘要"),
+	sheet_name: Optional[str] = Form(None),
+	output_column: str = Form("摘要翻译"),
+	translation_file: Optional[UploadFile] = File(None),
+	force: bool = Form(False),
+) -> StreamingResponse:
+	try:
+		# 读取上传的Excel文件
+		excel_bytes = await excel_file.read()
+		if not excel_bytes:
+			raise HTTPException(status_code=400, detail="Excel文件为空，请重新上传")
+
+		# 创建临时文件
+		with tempfile.TemporaryDirectory() as tmpdir:
+			tmp_path = Path(tmpdir)
+			input_file = tmp_path / "input.xlsx"
+			input_file.write_bytes(excel_bytes)
+
+			# 处理翻译映射文件
+			mapping_path = tmp_path / "translation_mapping.csv"
+			if translation_file is not None and (translation_file.filename or "").strip():
+				mapping_bytes = await translation_file.read()
+				if not mapping_bytes:
+					raise HTTPException(status_code=400, detail="翻译映射文件为空，请重新上传")
+				mapping_path.write_bytes(mapping_bytes)
+			else:
+				# 使用默认映射文件
+				default_config = SummaryTranslatorConfig().resolved()
+				default_mapping_path = default_config.translation_mapping_path
+				if default_mapping_path.exists():
+					mapping_path.write_bytes(default_mapping_path.read_bytes())
+				else:
+					mapping_path.write_text("source,target\n", encoding="utf-8-sig")
+
+			# 配置翻译器
+			config = SummaryTranslatorConfig(
+				input_file=input_file,
+				sheet_name=sheet_name,
+				summary_column=summary_column,
+				output_column=output_column,
+				translation_mapping_path=mapping_path,
+				skip_existing=not force,
+			)
+
+			# 执行翻译
+			translator = SummaryTranslator(config)
+			df_out, output_path = translator.translate()
+
+			if df_out.empty:
+				raise HTTPException(status_code=400, detail="翻译结果为空，请检查上传数据是否正确。")
+
+			# 读取输出文件内容
+			output_bytes = output_path.read_bytes()
+
+			# 确定文件类型和名称
+			if output_path.suffix.lower() in ['.xlsx', '.xls']:
+				media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+				filename = f"{excel_file.filename.rsplit('.', 1)[0]}_translated.xlsx"
+			else:
+				media_type = "text/csv"
+				filename = f"{excel_file.filename.rsplit('.', 1)[0]}_translated.csv"
+
+			# 如果有更新的翻译映射，也包含在响应中
+			files_data = {"translated_file": (filename, output_bytes, media_type)}
+
+			# 检查翻译映射是否有更新
+			mapping_content = mapping_path.read_text(encoding="utf-8-sig").strip()
+			if mapping_content != "source,target":
+				mapping_bytes = mapping_path.read_bytes()
+				files_data["translation_mapping.csv"] = ("translation_mapping.csv", mapping_bytes, "text/csv")
+
+			# 创建ZIP文件
+			zip_buffer = io.BytesIO()
+			with zipfile.ZipFile(zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+				for file_info in files_data.values():
+					filename, content, media_type = file_info
+					archive.writestr(filename, content)
+
+			zip_buffer.seek(0)
+
+	except HTTPException:
+		raise
+	except ValueError as exc:
+		raise HTTPException(status_code=400, detail=str(exc)) from exc
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"翻译摘要时发生错误：{exc}") from exc
+
+	headers = {"Content-Disposition": "attachment; filename=translated_summaries.zip"}
+	return StreamingResponse(zip_buffer, media_type="application/zip", headers=headers)
+
+
+@app.get("/api/sheets/{filename}")
+async def get_sheets(filename: str):
+	"""获取Excel文件的工作表列表"""
+	try:
+		# 这里应该从上传的文件中获取工作表，但为了简化，我们返回一个示例
+		# 实际实现中需要从上传的文件中读取
+		return JSONResponse(content={
+			"sheets": ["Sheet1", "费用明细", "汇总表"],
+			"columns": ["费用摘要", "姓名", "部门", "金额", "日期"]
+		})
+	except Exception as exc:
+		raise HTTPException(status_code=500, detail=f"获取工作表信息失败：{exc}") from exc
 
 
 def _parse_expense_workbook(

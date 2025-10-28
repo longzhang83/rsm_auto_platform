@@ -3,26 +3,56 @@
     <!-- 侧边栏 -->
     <div class="sidebar-container" :class="{ 'is-collapse': !appStore.sidebar.opened }">
       <div class="sidebar-logo">
-        <img src="/logo.png" alt="容诚税务师事务所" class="logo-img" />
-        <span v-show="appStore.sidebar.opened" class="logo-text">容诚税务师事务所</span>
-      </div>
+        <div class="logo-wrapper">
+          <div class="logo-img-container">
+            <img src="/images/logo.png" alt="容诚税务师事务所" class="logo-img" />
+            <div class="logo-glow"></div>
+            <div class="logo-shine"></div>
+          </div>
+          <transition name="logo-fade">
+            <div v-show="appStore.sidebar.opened" class="logo-content">
+              <h3 class="logo-text">容诚税务师事务所</h3>
+              <p class="logo-subtitle">智能自动化平台</p>
+            </div>
+          </transition>
+        </div>
+        </div>
 
       <el-scrollbar class="sidebar-scrollbar">
-        <el-menu
-          :default-active="$route.path"
-          :collapse="!appStore.sidebar.opened"
-          :unique-opened="true"
-          :collapse-transition="false"
-          mode="vertical"
-          background-color="#1f2937"
-          text-color="#f3f4f6"
-          active-text-color="#ffffff"
-          class="sidebar-menu"
-          router
-        >
-          <sidebar-item v-for="route in menuRoutes" :key="route.path" :item="route" :base-path="route.path" />
-        </el-menu>
+        <div class="menu-section">
+          <div v-show="appStore.sidebar.opened" class="section-title">
+            <span>主要功能</span>
+          </div>
+          <el-menu
+            :default-active="$route.path"
+            :collapse="!appStore.sidebar.opened"
+            :unique-opened="true"
+            :collapse-transition="false"
+            mode="vertical"
+            background-color="transparent"
+            text-color="rgba(255, 255, 255, 0.8)"
+            active-text-color="#ffffff"
+            class="sidebar-menu"
+            router
+          >
+            <sidebar-item v-for="route in menuRoutes" :key="route.path" :item="route" :base-path="route.path" />
+          </el-menu>
+        </div>
       </el-scrollbar>
+
+      <!-- 侧边栏底部装饰 -->
+      <div class="sidebar-footer">
+        <div v-show="appStore.sidebar.opened" class="footer-content">
+          <div class="system-info">
+            <div class="status-indicator online"></div>
+            <span class="status-text">系统运行正常</span>
+          </div>
+          <div class="version-info">v1.0.0</div>
+        </div>
+        <div v-show="!appStore.sidebar.opened" class="footer-collapsed">
+          <div class="status-indicator online"></div>
+        </div>
+      </div>
     </div>
 
     <!-- 主内容区 -->
@@ -30,35 +60,88 @@
       <!-- 顶部导航栏 -->
       <div class="navbar">
         <div class="navbar-left">
-          <el-button
-            type="text"
-            class="toggle-sidebar"
-            @click="toggleSidebar"
-          >
-            <el-icon><Expand v-if="!appStore.sidebar.opened" /><Fold v-else /></el-icon>
-          </el-button>
+          <div class="nav-actions">
+            <button class="toggle-sidebar" @click="toggleSidebar">
+              <el-icon><Expand v-if="!appStore.sidebar.opened" /><Fold v-else /></el-icon>
+            </button>
+          </div>
 
-          <el-breadcrumb separator="/" class="breadcrumb">
-            <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path" :to="item.path">
-              {{ item.title }}
-            </el-breadcrumb-item>
-          </el-breadcrumb>
+          <div class="breadcrumb-container">
+            <el-breadcrumb separator="/" class="breadcrumb">
+              <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path" :to="item.path">
+                {{ item.title }}
+              </el-breadcrumb-item>
+            </el-breadcrumb>
+          </div>
         </div>
 
         <div class="navbar-right">
-          <el-dropdown trigger="click" class="avatar-container">
-            <div class="avatar-wrapper">
-              <img :src="authStore.user.avatar" class="user-avatar" />
-              <span class="user-name">{{ authStore.user.name }}</span>
-              <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          <!-- 快捷操作按钮组 -->
+          <div class="quick-actions">
+            <button class="action-btn notification-btn">
+              <el-icon><Bell /></el-icon>
+              <span class="notification-dot"></span>
+            </button>
+            <button class="action-btn theme-btn">
+              <el-icon><Sunny /></el-icon>
+            </button>
+            <button class="action-btn settings-btn">
+              <el-icon><Setting /></el-icon>
+            </button>
+          </div>
+
+          <!-- 用户信息 -->
+          <div class="user-section">
+            <div class="user-stats">
+              <div class="stat-item">
+                <span class="stat-value">156</span>
+                <span class="stat-label">今日处理</span>
+              </div>
             </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item>个人中心</el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+
+            <el-dropdown trigger="click" class="avatar-container">
+              <div class="avatar-wrapper">
+                <div class="user-avatar-wrapper">
+                  <img :src="authStore.user.avatar" class="user-avatar" />
+                  <div class="user-status online"></div>
+                </div>
+                <div class="user-info">
+                  <span class="user-name">{{ authStore.user.name }}</span>
+                  <span class="user-role">高级会计师</span>
+                </div>
+                <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu class="user-dropdown">
+                  <el-dropdown-item class="dropdown-header">
+                    <div class="header-info">
+                      <img :src="authStore.user.avatar" class="header-avatar" />
+                      <div class="header-text">
+                        <div class="header-name">{{ authStore.user.name }}</div>
+                        <div class="header-role">高级会计师</div>
+                      </div>
+                    </div>
+                  </el-dropdown-item>
+                  <el-dropdown-item divided>
+                    <el-icon><User /></el-icon>
+                    个人中心
+                  </el-dropdown-item>
+                  <el-dropdown-item>
+                    <el-icon><Setting /></el-icon>
+                    账户设置
+                  </el-dropdown-item>
+                  <el-dropdown-item>
+                    <el-icon><DocumentCopy /></el-icon>
+                    我的记录
+                  </el-dropdown-item>
+                  <el-dropdown-item divided @click="handleLogout" class="logout-item">
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </div>
       </div>
 
@@ -118,105 +201,715 @@ const handleLogout = () => {
 }
 
 .sidebar-container {
-  @apply bg-gray-800 transition-all duration-300;
-  width: 250px;
+  background: white;
+  transition: all 0.3s ease;
+  width: 280px;
   height: 100vh;
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1001;
   overflow: hidden;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--neutral-200);
 }
 
 .sidebar-container.is-collapse {
-  width: 64px;
+  width: 80px;
 }
 
 .sidebar-logo {
-  @apply flex items-center justify-center h-16 bg-gray-900 border-b border-gray-700;
-  padding: 0 16px;
+  background: transparent;
+  padding: 32px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+
+.logo-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.logo-img-container {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 16px;
+  padding: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.logo-img-container:hover {
+  transform: translateY(-2px) scale(1.05);
 }
 
 .logo-img {
-  @apply w-8 h-8 rounded;
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+  filter: brightness(1.1) contrast(1.1);
+  transition: all 0.3s ease;
+}
+
+.logo-glow {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: linear-gradient(135deg, var(--primary-400) 0%, var(--primary-600) 50%, var(--primary-400) 100%);
+  border-radius: 20px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: -1;
+  filter: blur(8px);
+}
+
+.logo-img-container:hover .logo-glow {
+  opacity: 0.6;
+  transform: scale(1.1);
+}
+
+.logo-shine {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%);
+  border-radius: 14px 14px 0 0;
+  pointer-events: none;
+}
+
+.logo-content {
+  margin-left: 16px;
+  animation: slideInRight 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .logo-text {
-  @apply ml-3 text-white text-lg font-semibold;
+  color: var(--neutral-800);
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
+.logo-subtitle {
+  color: var(--primary-600);
+  font-size: 11px;
+  margin: 4px 0 0 0;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+
 .sidebar-scrollbar {
-  @apply h-full;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: 2px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-400);
+}
+
+.menu-section {
+  padding: 24px 16px;
+}
+
+.section-title {
+  color: var(--neutral-500);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+}
+
+.section-title::before {
+  display: none;
 }
 
 .sidebar-menu {
-  @apply border-none;
+  border: none;
+  background: transparent;
+}
+
+.sidebar-footer {
+  padding: 24px;
+  border-top: 1px solid var(--neutral-200);
+  background: var(--neutral-50);
+  margin-top: auto;
+}
+
+.footer-content {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.system-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-indicator.online {
+  background: var(--accent-500);
+}
+
+.status-text {
+  color: var(--neutral-600);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.version-info {
+  color: var(--neutral-400);
+  font-size: 10px;
+  text-align: center;
+  font-weight: 400;
+}
+
+.footer-collapsed {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 过渡动画 */
+.logo-fade-enter-active,
+.logo-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.logo-fade-enter-from,
+.logo-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes slideInLogo {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes logoFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
 }
 
 .main-container {
   @apply flex-1 flex flex-col;
-  margin-left: 250px;
-  transition: margin-left 0.3s;
+  margin-left: 280px;
+  transition: margin-left 0.3s ease;
   min-height: 100vh;
+  background: var(--neutral-50);
 }
 
 .main-container.is-collapse {
-  margin-left: 64px;
+  margin-left: 80px;
 }
 
 .navbar {
-  @apply flex items-center justify-between h-16 bg-white shadow-sm px-4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  background: white;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--neutral-200);
+  position: relative;
 }
 
 .navbar-left {
-  @apply flex items-center flex-1;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 24px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
 }
 
 .toggle-sidebar {
-  @apply text-gray-600 hover:text-gray-900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--neutral-600);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 18px;
+}
+
+.toggle-sidebar:hover {
+  background: var(--neutral-100);
+  color: var(--primary-600);
+}
+
+.breadcrumb-container {
+  position: relative;
 }
 
 .breadcrumb {
-  @apply ml-4;
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb :deep(.el-breadcrumb__item) {
+  font-weight: 500;
+}
+
+.breadcrumb :deep(.el-breadcrumb__inner) {
+  color: var(--neutral-600);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.breadcrumb :deep(.el-breadcrumb__inner:hover) {
+  color: var(--primary-600);
 }
 
 .navbar-right {
-  @apply flex items-center;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--neutral-500);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  font-size: 16px;
+}
+
+.action-btn:hover {
+  background: var(--neutral-100);
+  color: var(--neutral-700);
+}
+
+.notification-btn {
+  position: relative;
+}
+
+.notification-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent-500);
+  border-radius: 50%;
+  border: 1px solid white;
+}
+
+.user-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-stats {
+  display: none; /* 隐藏统计数据，使界面更简洁 */
 }
 
 .avatar-container {
-  @apply cursor-pointer;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.avatar-container:hover {
+  background: var(--neutral-100);
 }
 
 .avatar-wrapper {
-  @apply flex items-center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .user-avatar {
-  @apply w-8 h-8 rounded-full;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+}
+
+.user-status {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.user-status.online {
+  background: var(--accent-500);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .user-name {
-  @apply ml-2 text-gray-700 text-sm;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--neutral-800);
+  line-height: 1.2;
+}
+
+.user-role {
+  font-size: 12px;
+  color: var(--neutral-500);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.dropdown-icon {
+  color: var(--neutral-400);
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.avatar-container:hover .dropdown-icon {
+  color: var(--neutral-600);
 }
 
 .app-main {
-  @apply flex-1 p-6 overflow-auto;
+  @apply flex-1 p-8 overflow-auto;
+  background: var(--neutral-50);
 }
 
-/* 路由过渡动画 */
+/* 增强的路由过渡动画 */
 .fade-transform-enter-active,
 .fade-transform-leave-active {
-  transition: all 0.3s;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .fade-transform-enter-from {
   opacity: 0;
-  transform: translateX(30px);
+  transform: translateX(30px) scale(0.98);
 }
 
 .fade-transform-leave-to {
   opacity: 0;
-  transform: translateX(-30px);
+  transform: translateX(-30px) scale(1.02);
+}
+
+/* 优化侧边栏菜单样式 */
+.sidebar-menu :deep(.el-menu-item) {
+  margin: 4px 8px;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  height: 48px;
+  line-height: 48px;
+  color: var(--neutral-700);
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.sidebar-menu :deep(.el-menu-item::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--primary-600);
+  border-radius: 0 2px 2px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+  transform: translateX(4px);
+}
+
+.sidebar-menu :deep(.el-menu-item:hover::before) {
+  height: 20px;
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%) !important;
+  color: white;
+  box-shadow: 0 4px 16px rgba(0, 149, 215, 0.25);
+  border-color: var(--primary-500);
+  transform: translateX(4px);
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active::before) {
+  height: 24px;
+  background: white;
+}
+
+.sidebar-menu :deep(.el-menu-item .el-icon) {
+  width: 20px;
+  height: 20px;
+  margin-right: 2px;
+  transition: all 0.2s ease;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover .el-icon) {
+  transform: scale(1.1);
+}
+
+.sidebar-menu :deep(.el-menu-item span) {
+  text-decoration: none;
+  background: transparent;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  margin: 4px 8px;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  height: 48px;
+  line-height: 48px;
+  color: var(--neutral-700);
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--primary-600);
+  border-radius: 0 2px 2px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+  transform: translateX(4px);
+}
+
+.sidebar-menu :deep(.el-sub-menu__title:hover::before) {
+  height: 20px;
+}
+
+.sidebar-menu :deep(.el-sub-menu.is-opened .el-sub-menu__title) {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+}
+
+.sidebar-menu :deep(.el-sub-menu.is-opened .el-sub-menu__title::before) {
+  height: 20px;
+}
+
+/* 简洁用户下拉菜单样式 */
+.user-dropdown {
+  border: 1px solid var(--neutral-200);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  min-width: 220px;
+  background: white;
+}
+
+.user-dropdown :deep(.el-dropdown-menu__item) {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--neutral-700);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-dropdown :deep(.el-dropdown-menu__item:hover) {
+  background: var(--neutral-50);
+  color: var(--primary-600);
+}
+
+.user-dropdown :deep(.el-dropdown-menu__item.is-divided) {
+  border-top: 1px solid var(--neutral-200);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.dropdown-header {
+  padding: 16px !important;
+  background: var(--neutral-50);
+  border-bottom: 1px solid var(--neutral-200);
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.header-text {
+  flex: 1;
+}
+
+.header-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--neutral-800);
+  margin-bottom: 2px;
+}
+
+.header-role {
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.logout-item {
+  color: var(--accent-600) !important;
+}
+
+.logout-item:hover {
+  background: var(--accent-50) !important;
+  color: var(--accent-700) !important;
+}
+
+.user-dropdown :deep(.el-dropdown-menu__item .el-icon) {
+  font-size: 16px;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--neutral-400);
+}
+
+.user-dropdown :deep(.el-dropdown-menu__item:hover .el-icon) {
+  color: var(--primary-600);
 }
 </style>

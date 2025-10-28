@@ -540,38 +540,59 @@ const startTranslation = async (formData) => {
   progress.completed = 0
   progress.total = 0
   progress.samples = []
+  progress.status = 'success'
 
   try {
-    // 模拟翻译进度
-    progress.total = 25
-    progress.status = 'success'
+    // 显示处理中状态
+    progress.total = 100
+    progress.currentItem = '正在处理文件...'
+    progress.speed = 0
 
-    for (let i = 0; i < progress.total; i++) {
-      await new Promise(resolve => setTimeout(resolve, 800))
+    // 模拟进度更新（实际项目中可以通过WebSocket或轮询API获取真实进度）
+    const progressInterval = setInterval(() => {
+      if (progress.percentage < 90) {
+        progress.percentage += Math.random() * 15
+        progress.completed = Math.floor(progress.percentage)
+        progress.currentItem = ['正在分析文本...', '调用翻译引擎...', '生成翻译结果...', '校验翻译质量...'][Math.floor(progress.percentage / 25)]
+        progress.speed = Math.floor(Math.random() * 20 + 30)
+        progress.estimatedTime = Math.ceil((100 - progress.percentage) / 2) + '秒'
 
-      progress.completed = i + 1
-      progress.percentage = Math.round((progress.completed / progress.total) * 100)
-      progress.currentItem = `项目 ${i + 1}: 快递费`
-      progress.speed = 45
-      progress.estimatedTime = Math.ceil((progress.total - progress.completed) * 0.8) + '秒'
-
-      // 添加翻译示例
-      if (i < 3) {
-        progress.samples.push({
-          original: ['快递费', '加班打车', '签证费'][i],
-          translated: ['Express delivery fee', 'Cab after overtime', 'Visa fee'][i]
-        })
+        // 添加翻译示例
+        if (progress.samples.length < 3 && Math.random() > 0.7) {
+          const examples = [
+            { original: '办公用品采购', translated: 'Office supplies purchase' },
+            { original: '客户招待费', translated: 'Client entertainment expenses' },
+            { original: '差旅交通费', translated: 'Business travel expenses' }
+          ]
+          progress.samples.push(examples[progress.samples.length])
+        }
       }
-    }
+    }, 500)
 
-    // 发送实际请求
+    // 发送翻译请求
     const response = await fetch('/api/translate', {
       method: 'POST',
       body: formData
     })
 
+    clearInterval(progressInterval)
+    progress.percentage = 100
+    progress.completed = 100
+    progress.currentItem = '翻译完成'
+
     if (!response.ok) {
-      throw new Error('翻译失败')
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `翻译失败 (${response.status})`)
+    }
+
+    // 获取文件名
+    const contentDisposition = response.headers.get('content-disposition')
+    let filename = 'translated_summaries.zip'
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
+      if (filenameMatch) {
+        filename = filenameMatch[1]
+      }
     }
 
     // 下载文件
@@ -579,13 +600,18 @@ const startTranslation = async (formData) => {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'translated_summaries.zip'
+    link.download = filename
+    link.style.display = 'none'
     document.body.appendChild(link)
     link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
 
-    ElMessage.success('翻译完成！')
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    }, 100)
+
+    ElMessage.success('翻译完成！文件已开始下载到浏览器')
 
   } catch (error) {
     console.error('翻译失败:', error)

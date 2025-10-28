@@ -26,7 +26,7 @@ const router = createRouter({
           path: 'summary-translate',
           name: 'SummaryTranslate',
           component: () => import('@/views/tools/summary-translate/index.vue'),
-          meta: { title: '摘要翻译', icon: 'Translation' }
+          meta: { title: '摘要翻译', icon: 'Document' }
         },
         {
           path: 'bank-to-voucher',
