@@ -16,10 +16,15 @@ class Settings(BaseSettings):
     app_name: str = "Accounting Voucher Generation API"
     app_version: str = "1.0.0"
     debug: bool = False
+    environment: str = "development"  # development, production, testing
 
     # 服务器配置
     host: str = "0.0.0.0"
     port: int = 8888
+
+    # 集成部署配置
+    serve_frontend: bool = True  # 是否同时服务前端静态文件
+    frontend_build_path: Path = Path(__file__).resolve().parent.parent.parent.parent  / "static"
 
     # 数据目录配置
     # 从 backend/app/core/config.py 回到项目根目录
