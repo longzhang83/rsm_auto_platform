@@ -1,0 +1,374 @@
+<template>
+  <div class="history-page">
+    <div class="page-header mb-6">
+      <h1 class="text-2xl font-bold text-gray-800 mb-2">处理记录</h1>
+      <p class="text-gray-600">查看所有工具的处理历史和统计信息</p>
+    </div>
+
+    <!-- 筛选器 -->
+    <el-card class="filter-card mb-6" shadow="hover">
+      <el-form :model="filters" :inline="true" class="filter-form">
+        <el-form-item label="工具类型">
+          <el-select v-model="filters.tool" placeholder="全部" clearable style="width: 150px">
+            <el-option label="费用清单转凭证" value="expense" />
+            <el-option label="摘要翻译" value="translate" />
+            <el-option label="银行流水转凭证" value="bank" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="状态">
+          <el-select v-model="filters.status" placeholder="全部" clearable style="width: 120px">
+            <el-option label="成功" value="success" />
+            <el-option label="失败" value="failed" />
+            <el-option label="处理中" value="processing" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="时间范围">
+          <el-date-picker
+            v-model="filters.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            style="width: 240px"
+          />
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            <el-icon class="mr-1"><Search /></el-icon>
+            搜索
+          </el-button>
+          <el-button @click="handleReset">
+            <el-icon class="mr-1"><Refresh /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 数据表格 -->
+    <el-card class="table-card" shadow="hover">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center">
+            <el-icon class="mr-2 text-blue-500"><Clock /></el-icon>
+            <span class="text-lg font-semibold">处理记录</span>
+            <el-tag class="ml-3" type="info" size="small">共 {{ total }} 条记录</el-tag>
+          </div>
+          <div class="flex items-center">
+            <el-button type="text" @click="handleExport">
+              <el-icon class="mr-1"><Download /></el-icon>
+              导出记录
+            </el-button>
+          </div>
+        </div>
+      </template>
+
+      <el-table
+        :data="tableData"
+        v-loading="loading"
+        style="width: 100%"
+        @sort-change="handleSortChange"
+      >
+        <el-table-column prop="id" label="ID" width="80" />
+
+        <el-table-column prop="time" label="处理时间" width="180" sortable="custom">
+          <template #default="scope">
+            <div>
+              <div>{{ formatTime(scope.row.time) }}</div>
+              <div class="text-xs text-gray-500">{{ formatDate(scope.row.time) }}</div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="tool" label="使用工具" width="140">
+          <template #default="scope">
+            <el-tag :type="getToolTagType(scope.row.tool)" size="small">
+              {{ getToolName(scope.row.tool) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="fileName" label="文件名称" min-width="200">
+          <template #default="scope">
+            <div class="flex items-center">
+              <el-icon class="mr-2 text-gray-400"><Document /></el-icon>
+              <span class="truncate">{{ scope.row.fileName }}</span>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="user" label="操作用户" width="120">
+          <template #default="scope">
+            <div class="flex items-center">
+              <img :src="scope.row.avatar" class="w-6 h-6 rounded-full mr-2" />
+              <span>{{ scope.row.user }}</span>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getStatusTagType(scope.row.status)" size="small">
+              {{ getStatusName(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="duration" label="处理时长" width="100" sortable="custom">
+          <template #default="scope">
+            <span class="text-gray-600">{{ scope.row.duration }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="resultCount" label="结果数量" width="100">
+          <template #default="scope">
+            <span class="font-semibold">{{ scope.row.resultCount }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="scope">
+            <el-button type="text" size="small" @click="viewRecord(scope.row)">
+              <el-icon><View /></el-icon>
+              查看
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 'success'"
+              type="text"
+              size="small"
+              @click="downloadRecord(scope.row)"
+            >
+              <el-icon><Download /></el-icon>
+              下载
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 'failed'"
+              type="text"
+              size="small"
+              @click="retryRecord(scope.row)"
+            >
+              <el-icon><Refresh /></el-icon>
+              重试
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination-container mt-4">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.size"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import dayjs from 'dayjs'
+
+// 筛选器
+const filters = reactive({
+  tool: '',
+  status: '',
+  dateRange: []
+})
+
+// 分页
+const pagination = reactive({
+  page: 1,
+  size: 20
+})
+
+const total = ref(0)
+const loading = ref(false)
+
+// 表格数据
+const tableData = ref([
+  {
+    id: 1,
+    time: '2025-01-15 14:32:15',
+    tool: 'expense',
+    fileName: '2025年1月费用报销表.xlsx',
+    user: '张三',
+    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+    status: 'success',
+    duration: '2.8s',
+    resultCount: 86
+  },
+  {
+    id: 2,
+    time: '2025-01-15 14:28:42',
+    tool: 'translate',
+    fileName: '费用摘要翻译.xlsx',
+    user: '李四',
+    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+    status: 'success',
+    duration: '1.5s',
+    resultCount: 23
+  },
+  {
+    id: 3,
+    time: '2025-01-15 14:15:30',
+    tool: 'expense',
+    fileName: '差旅费报销单.xlsx',
+    user: '王五',
+    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+    status: 'failed',
+    duration: '5.2s',
+    resultCount: 0
+  }
+])
+
+// 工具类型映射
+const getToolName = (tool) => {
+  const toolMap = {
+    expense: '费用清单转凭证',
+    translate: '摘要翻译',
+    bank: '银行流水转凭证'
+  }
+  return toolMap[tool] || tool
+}
+
+const getToolTagType = (tool) => {
+  const typeMap = {
+    expense: 'success',
+    translate: 'primary',
+    bank: 'warning'
+  }
+  return typeMap[tool] || 'info'
+}
+
+// 状态映射
+const getStatusName = (status) => {
+  const statusMap = {
+    success: '成功',
+    failed: '失败',
+    processing: '处理中'
+  }
+  return statusMap[status] || status
+}
+
+const getStatusTagType = (status) => {
+  const typeMap = {
+    success: 'success',
+    failed: 'danger',
+    processing: 'warning'
+  }
+  return typeMap[status] || 'info'
+}
+
+// 格式化时间
+const formatTime = (time) => {
+  return dayjs(time).format('HH:mm:ss')
+}
+
+const formatDate = (time) => {
+  return dayjs(time).format('YYYY-MM-DD')
+}
+
+// 事件处理
+const handleSearch = () => {
+  loading.value = true
+  // 模拟搜索
+  setTimeout(() => {
+    loading.value = false
+    total.value = tableData.value.length
+  }, 500)
+}
+
+const handleReset = () => {
+  Object.assign(filters, {
+    tool: '',
+    status: '',
+    dateRange: []
+  })
+  handleSearch()
+}
+
+const handleSortChange = ({ prop, order }) => {
+  console.log('排序:', prop, order)
+  // 实现排序逻辑
+}
+
+const handleSizeChange = (size) => {
+  pagination.size = size
+  handleSearch()
+}
+
+const handlePageChange = (page) => {
+  pagination.page = page
+  handleSearch()
+}
+
+const handleExport = () => {
+  ElMessage.info('导出功能开发中...')
+}
+
+const viewRecord = (record) => {
+  console.log('查看记录:', record)
+  ElMessage.info('查看详情功能开发中...')
+}
+
+const downloadRecord = (record) => {
+  console.log('下载记录:', record)
+  ElMessage.success('开始下载...')
+}
+
+const retryRecord = (record) => {
+  console.log('重试记录:', record)
+  ElMessage.info('重试功能开发中...')
+}
+
+onMounted(() => {
+  total.value = tableData.value.length
+})
+</script>
+
+<style scoped>
+.history-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.filter-card :deep(.el-card__body) {
+  padding: 1.5rem;
+}
+
+.filter-form {
+  margin: 0;
+}
+
+.table-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.pagination-container {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #fafafa;
+}
+
+.truncate {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
