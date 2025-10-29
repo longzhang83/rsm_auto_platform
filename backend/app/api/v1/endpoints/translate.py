@@ -20,6 +20,7 @@ async def translate_summaries(
     output_column: str = Form("摘要翻译"),
     translation_file: Optional[UploadFile] = File(None),
     force: bool = Form(False),
+    target_language: str = Form("en"),
 ) -> StreamingResponse:
     """
     翻译摘要文本
@@ -30,9 +31,10 @@ async def translate_summaries(
     - **output_column**: 输出列名
     - **translation_file**: 翻译映射文件（可选）
     - **force**: 是否强制重新翻译
+    - **target_language**: 目标语言 ('en' 为英文, 'zh' 为中文)
     """
     try:
-        print(f"收到翻译请求: file={excel_file.filename}, column={summary_column}, force={force}")
+        print(f"收到翻译请求: file={excel_file.filename}, column={summary_column}, force={force}, target_language={target_language}")
         zip_buffer = await translate_service.translate_summaries(
             excel_file=excel_file,
             summary_column=summary_column,
@@ -40,6 +42,7 @@ async def translate_summaries(
             output_column=output_column,
             translation_file=translation_file,
             force=force,
+            target_language=target_language,
         )
 
         headers = {"Content-Disposition": "attachment; filename=translated_summaries.zip"}

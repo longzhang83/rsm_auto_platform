@@ -32,6 +32,7 @@ class SummaryTranslatorConfig:
     translation_mapping_path: Path = field(default_factory=lambda: Path("data") / "translation_mapping.csv")
     translation_max_workers: int = 3
     translation_requests_per_second: float = 0.6
+    target_language: str = "en"  # 目标语言: "en" 为英文, "zh" 为中文
 
     # 其他配置
     skip_existing: bool = True  # 跳过已存在的翻译
@@ -49,6 +50,7 @@ class SummaryTranslatorConfig:
             translation_mapping_path=Path(self.translation_mapping_path).expanduser().resolve(),
             translation_max_workers=self.translation_max_workers,
             translation_requests_per_second=self.translation_requests_per_second,
+            target_language=self.target_language,
             skip_existing=self.skip_existing,
             skip_empty=self.skip_empty,
         )
@@ -113,6 +115,7 @@ class SummaryTranslator:
             requests_per_second=self.config.translation_requests_per_second,
             progress_description="翻译摘要",
             mapping_path=self.config.translation_mapping_path,
+            target_language=self.config.target_language,
         )
 
     def apply_translations(self, df: pd.DataFrame, translations: Dict[str, str]) -> pd.DataFrame:
@@ -140,8 +143,16 @@ class SummaryTranslator:
             # 应用翻译
             if original_text in translations:
                 translated_text = translations[original_text]
-                # 格式化为"中文-英文"格式
-                result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                # 根据目标语言格式化输出
+                if self.config.target_language == "en":
+                    # 中译英：中文-英文格式
+                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                elif self.config.target_language == "zh":
+                    # 英译中：英文-中文格式
+                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                else:
+                    # 默认格式
+                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
             else:
                 # 如果没有找到翻译，使用原文
                 result_df.at[idx, self.config.output_column] = original_text

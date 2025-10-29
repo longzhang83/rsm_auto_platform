@@ -28,6 +28,7 @@ class TranslateService:
         output_column: str = "摘要翻译",
         translation_file: Optional[UploadFile] = None,
         force: bool = False,
+        target_language: str = "en",
     ) -> BinaryIO:
         """翻译摘要文本"""
 
@@ -73,6 +74,7 @@ class TranslateService:
                     output_column=output_column,
                     translation_mapping_path=mapping_path,
                     skip_existing=not force,
+                    target_language=target_language,
                 )
 
                 # 执行翻译

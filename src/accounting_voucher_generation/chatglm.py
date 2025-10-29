@@ -175,13 +175,28 @@ def _store_mapping(path: Path, source: str, target: str) -> None:
 
 
 @lru_cache(maxsize=512)
-def _translate_cached(text: str) -> str:
+def _translate_cached(text: str, target_language: str = "en") -> str:
 	_RATE_LIMITER.acquire()
-	prompt = (
-		"请将以下中文词语或短语翻译成自然、简洁的英文。"
-		"只输出英文译文，不要添加说明或引号。\n"
-		f"中文：{text}\n英文："
-	)
+
+	if target_language == "en":
+		prompt = (
+			"请将以下中文词语或短语翻译成自然、简洁的英文。"
+			"只输出英文译文，不要添加说明或引号。\n"
+			f"中文：{text}\n英文："
+		)
+	elif target_language == "zh":
+		prompt = (
+			"请将以下英文词语或短语翻译成自然、简洁的中文。"
+			"只输出中文译文，不要添加说明或引号。\n"
+			f"英文：{text}\n中文："
+		)
+	else:
+		prompt = (
+			f"请将以下文本翻译成{'英文' if target_language == 'en' else '中文'}。"
+			"只输出译文，不要添加说明或引号。\n"
+			f"原文：{text}\n译文："
+		)
+
 	err, result = chat_glm(prompt)
 	if err or not result:
 		raise RuntimeError(err or "empty response")
@@ -191,7 +206,7 @@ def _translate_cached(text: str) -> str:
 	return translated
 
 
-def translate_text(text: str, *, mapping_path: Optional[Union[str, Path]] = None) -> str:
+def translate_text(text: str, *, mapping_path: Optional[Union[str, Path]] = None, target_language: str = "en") -> str:
 	clean_text = (text or "").strip()
 	if not clean_text:
 		return ""
@@ -203,7 +218,7 @@ def translate_text(text: str, *, mapping_path: Optional[Union[str, Path]] = None
 
 	for attempt in range(3):
 		try:
-			translated = _translate_cached(clean_text)
+			translated = _translate_cached(clean_text, target_language)
 			_store_mapping(path, clean_text, translated)
 			return translated
 		except Exception:  # pragma: no cover - depends on external API
@@ -227,6 +242,7 @@ def batch_translate_texts(
 	requests_per_second: Optional[float] = None,
 	progress_description: str = "翻译摘要",
 	mapping_path: Optional[Union[str, Path]] = None,
+	target_language: str = "en",
 ) -> Dict[str, str]:
 	cleaned: List[str] = []
 	seen: set[str] = set()
@@ -246,7 +262,7 @@ def batch_translate_texts(
 	results: Dict[str, str] = {}
 
 	def _worker(value: str) -> Tuple[str, str]:
-		return value, translate_text(value, mapping_path=mapping_path)
+		return value, translate_text(value, mapping_path=mapping_path, target_language=target_language)
 
 	progress_bar = None
 	if tqdm and cleaned:

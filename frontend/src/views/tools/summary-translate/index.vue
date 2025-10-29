@@ -85,11 +85,42 @@
                 翻译设置
               </h3>
 
+              <!-- 语言选择 - 一键切换 -->
+              <div class="language-selection mb-6">
+                <el-form-item label="翻译语言">
+                  <div class="language-buttons">
+                    <el-button-group class="w-full">
+                      <el-button
+                        :type="form.targetLanguage === 'en' ? 'primary' : 'default'"
+                        @click="switchLanguage('en')"
+                        class="flex-1"
+                        size="large"
+                      >
+                        <el-icon class="mr-2"><Translation /></el-icon>
+                        中 → 英
+                      </el-button>
+                      <el-button
+                        :type="form.targetLanguage === 'zh' ? 'primary' : 'default'"
+                        @click="switchLanguage('zh')"
+                        class="flex-1"
+                        size="large"
+                      >
+                        <el-icon class="mr-2"><Translation /></el-icon>
+                        英 → 中
+                      </el-button>
+                    </el-button-group>
+                  </div>
+                  <el-text type="info" size="small" class="mt-2 block">
+                    {{ form.targetLanguage === 'en' ? '将中文摘要翻译为英文' : '将英文摘要翻译为中文' }}
+                  </el-text>
+                </el-form-item>
+              </div>
+
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <el-form-item label="摘要列名" prop="summaryColumn">
                   <el-input
                     v-model="form.summaryColumn"
-                    placeholder="例如：费用摘要"
+                    :placeholder="form.targetLanguage === 'en' ? '例如：费用摘要' : 'e.g., Description'"
                     clearable
                   >
                     <template #prepend>
@@ -113,7 +144,7 @@
                 <el-form-item label="输出列名" prop="outputColumn">
                   <el-input
                     v-model="form.outputColumn"
-                    placeholder="例如：摘要翻译"
+                    :placeholder="form.targetLanguage === 'en' ? '例如：摘要翻译' : 'e.g., Translation'"
                     clearable
                   >
                     <template #prepend>
@@ -431,7 +462,8 @@ const form = reactive({
   forceTranslate: false,
   skipEmpty: true,
   maxWorkers: 3,
-  requestsPerSecond: 0.6
+  requestsPerSecond: 0.6,
+  targetLanguage: 'en' // 'en' for Chinese to English, 'zh' for English to Chinese
 })
 
 // 表单验证规则
@@ -489,6 +521,24 @@ const handleMappingFileRemove = () => {
   form.mappingFile = null
 }
 
+// 语言切换功能
+const switchLanguage = (language) => {
+  form.targetLanguage = language
+
+  // 根据语言切换默认值
+  if (language === 'en') {
+    // 中译英
+    form.summaryColumn = form.summaryColumn === 'Description' ? '费用摘要' : form.summaryColumn
+    form.outputColumn = form.outputColumn === 'Translation' ? '摘要翻译' : form.outputColumn
+  } else {
+    // 英译中
+    form.summaryColumn = form.summaryColumn === '费用摘要' ? 'Description' : form.summaryColumn
+    form.outputColumn = form.outputColumn === '摘要翻译' ? 'Translation' : form.outputColumn
+  }
+
+  ElMessage.success(`已切换到${language === 'en' ? '中译英' : '英译中'}模式`)
+}
+
 // 提交翻译
 const handleSubmit = async () => {
   if (!formRef.value) return
@@ -514,6 +564,7 @@ const handleSubmit = async () => {
     formData.append('output_column', form.outputColumn)
     formData.append('translation_workers', form.maxWorkers)
     formData.append('translation_rps', form.requestsPerSecond)
+    formData.append('target_language', form.targetLanguage)
 
     if (form.sheetName) {
       formData.append('sheet_name', form.sheetName)
@@ -559,11 +610,20 @@ const startTranslation = async (formData) => {
 
         // 添加翻译示例
         if (progress.samples.length < 3 && Math.random() > 0.7) {
-          const examples = [
-            { original: '办公用品采购', translated: 'Office supplies purchase' },
-            { original: '客户招待费', translated: 'Client entertainment expenses' },
-            { original: '差旅交通费', translated: 'Business travel expenses' }
-          ]
+          let examples
+          if (form.targetLanguage === 'en') {
+            examples = [
+              { original: '办公用品采购', translated: 'Office supplies purchase' },
+              { original: '客户招待费', translated: 'Client entertainment expenses' },
+              { original: '差旅交通费', translated: 'Business travel expenses' }
+            ]
+          } else {
+            examples = [
+              { original: 'Office supplies purchase', translated: '办公用品采购' },
+              { original: 'Client entertainment expenses', translated: '客户招待费' },
+              { original: 'Business travel expenses', translated: '差旅交通费' }
+            ]
+          }
           progress.samples.push(examples[progress.samples.length])
         }
       }
@@ -737,5 +797,27 @@ const handleReset = () => {
 .advanced-content {
   overflow: hidden;
   transition: all 0.3s ease-in-out;
+}
+
+/* 语言选择按钮样式 */
+.language-buttons {
+  margin-top: 8px;
+}
+
+.language-buttons :deep(.el-button-group) {
+  display: flex;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.language-buttons :deep(.el-button) {
+  border-radius: 0;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.language-buttons :deep(.el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 </style>
