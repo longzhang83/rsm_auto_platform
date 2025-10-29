@@ -34,6 +34,9 @@ class SummaryTranslatorConfig:
     translation_requests_per_second: float = 0.6
     target_language: str = "en"  # 目标语言: "en" 为英文, "zh" 为中文
 
+    # 进度回调
+    progress_callback: Optional[callable] = None  # 进度回调函数
+
     # 其他配置
     skip_existing: bool = True  # 跳过已存在的翻译
     skip_empty: bool = True  # 跳过空值
@@ -51,6 +54,7 @@ class SummaryTranslatorConfig:
             translation_max_workers=self.translation_max_workers,
             translation_requests_per_second=self.translation_requests_per_second,
             target_language=self.target_language,
+            progress_callback=self.progress_callback,
             skip_existing=self.skip_existing,
             skip_empty=self.skip_empty,
         )
@@ -68,23 +72,31 @@ class SummaryTranslator:
         if not self.config.input_file.exists():
             raise FileNotFoundError(f"输入文件不存在: {self.config.input_file}")
 
-        # 读取Excel文件
-        excel_file = pd.ExcelFile(self.config.input_file, engine="openpyxl")
+        # 直接使用pandas.read_excel读取，避免文件锁定问题
+        try:
+            if self.config.sheet_name is not None:
+                sheet_name = self.config.sheet_name
+                # 先检查工作表是否存在
+                excel_file = pd.ExcelFile(self.config.input_file, engine="openpyxl")
+                try:
+                    if isinstance(sheet_name, str) and sheet_name not in excel_file.sheet_names:
+                        available_sheets = ", ".join(excel_file.sheet_names)
+                        raise ValueError(f"工作表 '{sheet_name}' 不存在。可用的工作表: {available_sheets}")
+                    if isinstance(sheet_name, int) and sheet_name >= len(excel_file.sheet_names):
+                        raise ValueError(f"工作表索引 {sheet_name} 超出范围。可用的工作表: 0-{len(excel_file.sheet_names)-1}")
+                finally:
+                    excel_file.close()
 
-        # 确定工作表
-        if self.config.sheet_name is not None:
-            sheet_name = self.config.sheet_name
-            if isinstance(sheet_name, str) and sheet_name not in excel_file.sheet_names:
-                available_sheets = ", ".join(excel_file.sheet_names)
-                raise ValueError(f"工作表 '{sheet_name}' 不存在。可用的工作表: {available_sheets}")
-            if isinstance(sheet_name, int) and sheet_name >= len(excel_file.sheet_names):
-                raise ValueError(f"工作表索引 {sheet_name} 超出范围。可用的工作表: 0-{len(excel_file.sheet_names)-1}")
-        else:
-            sheet_name = excel_file.sheet_names[0]  # 使用第一个工作表
+                # 读取数据
+                df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="openpyxl")
+            else:
+                # 读取第一个工作表
+                df = pd.read_excel(self.config.input_file, header=0, engine="openpyxl")
 
-        # 读取数据
-        df = excel_file.parse(sheet_name=sheet_name, header=0)
-        df.columns = [str(col).strip() for col in df.columns]
+            df.columns = [str(col).strip() for col in df.columns]
+
+        except Exception as e:
+            raise RuntimeError(f"读取Excel文件失败: {e}") from e
 
         # 检查摘要列是否存在
         if self.config.summary_column not in df.columns:
@@ -161,18 +173,24 @@ class SummaryTranslator:
 
     def save_results(self, df: pd.DataFrame) -> Path:
         """保存翻译结果"""
-        if self.config.inplace:
-            # 直接修改原文件
-            output_path = self.config.input_file
+        # 强制使用不同的输出文件名，避免文件锁定问题
+        if self.config.output_file:
+            output_path = self.config.output_file
         else:
-            # 保存到新文件
-            if self.config.output_file:
-                output_path = self.config.output_file
+            # 生成默认输出文件名，确保不会覆盖原文件
+            input_stem = self.config.input_file.stem
+            input_suffix = self.config.input_file.suffix
+
+            # 检查原文件名是否已包含_translated
+            if '_translated' in input_stem:
+                # 如果已包含，添加时间戳
+                import time
+                timestamp = int(time.time())
+                output_stem = f"{input_stem}_{timestamp}"
             else:
-                # 生成默认输出文件名
-                input_stem = self.config.input_file.stem
-                input_suffix = self.config.input_file.suffix
-                output_path = self.config.input_file.parent / f"{input_stem}_translated{input_suffix}"
+                output_stem = f"{input_stem}_translated"
+
+            output_path = self.config.input_file.parent / f"{output_stem}{input_suffix}"
 
         # 确保输出目录存在
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -192,9 +210,15 @@ class SummaryTranslator:
     def translate(self) -> tuple[pd.DataFrame, Path]:
         """执行完整的翻译流程"""
         # 1. 加载数据
+        if self.config.progress_callback:
+            self.config.progress_callback(5.00, "正在加载Excel文件...")
+
         df = self.load_data()
 
         # 2. 提取唯一摘要
+        if self.config.progress_callback:
+            self.config.progress_callback(15.00, "正在分析摘要文本...")
+
         unique_summaries = self.extract_unique_summaries(df)
 
         if not unique_summaries:
@@ -204,17 +228,48 @@ class SummaryTranslator:
         print(f"找到 {len(unique_summaries)} 个唯一摘要文本")
 
         # 3. 翻译摘要
-        translations = self.translate_summaries(unique_summaries)
+        if self.config.progress_callback:
+            self.config.progress_callback(25.00, "开始翻译处理...")
+
+        def translation_progress(current, total, current_item):
+            """翻译进度回调"""
+            percentage = 25.00 + (current / total) * 60.00  # 25%-85%是翻译阶段
+            percentage = round(percentage * 100) / 100  # 保留2位小数
+            if self.config.progress_callback:
+                self.config.progress_callback(percentage, f"正在翻译: {current_item}")
+
+        translations = self.translate_summaries_with_progress(unique_summaries, translation_progress)
 
         # 4. 应用翻译结果
+        if self.config.progress_callback:
+            self.config.progress_callback(90.00, "正在应用翻译结果...")
+
         result_df = self.apply_translations(df, translations)
 
         # 5. 保存结果
+        if self.config.progress_callback:
+            self.config.progress_callback(95.00, "正在保存翻译文件...")
+
         output_path = self.save_results(result_df)
 
         print(f"翻译完成，结果保存到: {output_path}")
 
+        if self.config.progress_callback:
+            self.config.progress_callback(100.00, "翻译完成")
+
         return result_df, output_path
+
+    def translate_summaries_with_progress(self, summaries: List[str], progress_callback: callable) -> Dict[str, str]:
+        """带进度回调的翻译摘要文本"""
+        return batch_translate_texts(
+            summaries,
+            max_workers=self.config.translation_max_workers,
+            requests_per_second=self.config.translation_requests_per_second,
+            progress_description="翻译摘要",
+            mapping_path=self.config.translation_mapping_path,
+            target_language=self.config.target_language,
+            progress_callback=progress_callback,
+        )
 
 
 def translate_summaries_from_excel(

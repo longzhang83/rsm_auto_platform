@@ -6,7 +6,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import JSONResponse
+import asyncio
+import json
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -24,9 +27,9 @@ async def lifespan(app: FastAPI):
     if settings.serve_frontend:
         frontend_dist = settings.frontend_build_path
         if frontend_dist.exists():
-            print(f"🎯 集成部署模式：服务前端静态文件 from {frontend_dist}")
+                print(f"Integrated deployment mode: serving frontend static files from {frontend_dist}")
         else:
-            print(f"⚠️  前端构建目录不存在: {frontend_dist}")
+            print(f"警告：前端构建目录不存在: {frontend_dist}")
             print("请先构建前端: cd frontend && npm run build")
 
     yield

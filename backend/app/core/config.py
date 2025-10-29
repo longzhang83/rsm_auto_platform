@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     port: int = 8888
 
     # 集成部署配置
-    serve_frontend: bool = True  # 是否同时服务前端静态文件
+    serve_frontend: bool = False  # 是否同时服务前端静态文件
+
     frontend_build_path: Path = Path(__file__).resolve().parent.parent.parent.parent  / "static"
 
     # 数据目录配置

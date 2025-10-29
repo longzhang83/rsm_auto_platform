@@ -35,7 +35,7 @@ async def translate_summaries(
     """
     try:
         print(f"收到翻译请求: file={excel_file.filename}, column={summary_column}, force={force}, target_language={target_language}")
-        zip_buffer = await translate_service.translate_summaries(
+        zip_buffer, task_id = await translate_service.translate_summaries(
             excel_file=excel_file,
             summary_column=summary_column,
             sheet_name=sheet_name,
@@ -45,7 +45,7 @@ async def translate_summaries(
             target_language=target_language,
         )
 
-        headers = {"Content-Disposition": "attachment; filename=translated_summaries.zip"}
+        headers = {"Content-Disposition": f"attachment; filename=translated_summaries.zip"}
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",

@@ -21,3 +21,4 @@ class TranslateResponse(BaseModel):
     translated_count: int = Field(..., description="已翻译数量")
     download_url: Optional[str] = Field(None, description="下载链接")
     target_language: str = Field(..., description="使用的目标语言")
+    task_id: Optional[str] = Field(None, description="任务ID，用于进度查询")

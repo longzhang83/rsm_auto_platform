@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import vouchers, translate
+from app.api.v1.endpoints import vouchers, translate, progress, translate_v2
 
 api_router = APIRouter()
 
 # 包含各个端点路由
 api_router.include_router(vouchers.router, prefix="/vouchers", tags=["vouchers"])
 api_router.include_router(translate.router, prefix="/translate", tags=["translate"])
+api_router.include_router(translate_v2.router, prefix="/translate", tags=["translate_v2"])
+api_router.include_router(progress.router, tags=["progress"])

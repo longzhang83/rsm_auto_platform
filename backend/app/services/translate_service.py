@@ -11,6 +11,7 @@ from fastapi import HTTPException, UploadFile
 
 from accounting_voucher_generation.summary_translator import SummaryTranslator, SummaryTranslatorConfig
 from app.core.config import settings
+from app.core.progress_manager import progress_manager
 from app.api.deps import validate_file_upload
 
 
@@ -29,7 +30,8 @@ class TranslateService:
         translation_file: Optional[UploadFile] = None,
         force: bool = False,
         target_language: str = "en",
-    ) -> BinaryIO:
+        task_id: Optional[str] = None,
+    ) -> tuple[BinaryIO, str]:
         """翻译摘要文本"""
 
         # 验证文件
@@ -41,14 +43,28 @@ class TranslateService:
             if not excel_bytes:
                 raise HTTPException(status_code=400, detail="Excel文件为空，请重新上传")
 
-            # 创建临时文件
+            # 检查文件大小并提供建议
+            fileSizeMB = len(excel_bytes) / (1024 * 1024)
+            if fileSizeMB > 10:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"文件过大 ({fileSizeMB:.1f}MB)，请分割为小于10MB的文件"
+                )
+            elif fileSizeMB > 5:
+                print(f"警告：大文件上传 ({fileSizeMB:.1f}MB)，可能需要较长时间处理")
+
+            # 创建临时文件，使用更安全的方式
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_path = Path(tmpdir)
-                input_file = tmp_path / "input.xlsx"
+
+                # 生成唯一的文件名避免冲突
+                import uuid
+                unique_id = str(uuid.uuid4())[:8]
+                input_file = tmp_path / f"input_{unique_id}.xlsx"
                 input_file.write_bytes(excel_bytes)
 
                 # 处理翻译映射文件
-                mapping_path = tmp_path / "translation_mapping.csv"
+                mapping_path = tmp_path / f"mapping_{unique_id}.csv"
                 if translation_file:
                     validate_file_upload(translation_file)
                     mapping_bytes = await translation_file.read()
@@ -60,35 +76,74 @@ class TranslateService:
                     default_mapping_path = self.settings.translation_mapping_path
                     print(f"尝试加载默认翻译映射文件: {default_mapping_path}")
                     if default_mapping_path.exists():
-                        mapping_path.write_bytes(default_mapping_path.read_bytes())
+                        # 复制文件而不是直接读取，避免锁定
+                        import shutil
+                        shutil.copy2(default_mapping_path, mapping_path)
                         print("默认翻译映射文件加载成功")
                     else:
                         mapping_path.write_text("source,target\n", encoding="utf-8-sig")
                         print("创建新的翻译映射文件")
 
-                # 配置翻译器
-                config = SummaryTranslatorConfig(
-                    input_file=input_file,
-                    sheet_name=sheet_name,
-                    summary_column=summary_column,
-                    output_column=output_column,
-                    translation_mapping_path=mapping_path,
-                    skip_existing=not force,
-                    target_language=target_language,
-                )
+                try:
+                    # 使用传入的task_id或创建新的
+                    current_task_id = task_id or progress_manager.create_task()
+                    progress_manager.update_progress(current_task_id, 0.0, "开始处理文件...")
 
-                # 执行翻译
-                translator = SummaryTranslator(config)
-                df_out, output_path = translator.translate()
+                    def progress_callback(percentage: float, message: str, completed: int = 0, total: int = 0, current_item: str = ""):
+                        """进度回调函数"""
+                        progress_manager.update_progress(current_task_id, percentage, message, completed, total, current_item)
 
-                if df_out.empty:
-                    raise HTTPException(status_code=400, detail="翻译结果为空，请检查上传数据是否正确。")
+                    # 配置翻译器
+                    config = SummaryTranslatorConfig(
+                        input_file=input_file,
+                        sheet_name=sheet_name,
+                        summary_column=summary_column,
+                        output_column=output_column,
+                        translation_mapping_path=mapping_path,
+                        skip_existing=not force,
+                        target_language=target_language,
+                        progress_callback=progress_callback,
+                    )
 
-                # 读取输出文件内容
-                output_bytes = output_path.read_bytes()
+                    print(f"开始翻译任务 [{task_id}]")
 
-                # 创建结果ZIP
-                return self._create_translation_zip(output_path, mapping_path, excel_file.filename, output_bytes)
+                    try:
+                        # 在线程池中执行翻译，避免阻塞事件循环
+                        import asyncio
+                        import concurrent.futures
+
+                        def run_translation_sync():
+                            """在线程池中运行的同步翻译函数"""
+                            translator = SummaryTranslator(config)
+                            df_out, output_path = translator.translate()
+                            return df_out, output_path
+
+                        # 使用线程池执行器运行同步翻译
+                        loop = asyncio.get_event_loop()
+                        with concurrent.futures.ThreadPoolExecutor() as executor:
+                            df_out, output_path = await loop.run_in_executor(executor, run_translation_sync)
+
+                        if df_out.empty:
+                            progress_manager.fail_task(task_id, "翻译结果为空，请检查上传数据是否正确")
+                            raise HTTPException(status_code=400, detail="翻译结果为空，请检查上传数据是否正确。")
+
+                        # 读取输出文件内容
+                        output_bytes = output_path.read_bytes()
+
+                        print(f"翻译任务 [{task_id}] 完成")
+                        progress_manager.complete_task(task_id, "翻译完成")
+
+                        # 创建结果ZIP
+                        zip_file = self._create_translation_zip(output_path, mapping_path, excel_file.filename, output_bytes)
+                        return zip_file, task_id
+
+                    except Exception as e:
+                        progress_manager.fail_task(task_id, str(e))
+                        raise
+
+                except Exception as e:
+                    print(f"翻译过程中发生错误: {e}")
+                    raise HTTPException(status_code=500, detail=f"翻译摘要时发生错误：{e}") from e
 
         except HTTPException:
             raise

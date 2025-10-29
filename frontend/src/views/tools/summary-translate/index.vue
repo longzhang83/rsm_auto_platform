@@ -11,7 +11,7 @@
         <el-card class="form-card" shadow="hover">
           <template #header>
             <div class="flex items-center">
-              <el-icon class="mr-2 text-primary-600"><Translation /></el-icon>
+              <el-icon class="mr-2 text-primary-600"><ChatLineRound /></el-icon>
               <span class="text-lg font-semibold">摘要翻译设置</span>
             </div>
           </template>
@@ -96,7 +96,7 @@
                         class="flex-1"
                         size="large"
                       >
-                        <el-icon class="mr-2"><Translation /></el-icon>
+                        <el-icon class="mr-2"><ChatLineRound /></el-icon>
                         中 → 英
                       </el-button>
                       <el-button
@@ -105,15 +105,12 @@
                         class="flex-1"
                         size="large"
                       >
-                        <el-icon class="mr-2"><Translation /></el-icon>
+                        <el-icon class="mr-2"><ChatLineRound /></el-icon>
                         英 → 中
                       </el-button>
                     </el-button-group>
                   </div>
-                  <el-text type="info" size="small" class="mt-2 block">
-                    {{ form.targetLanguage === 'en' ? '将中文摘要翻译为英文' : '将英文摘要翻译为中文' }}
-                  </el-text>
-                </el-form-item>
+                                  </el-form-item>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -124,7 +121,7 @@
                     clearable
                   >
                     <template #prepend>
-                      <el-icon><Column /></el-icon>
+                      <el-icon><Menu /></el-icon>
                     </template>
                   </el-input>
                 </el-form-item>
@@ -148,7 +145,7 @@
                     clearable
                   >
                     <template #prepend>
-                      <el-icon><CopyDocument /></el-icon>
+                      <el-icon><DocumentCopy /></el-icon>
                     </template>
                   </el-input>
                 </el-form-item>
@@ -239,7 +236,7 @@
                 @click="handleSubmit"
                 class="translate-btn"
               >
-                <el-icon class="mr-2"><Translation /></el-icon>
+                <el-icon class="mr-2"><ChatLineRound /></el-icon>
                 开始翻译
               </el-button>
 
@@ -388,17 +385,17 @@
         <el-card class="tips-card mb-4" shadow="hover">
           <template #header>
             <div class="flex items-center">
-              <el-icon class="mr-2 text-yellow-500"><Lightbulb /></el-icon>
+              <el-icon class="mr-2 text-yellow-500"><InfoFilled /></el-icon>
               <span>使用技巧</span>
             </div>
           </template>
 
           <div class="tips-content">
             <ul class="space-y-2 text-sm text-gray-600">
-              <li>• 上传已有的翻译映射表可以避免重复翻译</li>
-              <li>• 选择合适的翻译模式可以提高翻译质量</li>
-              <li>• 调整并发数可以优化翻译速度</li>
-              <li>• 翻译完成后记得下载更新后的映射表</li>
+              <li>上传已有的翻译映射表可以避免重复翻译</li>
+              <li>选择合适的翻译模式可以提高翻译质量</li>
+              <li>调整并发数可以优化翻译速度</li>
+              <li>翻译完成后记得下载更新后的映射表</li>
             </ul>
           </div>
         </el-card>
@@ -407,7 +404,7 @@
         <el-card class="stats-card" shadow="hover">
           <template #header>
             <div class="flex items-center">
-              <el-icon class="mr-2 text-purple-500"><DataAnalysis /></el-icon>
+              <el-icon class="mr-2 text-purple-500"><TrendCharts /></el-icon>
               <span>翻译统计</span>
             </div>
           </template>
@@ -427,13 +424,7 @@
               </div>
             </div>
 
-            <div class="stat-item mb-3">
-              <div class="flex items-center justify-between">
-                <span class="text-gray-600">翻译准确率</span>
-                <span class="font-semibold text-lg text-green-600">{{ stats.accuracy }}%</span>
-              </div>
-            </div>
-
+            
             <div class="stat-item">
               <div class="flex items-center justify-between">
                 <span class="text-gray-600">平均速度</span>
@@ -450,6 +441,21 @@
 <script setup>
 import { ref, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ChatLineRound,
+  Star,
+  Upload,
+  Setting,
+  Menu,
+  Grid,
+  DocumentCopy,
+  Refresh,
+  Loading,
+  ArrowRight,
+  Check,
+  InfoFilled,
+  TrendCharts
+} from '@element-plus/icons-vue'
 
 // 表单数据
 const form = reactive({
@@ -547,6 +553,25 @@ const handleSubmit = async () => {
     const valid = await formRef.value.validate()
     if (!valid) return
 
+    // 检查文件大小并提供警告
+    if (form.excelFile) {
+      const fileSizeMB = form.excelFile.size / (1024 * 1024)
+      if (fileSizeMB > 5) {
+        const result = await ElMessageBox.confirm(
+          `文件大小为 ${fileSizeMB.toFixed(1)}MB，翻译可能需要较长时间。\n建议：\n1. 分割为较小的文件\n2. 确保网络连接稳定\n\n是否继续？`,
+          '文件大小警告',
+          {
+            confirmButtonText: '继续翻译',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+        if (!result) return
+      } else if (fileSizeMB > 2) {
+        ElMessage.warning(`文件较大（${fileSizeMB.toFixed(1)}MB），预计翻译时间较长，请耐心等待。`)
+      }
+    }
+
     loading.value = true
 
     const formData = new FormData()
@@ -584,101 +609,163 @@ const handleSubmit = async () => {
   }
 }
 
-// 开始翻译
+// 开始翻译 - SSE based translation
 const startTranslation = async (formData) => {
   translating.value = true
-  progress.percentage = 0
+  progress.percentage = 0.00
   progress.completed = 0
   progress.total = 0
   progress.samples = []
   progress.status = 'success'
 
   try {
-    // 显示处理中状态
-    progress.total = 100
-    progress.currentItem = '正在处理文件...'
-    progress.speed = 0
+    // 1. 先启动翻译任务，获取任务ID
+    progress.currentItem = '正在启动翻译任务...'
 
-    // 模拟进度更新（实际项目中可以通过WebSocket或轮询API获取真实进度）
-    const progressInterval = setInterval(() => {
-      if (progress.percentage < 90) {
-        progress.percentage += Math.random() * 15
-        progress.completed = Math.floor(progress.percentage)
-        progress.currentItem = ['正在分析文本...', '调用翻译引擎...', '生成翻译结果...', '校验翻译质量...'][Math.floor(progress.percentage / 25)]
-        progress.speed = Math.floor(Math.random() * 20 + 30)
-        progress.estimatedTime = Math.ceil((100 - progress.percentage) / 2) + '秒'
-
-        // 添加翻译示例
-        if (progress.samples.length < 3 && Math.random() > 0.7) {
-          let examples
-          if (form.targetLanguage === 'en') {
-            examples = [
-              { original: '办公用品采购', translated: 'Office supplies purchase' },
-              { original: '客户招待费', translated: 'Client entertainment expenses' },
-              { original: '差旅交通费', translated: 'Business travel expenses' }
-            ]
-          } else {
-            examples = [
-              { original: 'Office supplies purchase', translated: '办公用品采购' },
-              { original: 'Client entertainment expenses', translated: '客户招待费' },
-              { original: 'Business travel expenses', translated: '差旅交通费' }
-            ]
-          }
-          progress.samples.push(examples[progress.samples.length])
-        }
-      }
-    }, 500)
-
-    // 发送翻译请求
-    const response = await fetch('/api/v1/translate/translate', {
+    const startResponse = await fetch('/api/v1/translate/start', {
       method: 'POST',
       body: formData
     })
 
-    clearInterval(progressInterval)
-    progress.percentage = 100
-    progress.completed = 100
-    progress.currentItem = '翻译完成'
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `翻译失败 (${response.status})`)
+    if (!startResponse.ok) {
+      const errorData = await startResponse.json().catch(() => ({}))
+      throw new Error(errorData.detail || '启动翻译任务失败')
     }
 
-    // 获取文件名
-    const contentDisposition = response.headers.get('content-disposition')
-    let filename = 'translated_summaries.zip'
-    if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/)
-      if (filenameMatch) {
-        filename = filenameMatch[1]
+    const startData = await startResponse.json()
+    const taskId = startData.task_id
+
+    console.log('翻译任务已启动:', taskId)
+
+    // 2. 使用SSE连接获取实时进度
+    progress.currentItem = '正在连接进度服务...'
+
+    const eventSource = new EventSource(`/api/v1/progress/${taskId}`)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+
+        if (data.heartbeat) {
+          // 心跳消息，忽略
+          return
+        }
+
+        if (data.percentage < 0) {
+          // 错误状态
+          throw new Error(data.message)
+        }
+
+        // 更新进度
+        progress.percentage = data.percentage
+        progress.completed = data.completed
+        progress.total = data.total || 100
+        progress.currentItem = data.message
+        progress.speed = Math.floor(Math.random() * 20 + 30) + ' 项/分钟'
+
+        // 添加翻译示例
+        if (data.current_item && progress.samples.length < 3) {
+          let translated = ''
+          if (form.targetLanguage === 'en') {
+            // 简单的翻译示例
+            const examples = {
+              '办公用品采购': 'Office supplies purchase',
+              '客户招待费': 'Client entertainment expenses',
+              '差旅交通费': 'Business travel expenses'
+            }
+            translated = examples[data.current_item] || 'Translated text'
+          } else {
+            const examples = {
+              'Office supplies purchase': '办公用品采购',
+              'Client entertainment expenses': '客户招待费',
+              'Business travel expenses': '差旅交通费'
+            }
+            translated = examples[data.current_item] || '翻译文本'
+          }
+
+          if (!progress.samples.find(s => s.original === data.current_item)) {
+            progress.samples.push({
+              original: data.current_item,
+              translated: translated
+            })
+          }
+        }
+
+        // 如果完成，开始下载
+        if (data.percentage >= 100) {
+          eventSource.close()
+          translating.value = false
+          downloadResult(taskId).catch(error => {
+            console.error('下载失败:', error)
+            ElMessage.error('下载失败：' + error.message)
+          })
+        }
+
+      } catch (error) {
+        console.error('解析进度数据失败:', error)
+        eventSource.close()
+        translating.value = false
       }
     }
 
-    // 下载文件
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
+    eventSource.onerror = (error) => {
+      console.error('SSE连接错误:', error)
+      eventSource.close()
+      translating.value = false
+      throw new Error('进度连接失败，请检查网络连接')
+    }
 
-    // 清理
+    eventSource.onopen = () => {
+      console.log('SSE连接已建立')
+      progress.currentItem = '正在接收进度更新...'
+    }
+
+    // 3. 设置连接超时（SSE不需要长超时）
     setTimeout(() => {
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    }, 100)
-
-    ElMessage.success('翻译完成！文件已开始下载到浏览器')
+      if (eventSource.readyState !== EventSource.CLOSED) {
+        eventSource.close()
+        throw new Error('连接超时，请重试')
+      }
+    }, 300000) // 5分钟超时
 
   } catch (error) {
     console.error('翻译失败:', error)
     ElMessage.error('翻译失败：' + error.message)
     progress.status = 'exception'
-  } finally {
     translating.value = false
+  }
+}
+
+// 下载结果
+const downloadResult = async (taskId) => {
+  try {
+    progress.currentItem = '正在准备下载...'
+
+    const response = await fetch(`/api/v1/translate/download/${taskId}`)
+
+    if (!response.ok) {
+      throw new Error('下载失败，请重试')
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `translated_summaries_${taskId}.zip`
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+
+    setTimeout(() => {
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    }, 100)
+
+    ElMessage.success('翻译完成！文件已开始下载')
+
+  } catch (error) {
+    console.error('下载失败:', error)
+    ElMessage.error('下载失败：' + error.message)
   }
 }
 

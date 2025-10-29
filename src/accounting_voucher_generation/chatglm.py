@@ -243,6 +243,7 @@ def batch_translate_texts(
 	progress_description: str = "翻译摘要",
 	mapping_path: Optional[Union[str, Path]] = None,
 	target_language: str = "en",
+	progress_callback: Optional[callable] = None,
 ) -> Dict[str, str]:
 	cleaned: List[str] = []
 	seen: set[str] = set()
@@ -264,23 +265,41 @@ def batch_translate_texts(
 	def _worker(value: str) -> Tuple[str, str]:
 		return value, translate_text(value, mapping_path=mapping_path, target_language=target_language)
 
-	progress_bar = None
-	if tqdm and cleaned:
-		progress_bar = tqdm(total=len(cleaned), desc=progress_description, unit="项", leave=False)
+	completed_count = 0
 
-	with ThreadPoolExecutor(max_workers=max_workers or 1) as executor:
-		future_to_text = {executor.submit(_worker, value): value for value in cleaned}
-		for future in as_completed(future_to_text):
-			try:
-				original, translated = future.result()
-			except Exception:
-				original, translated = future_to_text[future], future_to_text[future]
-			results[original] = translated or original
-			if progress_bar:
-				progress_bar.update(1)
+	# 使用进度回调或tqdm进度条
+	if progress_callback:
+		# 使用自定义进度回调
+		with ThreadPoolExecutor(max_workers=max_workers or 1) as executor:
+			future_to_text = {executor.submit(_worker, value): value for value in cleaned}
+			for future in as_completed(future_to_text):
+				try:
+					original, translated = future.result()
+				except Exception:
+					original, translated = future_to_text[future], future_to_text[future]
+				results[original] = translated or original
+				completed_count += 1
+				# 调用进度回调
+				progress_callback(completed_count, len(cleaned), original)
+	else:
+		# 使用tqdm进度条
+		progress_bar = None
+		if tqdm and cleaned:
+			progress_bar = tqdm(total=len(cleaned), desc=progress_description, unit="项", leave=False)
 
-	if progress_bar:
-		progress_bar.close()
+		with ThreadPoolExecutor(max_workers=max_workers or 1) as executor:
+			future_to_text = {executor.submit(_worker, value): value for value in cleaned}
+			for future in as_completed(future_to_text):
+				try:
+					original, translated = future.result()
+				except Exception:
+					original, translated = future_to_text[future], future_to_text[future]
+				results[original] = translated or original
+				if progress_bar:
+					progress_bar.update(1)
+
+		if progress_bar:
+			progress_bar.close()
 
 	return results
 
