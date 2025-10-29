@@ -87,11 +87,17 @@ class SummaryTranslator:
                 finally:
                     excel_file.close()
 
-                # 读取数据
+                # 读取数据，先尝试header=0，如果找不到摘要列则尝试header=1
                 df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="openpyxl")
+                if self.config.summary_column not in df.columns:
+                    # 尝试第二行作为标题
+                    df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=1, engine="openpyxl")
             else:
-                # 读取第一个工作表
+                # 读取第一个工作表，先尝试header=0，如果找不到摘要列则尝试header=1
                 df = pd.read_excel(self.config.input_file, header=0, engine="openpyxl")
+                if self.config.summary_column not in df.columns:
+                    # 尝试第二行作为标题
+                    df = pd.read_excel(self.config.input_file, header=1, engine="openpyxl")
 
             df.columns = [str(col).strip() for col in df.columns]
 
@@ -157,14 +163,14 @@ class SummaryTranslator:
                 translated_text = translations[original_text]
                 # 根据目标语言格式化输出
                 if self.config.target_language == "en":
-                    # 中译英：中文-英文格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                    # 中译英：中文--英文格式
+                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
                 elif self.config.target_language == "zh":
-                    # 英译中：英文-中文格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                    # 英译中：英文--中文格式
+                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
                 else:
                     # 默认格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}-{translated_text}"
+                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
             else:
                 # 如果没有找到翻译，使用原文
                 result_df.at[idx, self.config.output_column] = original_text
@@ -195,15 +201,34 @@ class SummaryTranslator:
         # 确保输出目录存在
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # 保存文件
-        if output_path.suffix.lower() in ['.xlsx', '.xls']:
-            df.to_excel(output_path, index=False, engine="openpyxl")
-        elif output_path.suffix.lower() == '.csv':
-            df.to_csv(output_path, index=False, encoding="utf-8-sig")
-        else:
-            # 默认保存为Excel
-            output_path = output_path.with_suffix('.xlsx')
-            df.to_excel(output_path, index=False, engine="openpyxl")
+        # 保存文件，添加重试机制
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if output_path.suffix.lower() in ['.xlsx', '.xls']:
+                    df.to_excel(output_path, index=False, engine="openpyxl")
+                elif output_path.suffix.lower() == '.csv':
+                    df.to_csv(output_path, index=False, encoding="utf-8-sig")
+                else:
+                    # 默认保存为Excel
+                    output_path = output_path.with_suffix('.xlsx')
+                    df.to_excel(output_path, index=False, engine="openpyxl")
+                break  # 成功保存，退出重试循环
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    # 最后一次重试失败，抛出异常
+                    raise
+                else:
+                    # 等待一段时间后重试
+                    import time
+                    time.sleep(1)
+                    # 如果文件被锁定，尝试生成新的文件名
+                    if "locked" in str(e).lower() or "being used" in str(e).lower():
+                        import time
+                        timestamp = int(time.time())
+                        name_part = output_path.stem
+                        ext_part = output_path.suffix
+                        output_path = output_path.parent / f"{name_part}_{timestamp}{ext_part}"
 
         return output_path
 
@@ -236,7 +261,7 @@ class SummaryTranslator:
             percentage = 25.00 + (current / total) * 60.00  # 25%-85%是翻译阶段
             percentage = round(percentage * 100) / 100  # 保留2位小数
             if self.config.progress_callback:
-                self.config.progress_callback(percentage, f"正在翻译: {current_item}")
+                self.config.progress_callback(percentage, f"正在翻译: {current_item}", current, total, current_item)
 
         translations = self.translate_summaries_with_progress(unique_summaries, translation_progress)
 

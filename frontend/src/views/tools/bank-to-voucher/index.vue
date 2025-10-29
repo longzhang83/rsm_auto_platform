@@ -34,7 +34,7 @@
 
               <div class="feature-preview-item">
                 <div class="feature-icon bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-green-600"><Magic /></el-icon>
+                  <el-icon class="text-2xl text-green-600"><Tools /></el-icon>
                 </div>
                 <h4 class="font-semibold text-gray-700 mb-2">智能分类</h4>
                 <p class="text-sm text-gray-500">
@@ -137,6 +137,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Tools } from '@element-plus/icons-vue'
 
 const notificationForm = reactive({
   email: ''

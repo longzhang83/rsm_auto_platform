@@ -252,70 +252,7 @@
           </el-form>
         </el-card>
 
-        <!-- 翻译进度 -->
-        <el-card v-if="translating" class="progress-card mt-6" shadow="hover">
-          <template #header>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center">
-                <el-icon class="mr-2 text-blue-500"><Loading /></el-icon>
-                <span>翻译进度</span>
-              </div>
-              <el-button type="text" @click="cancelTranslate">取消翻译</el-button>
-            </div>
-          </template>
-
-          <div class="progress-content">
-            <el-progress
-              :percentage="progress.percentage"
-              :status="progress.status"
-              :stroke-width="12"
-            >
-              <template #default="{ percentage }">
-                <span class="percentage-value">{{ percentage }}%</span>
-              </template>
-            </el-progress>
-
-            <div class="progress-info mt-4">
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span class="text-gray-500">已处理：</span>
-                  <span class="font-semibold">{{ progress.completed }} / {{ progress.total }}</span>
-                </div>
-                <div>
-                  <span class="text-gray-500">预计剩余时间：</span>
-                  <span class="font-semibold">{{ progress.estimatedTime }}</span>
-                </div>
-                <div>
-                  <span class="text-gray-500">当前处理：</span>
-                  <span class="font-semibold text-blue-600">{{ progress.currentItem }}</span>
-                </div>
-                <div>
-                  <span class="text-gray-500">处理速度：</span>
-                  <span class="font-semibold">{{ progress.speed }} 项/分钟</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 翻译结果预览 -->
-            <div v-if="progress.samples.length > 0" class="samples-section mt-6">
-              <h4 class="font-semibold text-gray-700 mb-3">翻译示例</h4>
-              <div class="space-y-2">
-                <div
-                  v-for="(sample, index) in progress.samples"
-                  :key="index"
-                  class="sample-item"
-                >
-                  <div class="flex items-start">
-                    <span class="text-gray-600 mr-2">{{ sample.original }}</span>
-                    <el-icon class="text-gray-400 mt-0.5"><ArrowRight /></el-icon>
-                    <span class="text-blue-600 ml-2">{{ sample.translated }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </el-card>
-      </div>
+        </div>
 
       <!-- 侧边栏 -->
       <div class="lg:col-span-1">
@@ -436,6 +373,81 @@
       </div>
     </div>
   </div>
+
+  <!-- 翻译进度弹窗 -->
+  <el-dialog
+    v-model="translating"
+    title="翻译进度"
+    width="600px"
+    :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    :show-close="false"
+    center
+  >
+    <template #header="{ close }">
+      <div class="flex items-center">
+        <el-icon class="mr-2 text-blue-500"><Loading /></el-icon>
+        <span class="text-lg font-semibold">翻译进度</span>
+      </div>
+    </template>
+
+    <div class="progress-content">
+      <el-progress
+        :percentage="progress.percentage"
+        :status="progress.status"
+        :stroke-width="12"
+      >
+        <template #default="{ percentage }">
+          <span class="percentage-value">{{ percentage }}%</span>
+        </template>
+      </el-progress>
+
+      <div class="progress-info mt-6">
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div class="bg-gray-50 p-3 rounded">
+            <div class="text-gray-500 text-xs mb-1">已处理</div>
+            <div class="font-semibold text-lg">{{ progress.completed }} / {{ progress.total }}</div>
+          </div>
+          <div class="bg-gray-50 p-3 rounded">
+            <div class="text-gray-500 text-xs mb-1">预计剩余时间</div>
+            <div class="font-semibold text-lg">{{ progress.estimatedTime }}</div>
+          </div>
+          <div class="bg-blue-50 p-3 rounded col-span-2">
+            <div class="text-gray-500 text-xs mb-1">当前处理</div>
+            <div class="font-semibold text-blue-600 text-sm">{{ progress.currentItem }}</div>
+          </div>
+          <div class="bg-green-50 p-3 rounded">
+            <div class="text-gray-500 text-xs mb-1">处理速度</div>
+            <div class="font-semibold text-green-600 text-lg">{{ progress.speed }}</div>
+          </div>
+          <div class="bg-yellow-50 p-3 rounded">
+            <div class="text-gray-500 text-xs mb-1">任务状态</div>
+            <div class="font-semibold text-yellow-600 text-sm">
+              {{ progress.percentage >= 100 ? '翻译完成' : '翻译中...' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="flex justify-center">
+        <el-button
+          v-if="progress.percentage < 100"
+          @click="cancelTranslate"
+        >
+          取消翻译
+        </el-button>
+        <el-button
+          v-else
+          type="success"
+          @click="translating = false"
+        >
+          关闭
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -499,8 +511,7 @@ const progress = reactive({
   estimatedTime: '计算中...',
   currentItem: '',
   speed: 0,
-  samples: []
-})
+  })
 
 // 统计数据
 const stats = ref({
@@ -615,8 +626,7 @@ const startTranslation = async (formData) => {
   progress.percentage = 0.00
   progress.completed = 0
   progress.total = 0
-  progress.samples = []
-  progress.status = 'success'
+    progress.status = 'success'
 
   try {
     // 1. 先启动翻译任务，获取任务ID
@@ -663,42 +673,57 @@ const startTranslation = async (formData) => {
         progress.currentItem = data.message
         progress.speed = Math.floor(Math.random() * 20 + 30) + ' 项/分钟'
 
-        // 添加翻译示例
-        if (data.current_item && progress.samples.length < 3) {
-          let translated = ''
-          if (form.targetLanguage === 'en') {
-            // 简单的翻译示例
-            const examples = {
-              '办公用品采购': 'Office supplies purchase',
-              '客户招待费': 'Client entertainment expenses',
-              '差旅交通费': 'Business travel expenses'
-            }
-            translated = examples[data.current_item] || 'Translated text'
-          } else {
-            const examples = {
-              'Office supplies purchase': '办公用品采购',
-              'Client entertainment expenses': '客户招待费',
-              'Business travel expenses': '差旅交通费'
-            }
-            translated = examples[data.current_item] || '翻译文本'
-          }
+        // 计算剩余时间
+        if (data.percentage > 0 && data.percentage < 100) {
+          const remaining = 100 - data.percentage
+          // 从 speed 字符串中提取数字（如 "45 项/分钟" -> 45）
+          const speedMatch = progress.speed.match(/(\d+)/)
+          const speedPerMinute = speedMatch ? parseInt(speedMatch[1]) : 30 // 默认30项/分钟
+          const speedPerSecond = speedPerMinute / 60 // 转换为每秒
 
-          if (!progress.samples.find(s => s.original === data.current_item)) {
-            progress.samples.push({
-              original: data.current_item,
-              translated: translated
-            })
+          if (speedPerSecond > 0) {
+            const estimatedSeconds = Math.ceil(remaining / speedPerSecond)
+
+            if (estimatedSeconds < 60) {
+              progress.estimatedTime = `${estimatedSeconds}秒`
+            } else if (estimatedSeconds < 3600) {
+              const minutes = Math.floor(estimatedSeconds / 60)
+              const seconds = estimatedSeconds % 60
+              progress.estimatedTime = `${minutes}分${seconds}秒`
+            } else {
+              const hours = Math.floor(estimatedSeconds / 3600)
+              const minutes = Math.floor((estimatedSeconds % 3600) / 60)
+              progress.estimatedTime = `${hours}小时${minutes}分钟`
+            }
+          } else {
+            progress.estimatedTime = '计算中...'
           }
+        } else if (data.percentage >= 100) {
+          progress.estimatedTime = '已完成'
+        } else {
+          progress.estimatedTime = '计算中...'
         }
 
+  
         // 如果完成，开始下载
         if (data.percentage >= 100) {
           eventSource.close()
-          translating.value = false
-          downloadResult(taskId).catch(error => {
-            console.error('下载失败:', error)
-            ElMessage.error('下载失败：' + error.message)
-          })
+          progress.currentItem = '翻译完成，正在准备下载...'
+
+          // 先下载，下载完成后再关闭弹窗
+          downloadResult(taskId)
+            .then(() => {
+              // 下载成功，延迟关闭弹窗让用户看到成功消息
+              setTimeout(() => {
+                translating.value = false
+              }, 2000)
+            })
+            .catch(error => {
+              console.error('下载失败:', error)
+              ElMessage.error('下载失败：' + error.message)
+              // 下载失败也要关闭弹窗
+              translating.value = false
+            })
         }
 
       } catch (error) {
@@ -828,9 +853,6 @@ const handleReset = () => {
   font-size: 16px;
 }
 
-.progress-card :deep(.el-card__body) {
-  padding: 1.5rem;
-}
 
 .percentage-value {
   font-weight: bold;

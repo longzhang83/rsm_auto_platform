@@ -272,11 +272,18 @@ def batch_translate_texts(
 		# 使用自定义进度回调
 		with ThreadPoolExecutor(max_workers=max_workers or 1) as executor:
 			future_to_text = {executor.submit(_worker, value): value for value in cleaned}
+			failed_count = 0
+
 			for future in as_completed(future_to_text):
 				try:
 					original, translated = future.result()
-				except Exception:
-					original, translated = future_to_text[future], future_to_text[future]
+				except Exception as e:
+					original = future_to_text[future]
+					translated = f"[翻译失败] {original}"  # 标记失败的翻译
+					failed_count += 1
+					# 记录错误但不中断处理
+					print(f"翻译失败 (第{failed_count}个): {original} - {str(e)}")
+
 				results[original] = translated or original
 				completed_count += 1
 				# 调用进度回调

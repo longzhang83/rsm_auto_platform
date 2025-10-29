@@ -149,7 +149,9 @@
       <div class="app-main">
         <router-view v-slot="{ Component }">
           <transition name="fade-transform" mode="out-in">
-            <component :is="Component" />
+            <div class="route-wrapper">
+              <component :is="Component" />
+            </div>
           </transition>
         </router-view>
       </div>
@@ -694,6 +696,11 @@ const handleLogout = () => {
 .app-main {
   @apply flex-1 p-8 overflow-auto;
   background: var(--neutral-50);
+}
+
+.route-wrapper {
+  width: 100%;
+  height: 100%;
 }
 
 /* 增强的路由过渡动画 */
