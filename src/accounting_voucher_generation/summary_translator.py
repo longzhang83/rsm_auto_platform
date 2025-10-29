@@ -82,8 +82,8 @@ class SummaryTranslator:
         else:
             sheet_name = excel_file.sheet_names[0]  # 使用第一个工作表
 
-        # 读取数据（使用header=1来匹配Expense.xlsx的格式）
-        df = excel_file.parse(sheet_name=sheet_name, header=1)
+        # 读取数据
+        df = excel_file.parse(sheet_name=sheet_name, header=0)
         df.columns = [str(col).strip() for col in df.columns]
 
         # 检查摘要列是否存在
