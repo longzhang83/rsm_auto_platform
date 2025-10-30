@@ -13,11 +13,20 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo "ERROR: Docker Compose is not installed."
     echo "Please install Docker Compose from https://docs.docker.com/compose/"
     exit 1
 fi
+
+# 检测 Docker Compose 命令
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+else
+    COMPOSE_CMD="docker-compose"
+fi
+
+echo "使用 Docker Compose 命令: $COMPOSE_CMD"
 
 # 检查前端构建
 if [ ! -d "static" ] || [ ! -f "static/index.html" ]; then
@@ -54,11 +63,26 @@ fi
 
 # 停止现有服务
 echo "停止现有服务..."
-docker-compose down
+$COMPOSE_CMD down
+
+# 预拉取镜像（如果网络允许）
+echo "尝试预拉取 Nginx 镜像..."
+if docker pull nginx:1.25-alpine; then
+    echo "✅ Nginx 镜像拉取成功"
+    USE_OFFLINE=false
+else
+    echo "⚠️ Nginx 镜像拉取失败，将使用离线配置"
+    USE_OFFLINE=true
+fi
 
 # 构建并启动服务
 echo "构建并启动服务..."
-docker-compose up -d --build
+if [ "$USE_OFFLINE" = true ]; then
+    echo "使用离线配置文件..."
+    $COMPOSE_CMD -f docker-compose.offline.yml up -d --build
+else
+    $COMPOSE_CMD up -d --build
+fi
 
 # 等待服务启动
 echo "等待服务启动..."
@@ -66,7 +90,11 @@ sleep 15
 
 # 检查服务状态
 echo "检查服务状态..."
-docker-compose ps
+if [ "$USE_OFFLINE" = true ]; then
+    $COMPOSE_CMD -f docker-compose.offline.yml ps
+else
+    $COMPOSE_CMD ps
+fi
 
 # 测试服务
 echo ""
@@ -104,9 +132,15 @@ echo "📊 API文档: http://localhost:80/docs"
 echo "🔧 后端直连: http://localhost:8888"
 echo ""
 echo "管理命令："
-echo "查看日志: docker-compose logs -f"
-echo "停止服务: docker-compose down"
-echo "重启服务: docker-compose restart"
+if [ "$USE_OFFLINE" = true ]; then
+    echo "查看日志: $COMPOSE_CMD -f docker-compose.offline.yml logs -f"
+    echo "停止服务: $COMPOSE_CMD -f docker-compose.offline.yml down"
+    echo "重启服务: $COMPOSE_CMD -f docker-compose.offline.yml restart"
+else
+    echo "查看日志: $COMPOSE_CMD logs -f"
+    echo "停止服务: $COMPOSE_CMD down"
+    echo "重启服务: $COMPOSE_CMD restart"
+fi
 echo "========================================"
 echo ""
 
@@ -114,5 +148,9 @@ echo ""
 read -p "是否显示实时日志？(y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    docker-compose logs -f
+    if [ "$USE_OFFLINE" = true ]; then
+        $COMPOSE_CMD -f docker-compose.offline.yml logs -f
+    else
+        $COMPOSE_CMD logs -f
+    fi
 fi

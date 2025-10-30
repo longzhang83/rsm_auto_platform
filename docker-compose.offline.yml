@@ -19,7 +19,7 @@ services:
       start_period: 40s
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.25-alpine  # 指定具体版本，避免 latest
     ports:
       - "80:80"
     volumes:
@@ -34,10 +34,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  # 可选：添加 Redis 用于缓存
-  # redis:
-  #   image: redis:7-alpine
-  #   ports:
-  #   - "6379:6379"
-  #   restart: unless-stopped
