@@ -24,7 +24,7 @@ services:
       - app-network
 
   nginx:
-    image: registry.cn-hangzhou.aliyuncs.com/library/nginx:1.25-alpine
+    image: nginx:alpine
     ports:
       - "80:80"
       - "443:443"
