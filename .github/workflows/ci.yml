@@ -1,0 +1,195 @@
+name: CI/CD Pipeline with uv
+
+on:
+  push:
+    branches: [ main, master, develop, web-app ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    name: Backend Tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      run: |
+        uv python install 3.11
+        uv python pin 3.11
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run linting
+      run: |
+        uv run black --check src/backend || true
+        uv run ruff check src/backend || true
+
+    - name: Run tests
+      run: |
+        cd backend
+        uv run pytest tests/ -v --cov=app --cov-report=xml || true
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      if: github.repository == 'your-username/accounting-voucher-generation'
+      with:
+        file: ./backend/coverage.xml
+        fail_ci_if_error: false
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    name: Frontend Build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd frontend
+        npm ci
+
+    - name: Run linting
+      run: |
+        cd frontend
+        npm run lint:check || true
+
+    - name: Run tests
+      run: |
+        cd frontend
+        npm run test:unit || true
+
+    - name: Build
+      run: |
+        cd frontend
+        npm run build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/dist/
+        retention-days: 7
+
+  integration-test:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: [backend-test, frontend-build]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Set up Python
+      run: |
+        uv python install 3.11
+        uv python pin 3.11
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Download frontend build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/
+
+    - name: Extract frontend build
+      run: |
+        cd frontend
+        tar -xzf dist.tar.gz
+        mv dist ../static
+        rm -f dist.tar.gz
+
+    - name: Run integration tests
+      run: |
+        cd backend
+        uv run pytest tests/integration/ -v || true
+
+  docker-compose-test:
+    runs-on: ubuntu-latest
+    name: Docker Compose Test
+    needs: [backend-test, frontend-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download frontend build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-dist
+        path: frontend/
+
+    - name: Extract frontend build
+      run: |
+        cd frontend
+        tar -xzf dist.tar.gz
+        mv dist ../static
+        rm -f dist.tar.gz
+
+    - name: Start services with docker-compose
+      run: |
+        docker-compose up -d --build
+
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for services to start..."
+        sleep 30
+
+    - name: Test backend health
+      run: |
+        curl -f http://localhost:8888/health || exit 1
+
+    - name: Test nginx health
+      run: |
+        curl -f http://localhost:80/health || exit 1
+
+    - name: Test frontend through nginx
+      run: |
+        curl -I http://localhost:80/ || exit 1
+
+    - name: Test API through nginx proxy
+      run: |
+        curl -f http://localhost:80/backend-health || exit 1
+
+    - name: Test API docs through nginx
+      run: |
+        curl -I http://localhost:80/docs || exit 1
+
+    - name: Show logs
+      if: failure()
+      run: |
+        echo "=== Backend logs ==="
+        docker-compose logs backend
+        echo "=== Nginx logs ==="
+        docker-compose logs nginx
+
+    - name: Cleanup
+      always: true
+      run: |
+        docker-compose down -v

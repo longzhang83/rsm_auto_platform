@@ -14,68 +14,62 @@ jobs:
     - name: 检出代码
       uses: actions/checkout@v2
 
+    # 安装 uv
+    - name: 安装 uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
     # 设置 Python 环境
     - name: 设置 Python 环境
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-        cache-dependency-path: backend/requirements.txt
-
-    # 安装核心业务逻辑
-    - name: 安装核心业务逻辑
       run: |
-        pip install -e .
-        pip install pytest pytest-cov
+        uv python install 3.10
+        uv python pin 3.10
 
-    # 安装后端依赖
-    - name: 安装后端依赖
+    # 安装项目依赖
+    - name: 安装项目依赖
       run: |
-        cd backend
-        pip install -r requirements.txt
-
-    # 安装测试依赖
-    - name: 安装测试依赖
-      run: |
-        cd backend
-        pip install pytest pytest-mock pytest-asyncio
+        # 安装核心业务逻辑和后端依赖
+        uv sync --dev
+        # 安装额外的测试依赖
+        uv add --dev pytest pytest-cov pytest-mock pytest-asyncio
 
     # 代码格式检查
     - name: 代码格式检查
       run: |
         # 检查 Python 代码格式
-        python -m flake8 src/backend --count --select=E9,F63,F7,F82 --show-source --statistics || true
-        python -m black --check src/backend || true
+        uv run flake8 src/backend --count --select=E9,F63,F7,F82 --show-source --statistics || true
+        uv run black --check src/backend || true
 
     # 导入检查
     - name: 导入检查
       run: |
         cd backend
-        python -m py_compile app/main.py || true
+        uv run python -m py_compile app/main.py || true
 
     # 运行单元测试
     - name: 运行单元测试
       run: |
         cd backend
-        python -m pytest tests/ -v --tb=short --cov=app --cov-report=xml --cov-report=html || true
+        uv run pytest tests/ -v --tb=short --cov=app --cov-report=xml --cov-report=html || true
 
     # 运行集成测试
     - name: 运行集成测试
       run: |
         cd backend
-        python -m pytest tests/integration/ -v --tb=short || true
+        uv run pytest tests/integration/ -v --tb=short || true
 
     # 测试核心业务逻辑
     - name: 测试核心业务逻辑
       run: |
-        python -m pytest src/accounting_voucher_generation/tests/ -v --tb=short || true
+        uv run pytest src/accounting_voucher_generation/tests/ -v --tb=short || true
 
     # 测试CLI工具
     - name: 测试CLI工具
       run: |
-        python main.py --help || true
+        uv run python main.py --help || true
         # 测试核心功能是否能正常导入
-        python -c "from src.accounting_voucher_generation.pipeline import generate_vouchers; print('✅ 核心功能导入成功')" || true
+        uv run python -c "from src.accounting_voucher_generation.pipeline import generate_vouchers; print('✅ 核心功能导入成功')" || true
 
     # 上传测试报告
     - name: 上传测试报告

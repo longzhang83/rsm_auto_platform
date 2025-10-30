@@ -15,6 +15,18 @@ jobs:
     - name: 检出代码
       uses: actions/checkout@v2
 
+    # 安装 uv
+    - name: 安装 uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    # 设置 Python 环境
+    - name: 设置 Python 环境
+      run: |
+        uv python install 3.10
+        uv python pin 3.10
+
     # 下载前端构建产物
     - name: 下载前端构建产物
       uses: actions/download-artifact@v3
@@ -25,9 +37,11 @@ jobs:
     # 解压前端构建产物
     - name: 解压前端构建产物
       run: |
-        cd frontend
-        tar -xzf dist.tar.gz
-        rm -f dist.tar.gz
+        # 创建 static 目录
+        mkdir -p static
+        # 解压到 static 目录
+        tar -xzf frontend/dist.tar.gz -C static
+        rm -f frontend/dist.tar.gz
 
     # 设置部署环境
     - name: 设置部署环境
@@ -43,16 +57,15 @@ jobs:
     # 安装后端依赖
     - name: 安装后端依赖
       run: |
-        pip install -e .
-        cd backend
-        pip install -r requirements.txt
+        # 使用 uv 安装所有依赖
+        uv sync --dev
 
     # 健康检查后端服务
     - name: 健康检查后端服务
       run: |
         cd backend
-        python -c "import uvicorn; print('✅ uvicorn 可用')" || true
-        python -c "from app.main import app; print('✅ FastAPI 应用导入成功')" || true
+        uv run python -c "import uvicorn; print('✅ uvicorn 可用')" || true
+        uv run python -c "from app.main import app; print('✅ FastAPI 应用导入成功')" || true
 
     # 准备数据目录
     - name: 准备数据目录
@@ -61,7 +74,7 @@ jobs:
         if [ ! -f data/Expense.xlsx ]; then
           echo "创建示例费用报销表..."
           # 这里可以生成示例Excel文件
-          python -c "
+          uv run python -c "
 import pandas as pd
 import os
 
@@ -87,7 +100,7 @@ print('✅ 示例费用报销表创建成功')
       run: |
         cd backend
         # 后台启动服务
-        nohup uvicorn app.main:app --host 0.0.0.0 --port 8888 > ../logs/uvicorn.log 2>&1 &
+        nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8888 > ../logs/uvicorn.log 2>&1 &
 
         # 等待服务启动
         echo "等待后端服务启动..."
@@ -96,43 +109,55 @@ print('✅ 示例费用报销表创建成功')
         # 检查服务是否启动成功
         curl -f http://localhost:8888/health || echo "⚠️ 后端服务启动可能失败"
 
-    # 部署静态文件
-    - name: 部署静态文件
+    # 启动 Nginx 服务
+    - name: 启动 Nginx 服务
       run: |
-        # 将前端构建文件复制到后端静态目录
-        if [ -d "backend/static" ]; then
-          rm -rf backend/static/*
-        else
-          mkdir -p backend/static
-        fi
+        # 检查 Nginx 配置
+        nginx -t || echo "⚠️ Nginx 配置检查失败"
 
-        cp -r frontend/dist/* backend/static/
-        echo "✅ 前端静态文件部署完成"
+        # 启动 Nginx
+        nginx || echo "⚠️ Nginx 启动可能失败"
+
+        # 等待 Nginx 启动
+        echo "等待 Nginx 启动..."
+        sleep 5
+
+        # 检查 Nginx 是否启动成功
+        curl -f http://localhost:80/health || echo "⚠️ Nginx 服务启动可能失败"
 
     # 运行部署后测试
     - name: 运行部署后测试
       run: |
-        sleep 15  # 等待服务完全启动
+        sleep 20  # 等待服务完全启动
+
+        # 测试 Nginx 健康检查
+        echo "测试 Nginx 健康检查..."
+        curl -f http://localhost:80/health || echo "❌ Nginx 健康检查失败"
+
+        # 测试前端通过 Nginx
+        echo "测试前端通过 Nginx..."
+        curl -I http://localhost:80/ || echo "✅ 前端通过 Nginx 可访问"
 
         # 测试后端健康检查
         echo "测试后端健康检查..."
-        curl -f http://localhost:8888/health || echo "❌ 健康检查失败"
+        curl -f http://localhost:8888/health || echo "❌ 后端健康检查失败"
 
-        # 测试API端点
-        echo "测试API端点..."
-        curl -X GET http://localhost:8888/ || echo "✅ 根端点可访问"
+        # 测试API通过 Nginx 代理
+        echo "测试API通过 Nginx 代理..."
+        curl -X GET http://localhost:80/backend-health || echo "✅ API 通过 Nginx 代理可访问"
 
-        # 测试前端访问
-        echo "测试前端访问..."
-        curl -I http://localhost:8888/ || echo "✅ 前端路由可访问"
+        # 测试 API 文档通过 Nginx
+        echo "测试 API 文档通过 Nginx..."
+        curl -I http://localhost:80/docs || echo "✅ API 文档通过 Nginx 可访问"
 
     # 通知部署结果
     - name: 通知部署结果
       run: |
         echo "🚀 部署完成！"
-        echo "📍 后端服务: http://localhost:8888"
-        echo "🌐 前端应用: http://localhost:8888"
-        echo "📊 API文档: http://localhost:8888/docs"
+        echo "🌐 前端应用: http://localhost:80"
+        echo "📍 后端API: http://localhost:80/api/"
+        echo "📊 API文档: http://localhost:80/docs"
+        echo "🔧 后端直连: http://localhost:8888"
 
   # 清理旧文件
   cleanup:
@@ -146,10 +171,12 @@ print('✅ 示例费用报销表创建成功')
         echo "清理部署文件..."
         # 清理可能的进程
         pkill -f uvicorn || true
+        pkill -f nginx || true
         # 清理临时文件
         rm -rf frontend/dist.tar.gz || true
 
     - name: 发送失败通知
       run: |
         echo "❌ 部署失败，请检查日志文件"
-        echo "📋 查看日志: tail -f logs/uvicorn.log"
+        echo "📋 查看后端日志: tail -f logs/uvicorn.log"
+        echo "📋 查看 Nginx 日志: tail -f /var/log/nginx/error.log"

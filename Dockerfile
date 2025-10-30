@@ -1,20 +1,3 @@
-# 多阶段构建 Dockerfile
-FROM node:18-alpine AS frontend-builder
-
-WORKDIR /app/frontend
-
-# 复制前端依赖文件
-COPY frontend/package*.json ./
-
-# 安装前端依赖
-RUN npm ci --only=production
-
-# 复制前端源码并构建
-COPY frontend/ ./
-
-# 构建前端
-RUN npm run build
-
 # Python 后端镜像
 FROM python:3.11-slim AS backend
 
@@ -30,21 +13,21 @@ RUN apt-get update && apt-get install -y \
 RUN pip install uv
 
 # 复制项目依赖文件
-COPY backend/requirements.txt .
 COPY pyproject.toml .
+COPY backend/requirements.txt .
+COPY uv.lock* .
 
 # 创建虚拟环境并安装依赖
 RUN uv venv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install -e . && \
-    pip install -r backend/requirements.txt
+    uv sync --frozen --no-dev
+
+# 激活虚拟环境
+RUN echo ". /opt/venv/bin/activate" >> /root/.bashrc
 
 # 复制后端源码
 COPY backend/app ./backend/app
 COPY src ./src
-
-# 复制前端构建产物
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # 创建数据目录
 RUN mkdir -p data/output
@@ -63,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8888/health || exit 1
 
 # 启动命令
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8888"]
+CMD ["/opt/venv/bin/uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8888"]

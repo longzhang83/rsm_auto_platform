@@ -54,7 +54,15 @@ jobs:
     - name: 压缩构建产物
       run: |
         cd frontend
-        tar -czf dist.tar.gz dist/
+        # 构建输出在 ../static，需要重命名为 dist
+        if [ -d "../static" ]; then
+          mv ../static dist
+          tar -czf dist.tar.gz dist/
+          mv dist ../static
+        else
+          echo "❌ 构建输出目录不存在"
+          exit 1
+        fi
 
     # 上传构建产物
     - name: 上传构建产物
