@@ -94,10 +94,46 @@ class AsyncTranslationService:
                     reader = csv.reader(f)
                     for row in reader:
                         if len(row) >= 2:
-                            self.cache[row[0].strip()] = row[1].strip()
+                            source, target = row[0].strip(), row[1].strip()
+
+                            # 处理不同格式的缓存条目
+                            # 格式1: "中文,英文" (标准中译英)
+                            # 格式2: "中文->en,英文" (带方向标记的中译英)
+                            # 格式3: "英文->zh,中文" (英译中)
+
+                            cache_key = None
+
+                            if '->en' in source:
+                                # 中译英：移除 ->en 标记，构建明确方向键
+                                clean_source = source.replace('->en', '').strip()
+                                cache_key = f"zh:{clean_source}->en"
+                            elif '->zh' in source:
+                                # 英译中：移除 ->zh 标记，构建明确方向键
+                                clean_source = source.replace('->zh', '').strip()
+                                cache_key = f"en:{clean_source}->zh"
+                            else:
+                                # 自动检测语言方向
+                                if self._is_chinese(source):
+                                    cache_key = f"zh:{source}->en"
+                                else:
+                                    cache_key = f"en:{source}->zh"
+
+                            if cache_key:
+                                self.cache[cache_key] = target
+
                 logger.info(f"加载了 {len(self.cache)} 条缓存记录")
         except Exception as e:
             logger.warning(f"加载缓存失败: {e}")
+
+    def _is_chinese(self, text: str) -> bool:
+        """检测文本是否主要包含中文字符"""
+        import re
+        # 统计中文字符数量
+        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+        # 统计英文字符数量
+        english_chars = len(re.findall(r'[a-zA-Z]', text))
+        # 如果中文字符多于英文字符，认为是中文
+        return chinese_chars > english_chars
 
     def _save_cache(self):
         """保存翻译缓存"""
@@ -135,8 +171,15 @@ class AsyncTranslationService:
 
         logger.debug(f"开始翻译文本: '{text[:50]}...' 目标语言: {target_language}")
 
+        # 构建明确方向的缓存键
+        if target_language == "en":
+            # 中译英
+            cache_key = f"zh:{text}->en"
+        else:
+            # 英译中
+            cache_key = f"en:{text}->zh"
+
         # 检查缓存
-        cache_key = f"{text}->{target_language}"
         if cache_key in self.cache:
             logger.debug(f"命中缓存: '{text[:50]}...' -> '{self.cache[cache_key][:50]}...'")
             return self.cache[cache_key]
