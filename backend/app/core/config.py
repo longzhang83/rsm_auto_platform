@@ -22,11 +22,6 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8888
 
-    # 集成部署配置
-    serve_frontend: bool = False  # 是否同时服务前端静态文件
-
-    frontend_build_path: Path = Path(__file__).resolve().parent.parent.parent.parent  / "static"
-
     # 数据目录配置
     # 从 backend/app/core/config.py 回到项目根目录
     base_dir: Path = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,9 +30,25 @@ class Settings(BaseSettings):
 
     # 翻译配置
     zhipuai_api_key: Optional[str] = None
+    zhipuai_api_keys: Optional[str] = None  # 支持多个API密钥
+    zhipuai_model: Optional[str] = None  # GLM模型配置
+    zhipuai_system_prompt: Optional[str] = None  # 系统提示词
+    zhipuai_rps: float = 18.0  # GLM API速率限制
+    translation_map_path: Optional[str] = None  # 从环境变量读取的路径
     translation_mapping_path: Path = data_dir / "translation_mapping.csv"
-    translation_max_workers: int = 3
-    translation_requests_per_second: float = 0.6
+    translation_max_workers: int = 12  # 增加默认工作线程数
+    translation_requests_per_second: float = 30.0  # 增加默认速率
+
+    # 日志配置
+    log_dir: Path = base_dir / "logs"
+    log_level: str = "INFO"
+    log_enable_console: bool = True
+    log_enable_file: bool = True
+    log_enable_json: bool = False
+    log_colored_console: bool = True
+    log_max_file_size: int = 10 * 1024 * 1024  # 10MB
+    log_backup_count: int = 5
+    log_retention_days: int = 30
 
     # 文件上传配置
     max_file_size: int = 50 * 1024 * 1024  # 50MB
@@ -49,7 +60,8 @@ class Settings(BaseSettings):
     default_credit_account: str = "224104"
 
     class Config:
-        env_file = ".env"
+        # 使用绝对路径指向项目根目录的.env文件
+        env_file = Path("D:/360MoveData/Users/long/Desktop/accounting-voucher-generation/.env")
         env_file_encoding = "utf-8"
         case_sensitive = False
 

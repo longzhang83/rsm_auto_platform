@@ -4,15 +4,34 @@ import io
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO, Optional, List
+import os
+import csv
 
 import pandas as pd
 from fastapi import HTTPException, UploadFile
 
 from accounting_voucher_generation.summary_translator import SummaryTranslator, SummaryTranslatorConfig
+try:
+    # 优先尝试使用基于异步多账户的版本
+    from accounting_voucher_generation.chatglm_async import get_translation_service, configure_translation_service
+    MULTI_ACCOUNT_SUPPORT = True
+    LANGCHAIN_AVAILABLE = False  # 不再使用LangChain
+except ImportError:
+    try:
+        # 回退到v2版本
+        from accounting_voucher_generation.chatglm_v2 import get_translation_service, configure_translation_service
+        MULTI_ACCOUNT_SUPPORT = True
+        LANGCHAIN_AVAILABLE = False
+    except ImportError:
+        from accounting_voucher_generation.chatglm import get_translation_stats as old_get_stats
+        MULTI_ACCOUNT_SUPPORT = False
+        LANGCHAIN_AVAILABLE = False
+
 from app.core.config import settings
 from app.core.progress_manager import progress_manager
 from app.api.deps import validate_file_upload
+from app.utils.logger import get_logger, log_manager
 
 
 class TranslateService:
@@ -20,6 +39,36 @@ class TranslateService:
 
     def __init__(self):
         self.settings = settings
+        self.logger = get_logger(__name__)
+        self._init_multi_account_service()
+
+    def _init_multi_account_service(self):
+        """初始化多账户翻译服务"""
+        if MULTI_ACCOUNT_SUPPORT:
+            # 从settings或环境变量获取多个API密钥
+            api_keys_env = settings.zhipuai_api_keys or os.getenv("ZHIPUAI_API_KEYS", "")
+            if api_keys_env:
+                api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
+                if api_keys:
+                    try:
+                        # 使用配置的max_workers
+                        max_workers = settings.translation_max_workers
+                        configure_translation_service(
+                            api_keys=api_keys,
+                            cache_path=settings.translation_mapping_path,
+                            max_workers=max_workers
+                        )
+                        print(f"异步多账户翻译服务已初始化，共 {len(api_keys)} 个API密钥，并发数: {max_workers}")
+                    except Exception as e:
+                        print(f"初始化多账户翻译服务失败: {e}")
+            else:
+                # 使用单个API密钥
+                if settings.zhipuai_api_key:
+                    try:
+                        configure_translation_service([settings.zhipuai_api_key])
+                        print(f"单账户异步翻译服务已初始化")
+                    except Exception as e:
+                        print(f"初始化翻译服务失败: {e}")
 
     async def translate_summaries(
         self,
@@ -91,7 +140,24 @@ class TranslateService:
 
                     def progress_callback(percentage: float, message: str, completed: int = 0, total: int = 0, current_item: str = ""):
                         """进度回调函数"""
-                        progress_manager.update_progress(current_task_id, percentage, message, completed, total, current_item)
+                        try:
+                            # 🚨 检查任务是否已取消
+                            if progress_manager.is_cancelled(current_task_id):
+                                self.logger.info(f"[translate_service] 任务已取消，停止更新进度: {current_task_id}")
+                                return  # 不再更新进度，但允许函数正常返回
+
+                            self.logger.info(f"[translate_service] 收到进度回调: {percentage:.1f}% - {message}")
+                            # 直接调用ProgressManager，跳过log_manager以避免潜在问题
+                            progress_manager.update_progress(current_task_id, percentage, message, completed, total, current_item)
+                            self.logger.info(f"[translate_service] 进度已发送到ProgressManager: {percentage:.1f}%")
+                        except Exception as e:
+                            self.logger.error(f"[translate_service] 进度回调失败: {e}")
+                            import traceback
+                            self.logger.error(f"[translate_service] 错误详情: {traceback.format_exc()}")
+
+                    def cancel_check() -> bool:
+                        """取消检查函数"""
+                        return progress_manager.is_cancelled(current_task_id)
 
                     # 配置翻译器
                     config = SummaryTranslatorConfig(
@@ -103,6 +169,7 @@ class TranslateService:
                         skip_existing=not force,
                         target_language=target_language,
                         progress_callback=progress_callback,
+                        cancel_check=cancel_check,
                     )
 
                     print(f"开始翻译任务 [{task_id}]")
@@ -186,3 +253,194 @@ class TranslateService:
 
         zip_buffer.seek(0)
         return zip_buffer
+
+    async def get_translation_cache(
+        self,
+        search: Optional[str] = None,
+        page: int = 1,
+        limit: int = 100,
+    ) -> List[dict]:
+        """获取翻译缓存列表"""
+        try:
+            if not self.settings.translation_mapping_path.exists():
+                return []
+
+            # 读取CSV文件
+            cache_items = []
+            with self.settings.translation_mapping_path.open("r", newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    source = row.get("source", "").strip()
+                    target = row.get("target", "").strip()
+                    if source and target:
+                        # 应用搜索过滤
+                        if search:
+                            search_lower = search.lower()
+                            if search_lower not in source.lower() and search_lower not in target.lower():
+                                continue
+                        cache_items.append({
+                            "source": source,
+                            "target": target,
+                            "usage_count": int(row.get("usage_count", 0)),
+                            "last_used": row.get("last_used", "")
+                        })
+
+            # 分页
+            start = (page - 1) * limit
+            end = start + limit
+            return cache_items[start:end]
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取翻译缓存失败：{e}") from e
+
+    async def add_translation_cache_item(self, source: str, target: str) -> dict:
+        """添加翻译缓存条目"""
+        try:
+            # 检查是否已存在
+            existing_items = await self.get_translation_cache()
+            for item in existing_items:
+                if item["source"] == source:
+                    # 更新现有条目
+                    return await self.update_translation_cache_item(source, target)
+
+            # 添加新条目
+            new_item = {
+                "source": source,
+                "target": target,
+                "usage_count": 0,
+                "last_used": ""
+            }
+
+            # 追加到CSV文件
+            with self.settings.translation_mapping_path.open("a", newline="", encoding="utf-8-sig") as f:
+                writer = csv.DictWriter(f, fieldnames=["source", "target", "usage_count", "last_used"])
+                if f.tell() == 0:  # 文件为空
+                    writer.writeheader()
+                writer.writerow(new_item)
+
+            return new_item
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"添加翻译缓存失败：{e}") from e
+
+    async def update_translation_cache_item(self, source: str, target: str) -> dict:
+        """更新翻译缓存条目"""
+        try:
+            # 读取现有数据
+            items = []
+            found = False
+            if self.settings.translation_mapping_path.exists():
+                with self.settings.translation_mapping_path.open("r", newline="", encoding="utf-8-sig") as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row.get("source", "").strip() == source:
+                            items.append({
+                                "source": source,
+                                "target": target,
+                                "usage_count": int(row.get("usage_count", 0)),
+                                "last_used": row.get("last_used", "")
+                            })
+                            found = True
+                        else:
+                            items.append(row)
+
+            if not found:
+                # 如果没找到，添加新条目
+                items.append({
+                    "source": source,
+                    "target": target,
+                    "usage_count": 0,
+                    "last_used": ""
+                })
+
+            # 写回文件
+            with self.settings.translation_mapping_path.open("w", newline="", encoding="utf-8-sig") as f:
+                if items:
+                    writer = csv.DictWriter(f, fieldnames=items[0].keys())
+                    writer.writeheader()
+                    writer.writerows(items)
+
+            return {
+                "source": source,
+                "target": target,
+                "usage_count": items[-1]["usage_count"],
+                "last_used": items[-1]["last_used"]
+            }
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"更新翻译缓存失败：{e}") from e
+
+    async def delete_translation_cache_item(self, source: str) -> bool:
+        """删除翻译缓存条目"""
+        try:
+            if not self.settings.translation_mapping_path.exists():
+                return False
+
+            # 读取现有数据
+            items = []
+            found = False
+            with self.settings.translation_mapping_path.open("r", newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("source", "").strip() != source:
+                        items.append(row)
+                    else:
+                        found = True
+
+            if not found:
+                return False
+
+            # 写回文件
+            with self.settings.translation_mapping_path.open("w", newline="", encoding="utf-8-sig") as f:
+                if items:
+                    writer = csv.DictWriter(f, fieldnames=items[0].keys())
+                    writer.writeheader()
+                    writer.writerows(items)
+
+            return True
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"删除翻译缓存失败：{e}") from e
+
+    async def get_translation_cache_csv(self) -> str:
+        """获取翻译缓存CSV内容"""
+        try:
+            if not self.settings.translation_mapping_path.exists():
+                # 返回空的CSV
+                return "source,target\n"
+
+            return self.settings.translation_mapping_path.read_text(encoding="utf-8-sig")
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取翻译缓存CSV失败：{e}") from e
+
+    async def get_translation_stats(self) -> dict:
+        """获取翻译服务统计信息"""
+        try:
+            if MULTI_ACCOUNT_SUPPORT:
+                service = get_translation_service()
+                if service:
+                    return service.get_stats()
+
+            # 回退统计
+            stats = {
+                "service_type": "legacy",
+                "cache_file": str(self.settings.translation_mapping_path),
+                "cache_exists": self.settings.translation_mapping_path.exists()
+            }
+
+            if stats["cache_exists"]:
+                # 计算缓存条目数量
+                try:
+                    with self.settings.translation_mapping_path.open("r", newline="", encoding="utf-8-sig") as f:
+                        reader = csv.DictReader(f)
+                        stats["cache_size"] = sum(1 for _ in reader) - 1  # 减去标题行
+                except:
+                    stats["cache_size"] = 0
+            else:
+                stats["cache_size"] = 0
+
+            return stats
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"获取翻译统计失败：{e}") from e

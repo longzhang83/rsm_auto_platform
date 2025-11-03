@@ -5,13 +5,20 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Union
 
 import pandas as pd
+from loguru import logger
 
 try:
     from tqdm import tqdm
 except ImportError:  # pragma: no cover
     tqdm = None
 
-from .chatglm import batch_translate_texts, translate_text
+try:
+    # 优先使用新的多账户翻译服务
+    from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
+except ImportError:
+    # 回退到原有的翻译服务
+    from .chatglm import batch_translate_texts, translate_text
+    configure_translation_service = None
 
 
 @dataclass(slots=True)
@@ -33,9 +40,11 @@ class SummaryTranslatorConfig:
     translation_max_workers: int = 3
     translation_requests_per_second: float = 0.6
     target_language: str = "en"  # 目标语言: "en" 为英文, "zh" 为中文
+    zhipuai_api_keys: list[str] = field(default_factory=list)  # GLM API密钥列表
 
     # 进度回调
     progress_callback: Optional[callable] = None  # 进度回调函数
+    cancel_check: Optional[callable] = None  # 取消检查函数
 
     # 其他配置
     skip_existing: bool = True  # 跳过已存在的翻译
@@ -55,8 +64,10 @@ class SummaryTranslatorConfig:
             translation_requests_per_second=self.translation_requests_per_second,
             target_language=self.target_language,
             progress_callback=self.progress_callback,
+            cancel_check=self.cancel_check,
             skip_existing=self.skip_existing,
             skip_empty=self.skip_empty,
+            zhipuai_api_keys=self.zhipuai_api_keys,
         )
         return cfg
 
@@ -66,6 +77,19 @@ class SummaryTranslator:
 
     def __init__(self, config: SummaryTranslatorConfig):
         self.config = config.resolved()
+
+        # 初始化多账户翻译服务（如果可用）
+        if configure_translation_service and self.config.zhipuai_api_keys:
+            try:
+                configure_translation_service(
+                    api_keys=self.config.zhipuai_api_keys,
+                    cache_path=self.config.translation_mapping_path,
+                    max_workers=self.config.translation_max_workers,
+                )
+                print(f"已初始化多账户翻译服务，共 {len(self.config.zhipuai_api_keys)} 个API密钥")
+            except Exception as e:
+                print(f"初始化多账户翻译服务失败: {e}")
+                print("将使用原有的单账户翻译服务")
 
     def load_data(self) -> pd.DataFrame:
         """加载Excel数据"""
@@ -87,17 +111,59 @@ class SummaryTranslator:
                 finally:
                     excel_file.close()
 
-                # 读取数据，先尝试header=0，如果找不到摘要列则尝试header=1
-                df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="openpyxl")
-                if self.config.summary_column not in df.columns:
-                    # 尝试第二行作为标题
-                    df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=1, engine="openpyxl")
+                # 智能读取Excel文件，优先使用第一行作为列名
+                try:
+                    df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="openpyxl")
+
+                    # 显示可用列名，方便调试
+                    logger.info(f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}")
+
+                    # 如果指定的列不存在，提供友好的错误信息
+                    if self.config.summary_column not in df.columns:
+                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                        raise ValueError(
+                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                            f"可用列名: {available_columns}\n"
+                            f"请检查列名是否正确，或使用以上可用列名之一。"
+                        )
+
+                except ValueError as e:
+                    if "摘要列" in str(e):
+                        # 重新抛出列名不存在的错误
+                        raise
+                    else:
+                        # 其他Excel读取错误，尝试备用方案
+                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
+                        df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="xlrd")
+                        if self.config.summary_column not in df.columns:
+                            available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                            raise ValueError(f"摘要列 '{self.config.summary_column}' 不存在。可用列: {available_columns}")
             else:
-                # 读取第一个工作表，先尝试header=0，如果找不到摘要列则尝试header=1
-                df = pd.read_excel(self.config.input_file, header=0, engine="openpyxl")
-                if self.config.summary_column not in df.columns:
-                    # 尝试第二行作为标题
-                    df = pd.read_excel(self.config.input_file, header=1, engine="openpyxl")
+                # 读取第一个工作表，逻辑同上
+                try:
+                    df = pd.read_excel(self.config.input_file, header=0, engine="openpyxl")
+                    logger.info(f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}")
+
+                    if self.config.summary_column not in df.columns:
+                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                        raise ValueError(
+                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                            f"可用列名: {available_columns}\n"
+                            f"请检查列名是否正确，或使用以上可用列名之一。"
+                        )
+
+                except ValueError as e:
+                    if "摘要列" in str(e):
+                        raise
+                    else:
+                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
+                        df = pd.read_excel(self.config.input_file, header=0, engine="xlrd")
+                        if self.config.summary_column not in df.columns:
+                            available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                            logger.warning(f"指定的摘要列 '{self.config.summary_column}' 不存在，自动使用第一列 '{df.columns[0]}'")
+                            logger.info(f"可用列名: {available_columns}")
+                            # 自动使用第一列
+                            self.config.summary_column = df.columns[0]
 
             df.columns = [str(col).strip() for col in df.columns]
 
@@ -286,15 +352,42 @@ class SummaryTranslator:
 
     def translate_summaries_with_progress(self, summaries: List[str], progress_callback: callable) -> Dict[str, str]:
         """带进度回调的翻译摘要文本"""
-        return batch_translate_texts(
-            summaries,
-            max_workers=self.config.translation_max_workers,
-            requests_per_second=self.config.translation_requests_per_second,
-            progress_description="翻译摘要",
-            mapping_path=self.config.translation_mapping_path,
-            target_language=self.config.target_language,
-            progress_callback=progress_callback,
-        )
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"[summary_translator] 开始翻译 {len(summaries)} 个摘要文本")
+
+        try:
+            # 尝试使用新的异步翻译服务
+            logger.info("[summary_translator] 尝试使用异步翻译服务")
+            from .chatglm_async import batch_translate_texts as async_batch_translate
+
+            result = async_batch_translate(
+                summaries,
+                target_language=self.config.target_language,
+                progress_callback=progress_callback,
+                cancel_check=self.config.cancel_check,
+                max_workers=self.config.translation_max_workers,
+                requests_per_second=self.config.translation_requests_per_second,
+                mapping_path=self.config.translation_mapping_path,
+            )
+
+            logger.info(f"[summary_translator] 异步翻译完成，翻译了 {len(result)} 个文本")
+            return result
+
+        except (ImportError, RuntimeError, Exception) as e:
+            logger.error(f"[summary_translator] 异步翻译服务不可用，回退到原始实现: {e}")
+            print(f"异步翻译服务不可用，回退到原始实现: {e}")
+            # 回退到原始的chatglm实现
+            return batch_translate_texts(
+                summaries,
+                max_workers=self.config.translation_max_workers,
+                requests_per_second=self.config.translation_requests_per_second,
+                progress_description="翻译摘要",
+                mapping_path=self.config.translation_mapping_path,
+                target_language=self.config.target_language,
+                progress_callback=progress_callback,
+            )
 
 
 def translate_summaries_from_excel(

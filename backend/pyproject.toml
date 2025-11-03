@@ -36,7 +36,9 @@ dependencies = [
     "httpx>=0.25.2",
     "zhipuai>=1.0.7",
     "tqdm>=4.66.1",
-]
+    "loguru>=0.7.3",
+    "python-dotenv>=1.2.1",
+  ]
 
 [project.scripts]
 accounting-voucher-server = "app.main:app"

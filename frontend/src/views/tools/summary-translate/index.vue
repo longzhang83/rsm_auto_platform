@@ -409,8 +409,8 @@
             <div class="font-semibold text-lg">{{ progress.completed }} / {{ progress.total }}</div>
           </div>
           <div class="bg-gray-50 p-3 rounded">
-            <div class="text-gray-500 text-xs mb-1">预计剩余时间</div>
-            <div class="font-semibold text-lg">{{ progress.estimatedTime }}</div>
+            <div class="text-gray-500 text-xs mb-1">实际花费时间</div>
+            <div class="font-semibold text-lg">{{ progress.elapsedTime }}</div>
           </div>
           <div class="bg-blue-50 p-3 rounded col-span-2">
             <div class="text-gray-500 text-xs mb-1">当前处理</div>
@@ -508,7 +508,7 @@ const progress = reactive({
   status: 'success',
   completed: 0,
   total: 0,
-  estimatedTime: '计算中...',
+  elapsedTime: '0秒',
   currentItem: '',
   speed: 0,
   })
@@ -626,7 +626,11 @@ const startTranslation = async (formData) => {
   progress.percentage = 0.00
   progress.completed = 0
   progress.total = 0
-    progress.status = 'success'
+  progress.status = 'success'
+  progress.elapsedTime = '0秒'
+
+  // 记录开始时间
+  const startTime = Date.now()
 
   try {
     // 1. 先启动翻译任务，获取任务ID
@@ -673,35 +677,19 @@ const startTranslation = async (formData) => {
         progress.currentItem = data.message
         progress.speed = Math.floor(Math.random() * 20 + 30) + ' 项/分钟'
 
-        // 计算剩余时间
-        if (data.percentage > 0 && data.percentage < 100) {
-          const remaining = 100 - data.percentage
-          // 从 speed 字符串中提取数字（如 "45 项/分钟" -> 45）
-          const speedMatch = progress.speed.match(/(\d+)/)
-          const speedPerMinute = speedMatch ? parseInt(speedMatch[1]) : 30 // 默认30项/分钟
-          const speedPerSecond = speedPerMinute / 60 // 转换为每秒
+        // 计算已用时间
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
 
-          if (speedPerSecond > 0) {
-            const estimatedSeconds = Math.ceil(remaining / speedPerSecond)
-
-            if (estimatedSeconds < 60) {
-              progress.estimatedTime = `${estimatedSeconds}秒`
-            } else if (estimatedSeconds < 3600) {
-              const minutes = Math.floor(estimatedSeconds / 60)
-              const seconds = estimatedSeconds % 60
-              progress.estimatedTime = `${minutes}分${seconds}秒`
-            } else {
-              const hours = Math.floor(estimatedSeconds / 3600)
-              const minutes = Math.floor((estimatedSeconds % 3600) / 60)
-              progress.estimatedTime = `${hours}小时${minutes}分钟`
-            }
-          } else {
-            progress.estimatedTime = '计算中...'
-          }
-        } else if (data.percentage >= 100) {
-          progress.estimatedTime = '已完成'
+        if (elapsedSeconds < 60) {
+          progress.elapsedTime = `${elapsedSeconds}秒`
+        } else if (elapsedSeconds < 3600) {
+          const minutes = Math.floor(elapsedSeconds / 60)
+          const seconds = elapsedSeconds % 60
+          progress.elapsedTime = `${minutes}分${seconds}秒`
         } else {
-          progress.estimatedTime = '计算中...'
+          const hours = Math.floor(elapsedSeconds / 3600)
+          const minutes = Math.floor((elapsedSeconds % 3600) / 60)
+          progress.elapsedTime = `${hours}小时${minutes}分钟`
         }
 
   

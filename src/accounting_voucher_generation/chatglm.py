@@ -24,6 +24,18 @@ REQUESTS_PER_SECOND_ENV = "ZHIPUAI_RPS"
 DEFAULT_REQUESTS_PER_SECOND = 0.6
 TRANSLATION_MAP_ENV = "TRANSLATION_MAP_PATH"
 DEFAULT_TRANSLATION_MAP = Path("data") / "translation_mapping.csv"
+MODEL_ENV_VAR = "ZHIPUAI_MODEL"
+SYSTEM_PROMPT_ENV_VAR = "ZHIPUAI_SYSTEM_PROMPT"
+
+
+def get_default_model() -> str:
+    """获取默认的GLM模型"""
+    return os.getenv(MODEL_ENV_VAR, DEFAULT_MODEL)
+
+
+def get_system_prompt() -> str:
+    """获取系统提示词"""
+    return os.getenv(SYSTEM_PROMPT_ENV_VAR, SYSTEM_PROMPT)
 
 
 class _RateLimiter:
@@ -70,15 +82,19 @@ def _normalise_content(content: Any) -> str:
 	return str(content).strip()
 
 
-def chat_glm(prompt: str, model: str = DEFAULT_MODEL) -> tuple[Optional[str], Optional[str]]:
+def chat_glm(prompt: str, model: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
 	try:
 		if not prompt or not prompt.strip():
 			return "Empty input", None
 
+		# 使用传入的模型，如果没有则从环境变量获取，最后使用默认值
+		model = model or get_default_model()
+		system_prompt = get_system_prompt()
+
 		client = ZhipuAI(api_key=_resolve_api_key())
 
 		messages = [
-			{"role": "system", "content": SYSTEM_PROMPT},
+			{"role": "system", "content": system_prompt},
 			{"role": "user", "content": prompt},
 		]
 

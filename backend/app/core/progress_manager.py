@@ -15,6 +15,7 @@ class ProgressInfo:
     current_item: str = ""
     result_url: Optional[str] = None  # 结果下载URL
     error: Optional[str] = None  # 错误信息
+    cancelled: bool = False  # 是否已取消
 
 
 class ProgressManager:
@@ -24,12 +25,14 @@ class ProgressManager:
         self._tasks: Dict[str, ProgressInfo] = {}
         self._listeners: Dict[str, asyncio.Queue] = {}
         self._results: Dict[str, bytes] = {}  # 存储结果数据
+        self._cancel_flags: Dict[str, bool] = {}  # 取消标志
 
     def create_task(self) -> str:
         """创建新的进度任务"""
         task_id = str(uuid.uuid4())[:8]
         self._tasks[task_id] = ProgressInfo(0.0, "准备中...")
         self._listeners[task_id] = asyncio.Queue()
+        self._cancel_flags[task_id] = False
         return task_id
 
     def update_progress(self, task_id: str, percentage: float, message: str,
@@ -85,10 +88,24 @@ class ProgressManager:
         """获取任务进度"""
         return self._tasks.get(task_id)
 
+    def cancel_task(self, task_id: str) -> bool:
+        """取消任务"""
+        if task_id in self._tasks and task_id in self._cancel_flags:
+            self._cancel_flags[task_id] = True
+            self._tasks[task_id].cancelled = True
+            self.update_progress(task_id, self._tasks[task_id].percentage, "任务已取消")
+            return True
+        return False
+
+    def is_cancelled(self, task_id: str) -> bool:
+        """检查任务是否已取消"""
+        return self._cancel_flags.get(task_id, False)
+
     def remove_task(self, task_id: str):
         """移除任务"""
         self._tasks.pop(task_id, None)
         self._listeners.pop(task_id, None)
+        self._cancel_flags.pop(task_id, None)
 
     async def listen_progress(self, task_id: str):
         """监听任务进度（用于SSE）"""
@@ -106,7 +123,8 @@ class ProgressManager:
                     'message': progress.message,
                     'completed': progress.completed,
                     'total': progress.total,
-                    'current_item': progress.current_item
+                    'current_item': progress.current_item,
+                    'cancelled': progress.cancelled
                 })}\n\n"
 
             # 监听后续更新
@@ -116,10 +134,10 @@ class ProgressManager:
                     data = await asyncio.wait_for(queue.get(), timeout=5.0)
                     yield f"data: {data}\n\n"
 
-                    # 如果任务完成或失败，停止监听
+                    # 如果任务完成、失败或取消，停止监听
                     if task_id in self._tasks:
                         progress = self._tasks[task_id]
-                        if progress.percentage >= 100.0 or progress.percentage < 0:
+                        if progress.percentage >= 100.0 or progress.percentage < 0 or progress.cancelled:
                             break
                 except asyncio.TimeoutError:
                     # 发送心跳

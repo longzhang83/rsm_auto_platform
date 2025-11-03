@@ -5,8 +5,10 @@ services:
       - "8888:8888"
     environment:
       - ENVIRONMENT=production
-      - SERVE_FRONTEND=false
       - ZHIPUAI_API_KEY=${ZHIPUAI_API_KEY}
+      - ZHIPUAI_API_KEYS=${ZHIPUAI_API_KEYS}
+      - ZHIPUAI_MODEL=${ZHIPUAI_MODEL:-glm-4.5-flash}
+      - ZHIPUAI_SYSTEM_PROMPT=${ZHIPUAI_SYSTEM_PROMPT}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

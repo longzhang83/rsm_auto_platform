@@ -12,7 +12,13 @@ try:
 except ImportError:  # pragma: no cover
 	tqdm = None
 
-from .chatglm import batch_translate_texts, translate_text
+# 优先使用新的多账户翻译服务
+try:
+	from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
+	MULTI_ACCOUNT_AVAILABLE = True
+except ImportError:
+	from .chatglm import batch_translate_texts, translate_text
+	MULTI_ACCOUNT_AVAILABLE = False
 
 DEFAULT_EXPENSE_FILE = "Expense.xlsx"
 DEFAULT_EMPLOYEE_FILE = "人员列表.xlsx"
@@ -138,6 +144,7 @@ class VoucherConfig:
 	translation_mapping_path: Path = field(default_factory=lambda: Path("data") / "translation_mapping.csv")
 	translation_max_workers: int = 3
 	translation_requests_per_second: float = 0.6
+	zhipuai_api_keys: list[str] = field(default_factory=list)  # GLM API密钥列表，支持多账户
 
 	def resolved(self) -> "VoucherConfig":
 		cfg = replace(self)
@@ -318,6 +325,19 @@ def generate_vouchers(
 	subject_df: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
 	cfg = config.resolved()
+
+	# 初始化多账户翻译服务（如果可用）
+	if MULTI_ACCOUNT_AVAILABLE and cfg.zhipuai_api_keys:
+		try:
+			configure_translation_service(
+				api_keys=cfg.zhipuai_api_keys,
+				cache_path=cfg.translation_mapping_path,
+				max_workers=cfg.translation_max_workers,
+			)
+			print(f"已初始化多账户翻译服务，共 {len(cfg.zhipuai_api_keys)} 个API密钥")
+		except Exception as e:
+			print(f"初始化多账户翻译服务失败: {e}")
+			print("将使用原有的翻译服务")
 
 	if expense_df is None:
 		expense_df, sheet_name = load_expense_data(cfg)

@@ -167,6 +167,22 @@ python main.py \
 
 ---
 
+## 📚 项目文档
+
+### 📖 开发文档
+- **[开发问题排查指南](docs/TROUBLESHOOTING_GUIDE.md)** - 常见问题解决方案和调试技巧
+- **[开发模式与反模式](docs/DEVELOPMENT_PATTERNS.md)** - 最佳实践和代码模式指南
+- **[后端架构文档](docs/BACKEND_STRUCTURE.md)** - FastAPI架构和设计原则
+- **[日志管理系统](docs/LOG_MANAGEMENT.md)** - 企业级日志配置和使用
+
+### 🔧 技术文档
+- **[并发优化方案](docs/CONCURRENCY_OPTIMIZATION.md)** - 异步多账户翻译实现
+- **[GLM模型配置](docs/GLM_MODEL_CONFIG.md)** - 智谱AI API配置指南
+- **[多账户翻译](docs/MULTI_ACCOUNT_TRANSLATION.md)** - 负载均衡和错误处理
+- **[Nginx部署](docs/NGINX_DEPLOYMENT.md)** - 生产环境部署指南
+
+---
+
 ## 🛠️ 开发
 
 ### 后端开发
