@@ -220,18 +220,21 @@ class BankStatementService:
 
                     # 计算百分比
                     percentage = (completed / total) * 100 if total > 0 else 0.0
-                    logger.info(f"[bank_statement_service] 收到进度回调: {percentage:.1f}% - {message}")
+                    logger.info(f"[bank_statement_service] 收到进度回调: {percentage:.1f}% ({completed}/{total}) - {message}")
 
                     # 根据处理阶段计算总体进度
                     if "翻译" in message:
-                        # 翻译阶段：0.4-0.7
-                        overall_percentage = 0.4 + (percentage * 0.3)
+                        # 翻译阶段：0.4-0.8 (40%进度范围，从40%开始)
+                        overall_percentage = 0.4 + (percentage / 100 * 0.4)
                     else:
-                        # 凭证生成阶段：0.7-0.9
-                        overall_percentage = 0.7 + (percentage * 0.2)
+                        # 凭证生成阶段：0.8-0.95 (15%进度范围，从80%开始)
+                        overall_percentage = 0.8 + (percentage / 100 * 0.15)
 
                     # 确保进度在合理范围内
-                    overall_percentage = max(0.4, min(0.9, overall_percentage))
+                    overall_percentage = max(0.4, min(0.95, overall_percentage))
+
+                    # 调试：输出详细的计算过程 (强制重载)
+                    logger.info(f"[bank_statement_service] 进度计算: 翻译{percentage:.1f}% -> 总体{overall_percentage:.1f}%")
 
                     # 直接调用ProgressManager，跳过log_manager以避免潜在问题
                     progress_manager.update_progress(current_task_id, overall_percentage, message, completed, total, message)

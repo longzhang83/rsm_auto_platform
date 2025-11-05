@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
 
+import logging
 import pandas as pd
 
 try:
@@ -13,6 +14,8 @@ except ImportError:  # pragma: no cover
     tqdm = None
 
 from .translation_interface import batch_translate_texts, translate_text, configure_translation_service
+
+logger = logging.getLogger(__name__)
 
 # 银行流水相关常量
 DEFAULT_BANK_STATEMENT_FILE = "银行流水.xlsx"

@@ -109,13 +109,15 @@ class MultiAccountTranslationService:
         model: Optional[str] = None,
         cache_path: Optional[Path] = None,
         max_workers: int = 6,
+        system_prompt: Optional[str] = None,
     ):
         self.accounts = accounts
         # 从环境变量获取模型配置，如果没有则使用默认值
         self.model = model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
         self.cache_path = cache_path or Path("data/translation_mapping.csv")
         self.max_workers = max_workers
-        self.system_prompt = os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
+        # 优先使用传入的system_prompt，否则从环境变量读取
+        self.system_prompt = system_prompt or os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
 
         # 打印模型配置信息
         logger.info(f"翻译服务初始化完成 - 模型: {self.model}, 账户数: {len(accounts)}")
@@ -405,6 +407,12 @@ class MultiAccountTranslationService:
 
         # 使用线程池，每个账户一个线程
         max_concurrent_accounts = min(len(self.accounts), 2)  # 最多2个账户并发
+
+        # 使用线程安全的计数器
+        import threading
+        completed_count_lock = threading.Lock()
+        completed_count = 0
+
         with ThreadPoolExecutor(max_workers=max_concurrent_accounts) as executor:
 
             def process_account_queue(account_queue_data):
@@ -412,6 +420,7 @@ class MultiAccountTranslationService:
                 nonlocal completed_count
                 account, texts_queue = account_queue_data
                 account_results = {}
+                local_completed = 0
 
                 logger.info(f"账户 {account.name} 开始处理 {len(texts_queue)} 个文本")
 
@@ -424,14 +433,20 @@ class MultiAccountTranslationService:
                     try:
                         source, translated = worker_with_account(account, text)
                         account_results[source] = translated
-                        completed_count += 1
+                        local_completed += 1
+
+                        # 使用线程安全的方式更新全局计数器
+                        with completed_count_lock:
+                            completed_count += 1
+                            current_completed = completed_count
+                            current_total = len(unique_texts)
 
                         # 每个文本完成后都调用进度回调
                         if progress_callback:
                             try:
-                                percentage = (completed_count / len(unique_texts)) * 100
-                                logger.info(f"[multi_account_translator] 更新进度: {percentage:.1f}% ({completed_count}/{len(unique_texts)}) - {text[:30]}...")
-                                progress_callback(completed_count, len(unique_texts), f"翻译: {text[:30]}...")
+                                percentage = (current_completed / current_total) * 100
+                                logger.info(f"[multi_account_translator] 更新进度: {percentage:.1f}% ({current_completed}/{current_total}) - {text[:30]}...")
+                                progress_callback(current_completed, current_total, f"翻译: {text[:30]}...")
                             except Exception as e:
                                 logger.error(f"[multi_account_translator] 进度回调失败: {e}")
 
@@ -573,7 +588,8 @@ def init_translation_service(
     _translation_service = MultiAccountTranslationService(
         accounts=accounts,
         model=model,
-        max_workers=max_workers
+        max_workers=max_workers,
+        system_prompt=system_prompt
     )
 
     # 更新系统提示（如果有自定义）
