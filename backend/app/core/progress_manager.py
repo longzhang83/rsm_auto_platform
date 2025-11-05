@@ -109,7 +109,7 @@ class ProgressManager:
 
     async def listen_progress(self, task_id: str):
         """监听任务进度（用于SSE）- 完全非阻塞实现"""
-        max_duration = 30  # 最大持续时间（秒），防止永久运行
+        max_duration = 7200  # 最大持续时间（秒），延长到2小时
         check_interval = 0.5  # 检查间隔（秒）
         start_time = asyncio.get_event_loop().time()
         last_percentage = -1.0

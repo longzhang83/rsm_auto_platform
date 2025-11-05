@@ -515,7 +515,7 @@ const generateVouchers = async () => {
         console.error('生成凭证失败:', error)
         ElMessage.error('生成凭证失败: ' + (error.message || '未知错误'))
       },
-      timeout: 600000 // 10分钟超时
+      timeout: 7200000 // 2小时超时，匹配后端SSE超时时间
     })
 
   } catch (error) {
