@@ -289,22 +289,20 @@ class AsyncTranslationService:
 
                 # 调用进度回调更新进度
                 if progress_callback:
-                    # 🚨 再次检查是否已取消（避免在已取消的任务上更新进度）
-                    if not (cancel_check and cancel_check()):
-                        # 计算进度百分比 (25% + 65% * (completed_count / total))
-                        # 25% 是开始翻译前的进度，65% 是翻译过程的总进度
-                        percentage = 25.0 + (65.0 * completed_count / len(unique_texts))
-                        logger.info(f"调用进度回调: {percentage:.1f}% - {text[:50]}... (完成: {completed_count}/{len(unique_texts)})")
-                        try:
-                            # 🚨 重要：progress_callback的签名是 def translation_progress(current, total, current_item)
-                            # 必须严格按照这个顺序调用，不能使用关键字参数！
-                            # 参考：docs/MEMORY_CHECKLIST.md - 函数参数调用检查
-                            progress_callback(completed_count, len(unique_texts), text[:50])
-                            logger.info(f"进度回调已发送: {percentage:.1f}%")
-                        except Exception as e:
-                            logger.error(f"进度回调调用失败: {e}")
-                            import traceback
-                            logger.error(f"错误详情: {traceback.format_exc()}")
+                    # 计算进度百分比 (25% + 65% * (completed_count / total))
+                    # 25% 是开始翻译前的进度，65% 是翻译过程的总进度
+                    percentage = 25.0 + (65.0 * completed_count / len(unique_texts))
+                    logger.info(f"调用进度回调: {percentage:.1f}% - {text[:50]}... (完成: {completed_count}/{len(unique_texts)})")
+                    try:
+                        # 🚨 重要：progress_callback的签名是 def translation_progress(current, total, current_item)
+                        # 必须严格按照这个顺序调用，不能使用关键字参数！
+                        # 参考：docs/MEMORY_CHECKLIST.md - 函数参数调用检查
+                        progress_callback(completed_count, len(unique_texts), text[:50])
+                        logger.info(f"进度回调已发送: {percentage:.1f}%")
+                    except Exception as e:
+                        logger.error(f"进度回调调用失败: {e}")
+                        import traceback
+                        logger.error(f"错误详情: {traceback.format_exc()}")
 
                 return text, result
 
@@ -390,6 +388,51 @@ def init_async_translation_service(
 def get_translation_service() -> Optional[AsyncTranslationService]:
     """获取全局翻译服务实例"""
     return _global_service
+
+
+def configure_translation_service(
+    api_keys: Optional[List[str]] = None,
+    cache_path: Optional[Union[str, Path]] = None,
+    max_workers: int = 3,
+    **kwargs
+) -> AsyncTranslationService:
+    """
+    配置异步翻译服务（兼容统一接口）
+
+    Args:
+        api_keys: API密钥列表，如果为None则从环境变量读取
+        cache_path: 缓存文件路径
+        max_workers: 最大并发数
+        **kwargs: 其他参数（向后兼容）
+
+    Returns:
+        AsyncTranslationService: 翻译服务实例
+    """
+    # 如果未提供api_keys，从环境变量读取
+    if not api_keys:
+        import os
+        api_keys_env = os.getenv("ZHIPUAI_API_KEYS", "")
+        if api_keys_env:
+            api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
+        else:
+            # 回退到单个API密钥
+            single_key = os.getenv("ZHIPUAI_API_KEY", "")
+            if single_key:
+                api_keys = [single_key]
+            else:
+                raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
+
+    # 转换cache_path为Path对象
+    if cache_path:
+        cache_path = Path(cache_path)
+
+    # 初始化服务
+    return init_async_translation_service(
+        api_keys=api_keys,
+        cache_path=cache_path,
+        max_concurrent=max_workers,
+        **kwargs
+    )
 
 
 async def batch_translate_texts_async(

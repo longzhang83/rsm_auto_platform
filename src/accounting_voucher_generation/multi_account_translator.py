@@ -357,6 +357,12 @@ class MultiAccountTranslationService:
         texts: Iterable[str],
         target_language: str = "en",
         progress_callback: Optional[callable] = None,
+        cancel_check: Optional[callable] = None,
+        max_workers: int = 3,
+        requests_per_second: float = 0.6,
+        mapping_path: Optional[Union[str, Path]] = None,
+        progress_description: str = "翻译摘要",
+        **kwargs
     ) -> Dict[str, str]:
         """批量翻译文本 - 智能并发方案"""
         # 去重和清理
@@ -403,21 +409,38 @@ class MultiAccountTranslationService:
 
             def process_account_queue(account_queue_data):
                 """处理单个账户的翻译队列"""
+                nonlocal completed_count
                 account, texts_queue = account_queue_data
                 account_results = {}
 
                 logger.info(f"账户 {account.name} 开始处理 {len(texts_queue)} 个文本")
 
-                for text in texts_queue:
+                for i, text in enumerate(texts_queue):
+                    # 检查是否已取消
+                    if cancel_check and cancel_check():
+                        logger.info(f"[multi_account_translator] 翻译已取消，停止处理: {account.name}")
+                        break
+
                     try:
                         source, translated = worker_with_account(account, text)
                         account_results[source] = translated
+                        completed_count += 1
+
+                        # 每个文本完成后都调用进度回调
+                        if progress_callback:
+                            try:
+                                percentage = (completed_count / len(unique_texts)) * 100
+                                logger.info(f"[multi_account_translator] 更新进度: {percentage:.1f}% ({completed_count}/{len(unique_texts)}) - {text[:30]}...")
+                                progress_callback(completed_count, len(unique_texts), f"翻译: {text[:30]}...")
+                            except Exception as e:
+                                logger.error(f"[multi_account_translator] 进度回调失败: {e}")
 
                         # 移除手动sleep，使用内置的速率限制器进行控制
 
                     except Exception as e:
                         logger.error(f"账户 {account.name} 处理文本 {text} 失败: {e}")
                         account_results[text] = text
+                        completed_count += 1  # 即使失败也要增加计数
 
                 return account_results
 
@@ -433,19 +456,32 @@ class MultiAccountTranslationService:
                 try:
                     account_results = future.result()
                     results.update(account_results)
-                    completed_count += len(account_results)
+                    # 注意：不要在这里增加completed_count，因为每个文本在process_account_queue中已经单独计数了
+
+                    # 检查是否已取消
+                    if cancel_check and cancel_check():
+                        logger.info(f"[multi_account_translator] 翻译已取消，停止后续处理")
+                        break
 
                     # 调用进度回调
                     if progress_callback:
                         try:
+                            logger.info(f"[multi_account_translator] 准备调用进度回调: {completed_count}/{len(unique_texts)} - 账户 {account.name} 完成")
                             progress_callback(completed_count, len(unique_texts), f"账户 {account.name} 完成")
-                        except Exception:
-                            pass
+                            logger.info(f"[multi_account_translator] 进度回调调用成功: {completed_count}/{len(unique_texts)}")
+                        except Exception as e:
+                            logger.error(f"[multi_account_translator] 进度回调调用失败: {e}")
+                            import traceback
+                            logger.error(f"[multi_account_translator] 错误详情: {traceback.format_exc()}")
 
                 except Exception as e:
                     logger.error(f"账户 {account.name} 处理失败: {e}")
 
-        logger.info(f"智能并发翻译完成: 总计 {len(unique_texts)} 条，成功 {len([r for r in results.values() if r != results.get(r, r)])} 条")
+        # 检查是否是因为取消而提前结束
+        if cancel_check and cancel_check():
+            logger.info(f"[multi_account_translator] 翻译已取消，提前结束: 处理了 {len(results)} 条，总计 {len(unique_texts)} 条")
+        else:
+            logger.info(f"智能并发翻译完成: 总计 {len(unique_texts)} 条，成功 {len([r for r in results.values() if r != results.get(r, r)])} 条")
         return results
 
     def get_stats(self) -> Dict[str, Any]:
@@ -545,6 +581,42 @@ def get_translation_service() -> Optional[MultiAccountTranslationService]:
     return _translation_service
 
 
+def configure_translation_service(
+    api_keys: Optional[List[str]] = None,
+    cache_path: Optional[Union[str, Path]] = None,
+    max_workers: int = 3,
+    **kwargs
+) -> MultiAccountTranslationService:
+    """
+    配置多账户翻译服务（兼容统一接口）
+
+    Args:
+        api_keys: API密钥列表，如果为None则从环境变量读取
+        cache_path: 缓存文件路径
+        max_workers: 最大工作线程数
+        **kwargs: 其他参数（向后兼容）
+
+    Returns:
+        MultiAccountTranslationService: 翻译服务实例
+    """
+    # 如果未提供api_keys，从环境变量读取
+    if not api_keys:
+        import os
+        api_keys_env = os.getenv("ZHIPUAI_API_KEYS", "")
+        if api_keys_env:
+            api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
+        else:
+            # 回退到单个API密钥
+            single_key = os.getenv("ZHIPUAI_API_KEY", "")
+            if single_key:
+                api_keys = [single_key]
+            else:
+                raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
+
+    # 初始化服务
+    return init_translation_service(api_keys=api_keys, max_workers=max_workers)
+
+
 def translate_text(text: str, target_language: str = "en") -> str:
     """便捷的翻译函数"""
     service = get_translation_service()
@@ -557,12 +629,28 @@ def batch_translate_texts(
     texts: Iterable[str],
     target_language: str = "en",
     progress_callback: Optional[callable] = None,
+    cancel_check: Optional[callable] = None,
+    max_workers: int = 3,
+    requests_per_second: float = 0.6,
+    mapping_path: Optional[Union[str, Path]] = None,
+    progress_description: str = "翻译摘要",
+    **kwargs
 ) -> Dict[str, str]:
     """便捷的批量翻译函数"""
     service = get_translation_service()
     if not service:
         raise RuntimeError("翻译服务未初始化，请先调用 init_translation_service()")
-    return service.batch_translate_texts(texts, target_language, progress_callback)
+    return service.batch_translate_texts(
+        texts=texts,
+        target_language=target_language,
+        progress_callback=progress_callback,
+        cancel_check=cancel_check,
+        max_workers=max_workers,
+        requests_per_second=requests_per_second,
+        mapping_path=mapping_path,
+        progress_description=progress_description,
+        **kwargs
+    )
 
 
 if __name__ == "__main__":

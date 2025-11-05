@@ -12,13 +12,13 @@ try:
 except ImportError:  # pragma: no cover
     tqdm = None
 
-try:
-    # 优先使用新的多账户翻译服务
-    from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
-except ImportError:
-    # 回退到原有的翻译服务
-    from .chatglm import batch_translate_texts, translate_text
-    configure_translation_service = None
+# 使用统一翻译接口
+from .translation_interface import (
+    batch_translate_texts,
+    translate_text,
+    configure_translation_service,
+    TranslationStrategy
+)
 
 
 @dataclass(slots=True)
@@ -357,37 +357,28 @@ class SummaryTranslator:
 
         logger.info(f"[summary_translator] 开始翻译 {len(summaries)} 个摘要文本")
 
-        try:
-            # 尝试使用新的异步翻译服务
-            logger.info("[summary_translator] 尝试使用异步翻译服务")
-            from .chatglm_async import batch_translate_texts as async_batch_translate
+        # 使用统一翻译接口，根据是否需要取消功能选择策略
+        # 修复：使用智能策略选择，避免硬编码选择async策略
+        if self.config.cancel_check:
+            # 需要取消功能时，使用自动策略选择，优先选择已初始化的实现
+            strategy = TranslationStrategy.AUTO
+            logger.info(f"[summary_translator] 需要取消功能，使用自动策略选择")
+        else:
+            # 不需要取消功能时，使用稳定的chatglm_v2
+            strategy = TranslationStrategy.CHATGLM_V2
+            logger.info(f"[summary_translator] 使用翻译策略: {strategy}")
 
-            result = async_batch_translate(
-                summaries,
-                target_language=self.config.target_language,
-                progress_callback=progress_callback,
-                cancel_check=self.config.cancel_check,
-                max_workers=self.config.translation_max_workers,
-                requests_per_second=self.config.translation_requests_per_second,
-                mapping_path=self.config.translation_mapping_path,
-            )
-
-            logger.info(f"[summary_translator] 异步翻译完成，翻译了 {len(result)} 个文本")
-            return result
-
-        except (ImportError, RuntimeError, Exception) as e:
-            logger.error(f"[summary_translator] 异步翻译服务不可用，回退到原始实现: {e}")
-            print(f"异步翻译服务不可用，回退到原始实现: {e}")
-            # 回退到原始的chatglm实现
-            return batch_translate_texts(
-                summaries,
-                max_workers=self.config.translation_max_workers,
-                requests_per_second=self.config.translation_requests_per_second,
-                progress_description="翻译摘要",
-                mapping_path=self.config.translation_mapping_path,
-                target_language=self.config.target_language,
-                progress_callback=progress_callback,
-            )
+        return batch_translate_texts(
+            texts=summaries,
+            target_language=self.config.target_language,
+            progress_callback=progress_callback,
+            cancel_check=self.config.cancel_check,
+            strategy=strategy,
+            max_workers=self.config.translation_max_workers,
+            requests_per_second=self.config.translation_requests_per_second,
+            mapping_path=self.config.translation_mapping_path,
+            progress_description="翻译摘要",
+        )
 
 
 def translate_summaries_from_excel(

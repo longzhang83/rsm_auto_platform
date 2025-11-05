@@ -12,13 +12,9 @@ try:
 except ImportError:  # pragma: no cover
 	tqdm = None
 
-# 优先使用新的多账户翻译服务
-try:
-	from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
-	MULTI_ACCOUNT_AVAILABLE = True
-except ImportError:
-	from .chatglm import batch_translate_texts, translate_text
-	MULTI_ACCOUNT_AVAILABLE = False
+# 使用新的多账户翻译服务
+from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
+MULTI_ACCOUNT_AVAILABLE = True
 
 DEFAULT_EXPENSE_FILE = "Expense.xlsx"
 DEFAULT_EMPLOYEE_FILE = "人员列表.xlsx"

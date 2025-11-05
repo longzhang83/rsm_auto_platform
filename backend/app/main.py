@@ -66,8 +66,13 @@ app = FastAPI(
 
 # 配置CORS
 if settings.environment == "development":
-    # 开发环境：允许Vue开发服务器
-    cors_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # 开发环境：允许Vue开发服务器（支持3000和3001端口）
+    cors_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
+    ]
 else:
     # 生产环境：允许来自nginx的请求
     cors_origins = ["*"]

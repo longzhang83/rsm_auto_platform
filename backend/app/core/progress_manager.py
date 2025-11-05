@@ -108,45 +108,99 @@ class ProgressManager:
         self._cancel_flags.pop(task_id, None)
 
     async def listen_progress(self, task_id: str):
-        """监听任务进度（用于SSE）"""
-        if task_id not in self._listeners:
-            return
-
-        queue = self._listeners[task_id]
+        """监听任务进度（用于SSE）- 完全非阻塞实现"""
+        max_duration = 30  # 最大持续时间（秒），防止永久运行
+        check_interval = 0.5  # 检查间隔（秒）
+        start_time = asyncio.get_event_loop().time()
+        last_percentage = -1.0
+        last_message = ""
 
         try:
-            # 首先发送当前状态
-            if task_id in self._tasks:
-                progress = self._tasks[task_id]
+            # 首先快速检查任务是否存在
+            task_exists = False
+            try:
+                task_exists = task_id in self._tasks
+            except Exception:
+                pass  # 忽略检查错误
+
+            if not task_exists:
+                yield f"data: {json.dumps({'percentage': -1.0, 'message': '任务不存在'})}\n\n"
+                return
+
+            # 获取初始状态
+            initial_progress = self.get_progress(task_id)
+            if initial_progress:
                 yield f"data: {json.dumps({
-                    'percentage': progress.percentage,
-                    'message': progress.message,
-                    'completed': progress.completed,
-                    'total': progress.total,
-                    'current_item': progress.current_item,
-                    'cancelled': progress.cancelled
+                    'percentage': initial_progress.percentage,
+                    'message': initial_progress.message,
+                    'completed': initial_progress.completed,
+                    'total': initial_progress.total,
+                    'current_item': initial_progress.current_item,
+                    'cancelled': initial_progress.cancelled
                 })}\n\n"
+                last_percentage = initial_progress.percentage
+                last_message = initial_progress.message
 
-            # 监听后续更新
-            while task_id in self._listeners:
+            # 主循环 - 使用简单的轮询机制，避免队列阻塞
+            iteration = 0
+            while (asyncio.get_event_loop().time() - start_time) < max_duration:
+                iteration += 1
+
                 try:
-                    # 等待进度更新，最多等待5秒
-                    data = await asyncio.wait_for(queue.get(), timeout=5.0)
-                    yield f"data: {data}\n\n"
+                    # 非阻塞检查任务状态
+                    current_progress = None
+                    try:
+                        current_progress = self.get_progress(task_id)
+                    except Exception:
+                        pass  # 忽略获取错误
 
-                    # 如果任务完成、失败或取消，停止监听
-                    if task_id in self._tasks:
-                        progress = self._tasks[task_id]
-                        if progress.percentage >= 100.0 or progress.percentage < 0 or progress.cancelled:
+                    if current_progress:
+                        # 只有在进度有变化时才发送更新
+                        if (current_progress.percentage != last_percentage or
+                            current_progress.message != last_message):
+
+                            yield f"data: {json.dumps({
+                                'percentage': current_progress.percentage,
+                                'message': current_progress.message,
+                                'completed': current_progress.completed,
+                                'total': current_progress.total,
+                                'current_item': current_progress.current_item,
+                                'cancelled': current_progress.cancelled
+                            })}\n\n"
+
+                            last_percentage = current_progress.percentage
+                            last_message = current_progress.message
+
+                        # 检查是否完成
+                        if current_progress.percentage >= 100.0 or current_progress.cancelled:
+                            yield f"data: {json.dumps({'task_completed': True})}\n\n"
+                            await asyncio.sleep(0.1)
                             break
-                except asyncio.TimeoutError:
-                    # 发送心跳
-                    yield f"data: {json.dumps({'heartbeat': True})}\n\n"
-                except Exception:
-                    break
-        finally:
-            # 清理资源
-            self.remove_task(task_id)
+
+                    # 发送心跳（每3次迭代发送一次）
+                    if iteration % 3 == 0:
+                        yield f"data: {json.dumps({'heartbeat': True, 'iteration': iteration})}\n\n"
+
+                    # 短暂休眠，避免CPU占用过高
+                    await asyncio.sleep(check_interval)
+
+                except Exception as e:
+                    # 任何异常都不中断流程，只记录日志
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Progress poll warning for task {task_id}: {e}")
+                    yield f"data: {json.dumps({'error': str(e), 'iteration': iteration})}\n\n"
+                    await asyncio.sleep(check_interval)  # 出错后也要休眠
+
+            # 超时退出
+            yield f"data: {json.dumps({'message': '监听超时', 'timeout': True})}\n\n"
+
+        except Exception as e:
+            # 最外层异常处理
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Fatal error in listen_progress for task {task_id}: {e}")
+            yield f"data: {json.dumps({'percentage': -1.0, 'message': f'监听错误: {str(e)}'})}\n\n"
 
 
 # 全局进度管理器实例

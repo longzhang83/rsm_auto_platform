@@ -122,6 +122,18 @@ async def start_translation(
         raise HTTPException(status_code=500, detail=f"启动翻译任务时发生错误：{exc}") from exc
 
 
+@router.post("/cancel/{task_id}")
+async def cancel_translation(task_id: str):
+    """
+    取消翻译任务
+    """
+    success = progress_manager.cancel_task(task_id)
+    if success:
+        return {"message": "任务已取消", "task_id": task_id}
+    else:
+        raise HTTPException(status_code=404, detail="任务不存在或无法取消")
+
+
 @router.get("/download/{task_id}")
 async def download_translation_result(task_id: str):
     """

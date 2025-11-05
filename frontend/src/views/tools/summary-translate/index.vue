@@ -374,80 +374,16 @@
     </div>
   </div>
 
-  <!-- 翻译进度弹窗 -->
-  <el-dialog
-    v-model="translating"
-    title="翻译进度"
-    width="600px"
-    :close-on-click-modal="false"
-    :close-on-press-escape="false"
-    :show-close="false"
-    center
-  >
-    <template #header="{ close }">
-      <div class="flex items-center">
-        <el-icon class="mr-2 text-blue-500"><Loading /></el-icon>
-        <span class="text-lg font-semibold">翻译进度</span>
-      </div>
-    </template>
-
-    <div class="progress-content">
-      <el-progress
-        :percentage="progress.percentage"
-        :status="progress.status"
-        :stroke-width="12"
-      >
-        <template #default="{ percentage }">
-          <span class="percentage-value">{{ percentage }}%</span>
-        </template>
-      </el-progress>
-
-      <div class="progress-info mt-6">
-        <div class="grid grid-cols-2 gap-4 text-sm">
-          <div class="bg-gray-50 p-3 rounded">
-            <div class="text-gray-500 text-xs mb-1">已处理</div>
-            <div class="font-semibold text-lg">{{ progress.completed }} / {{ progress.total }}</div>
-          </div>
-          <div class="bg-gray-50 p-3 rounded">
-            <div class="text-gray-500 text-xs mb-1">实际花费时间</div>
-            <div class="font-semibold text-lg">{{ progress.elapsedTime }}</div>
-          </div>
-          <div class="bg-blue-50 p-3 rounded col-span-2">
-            <div class="text-gray-500 text-xs mb-1">当前处理</div>
-            <div class="font-semibold text-blue-600 text-sm">{{ progress.currentItem }}</div>
-          </div>
-          <div class="bg-green-50 p-3 rounded">
-            <div class="text-gray-500 text-xs mb-1">处理速度</div>
-            <div class="font-semibold text-green-600 text-lg">{{ progress.speed }}</div>
-          </div>
-          <div class="bg-yellow-50 p-3 rounded">
-            <div class="text-gray-500 text-xs mb-1">任务状态</div>
-            <div class="font-semibold text-yellow-600 text-sm">
-              {{ progress.percentage >= 100 ? '翻译完成' : '翻译中...' }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <template #footer>
-      <div class="flex justify-center">
-        <el-button
-          v-if="progress.percentage < 100"
-          @click="cancelTranslate"
-        >
-          取消翻译
-        </el-button>
-        <el-button
-          v-else
-          type="success"
-          @click="translating = false"
-        >
-          关闭
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
+  <!-- 翻译进度组件 -->
+    <TranslationProgress
+      v-model="showProgress"
+      title="摘要翻译进度"
+      :processing="translating"
+      :cancellable="true"
+      @cancel="handleCancelProgress"
+      @close="handleCloseProgress"
+      ref="translationProgressRef"
+    />
 </template>
 
 <script setup>
@@ -468,6 +404,8 @@ import {
   InfoFilled,
   TrendCharts
 } from '@element-plus/icons-vue'
+import { translateSummary, translationService } from '@/utils/translationService'
+import TranslationProgress from '@/components/TranslationProgress.vue'
 
 // 表单数据
 const form = reactive({
@@ -499,6 +437,8 @@ const rules = {
 
 const loading = ref(false)
 const translating = ref(false)
+const showProgress = ref(false)
+const translationProgressRef = ref(null)
 const showAdvanced = ref(false)
 const formRef = ref(null)
 
@@ -620,131 +560,56 @@ const handleSubmit = async () => {
   }
 }
 
-// 开始翻译 - SSE based translation
+// 开始翻译 - 使用统一的翻译服务
 const startTranslation = async (formData) => {
   translating.value = true
-  progress.percentage = 0.00
-  progress.completed = 0
-  progress.total = 0
-  progress.status = 'success'
-  progress.elapsedTime = '0秒'
-
-  // 记录开始时间
-  const startTime = Date.now()
+  showProgress.value = true
 
   try {
-    // 1. 先启动翻译任务，获取任务ID
-    progress.currentItem = '正在启动翻译任务...'
-
-    const startResponse = await fetch('/api/v1/translate/start', {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!startResponse.ok) {
-      const errorData = await startResponse.json().catch(() => ({}))
-      throw new Error(errorData.detail || '启动翻译任务失败')
-    }
-
-    const startData = await startResponse.json()
-    const taskId = startData.task_id
-
-    console.log('翻译任务已启动:', taskId)
-
-    // 2. 使用SSE连接获取实时进度
-    progress.currentItem = '正在连接进度服务...'
-
-    const eventSource = new EventSource(`/api/v1/progress/${taskId}`)
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-
-        if (data.heartbeat) {
-          // 心跳消息，忽略
-          return
+    // 使用统一的翻译服务
+    await translateSummary(formData, {
+      onProgress: (progressData) => {
+        // 更新翻译进度组件
+        if (translationProgressRef.value) {
+          translationProgressRef.value.updateProgress(progressData)
         }
-
-        if (data.percentage < 0) {
-          // 错误状态
-          throw new Error(data.message)
-        }
-
-        // 更新进度
-        progress.percentage = data.percentage
-        progress.completed = data.completed
-        progress.total = data.total || 100
-        progress.currentItem = data.message
-        progress.speed = Math.floor(Math.random() * 20 + 30) + ' 项/分钟'
-
-        // 计算已用时间
-        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
-
-        if (elapsedSeconds < 60) {
-          progress.elapsedTime = `${elapsedSeconds}秒`
-        } else if (elapsedSeconds < 3600) {
-          const minutes = Math.floor(elapsedSeconds / 60)
-          const seconds = elapsedSeconds % 60
-          progress.elapsedTime = `${minutes}分${seconds}秒`
-        } else {
-          const hours = Math.floor(elapsedSeconds / 3600)
-          const minutes = Math.floor((elapsedSeconds % 3600) / 60)
-          progress.elapsedTime = `${hours}小时${minutes}分钟`
-        }
-
-  
-        // 如果完成，开始下载
-        if (data.percentage >= 100) {
-          eventSource.close()
-          progress.currentItem = '翻译完成，正在准备下载...'
-
-          // 先下载，下载完成后再关闭弹窗
-          downloadResult(taskId)
-            .then(() => {
-              // 下载成功，延迟关闭弹窗让用户看到成功消息
-              setTimeout(() => {
-                translating.value = false
-              }, 2000)
-            })
-            .catch(error => {
-              console.error('下载失败:', error)
-              ElMessage.error('下载失败：' + error.message)
-              // 下载失败也要关闭弹窗
-              translating.value = false
-            })
-        }
-
-      } catch (error) {
-        console.error('解析进度数据失败:', error)
-        eventSource.close()
+      },
+      onComplete: async (result) => {
+        console.log('翻译完成:', result)
         translating.value = false
-      }
-    }
 
-    eventSource.onerror = (error) => {
-      console.error('SSE连接错误:', error)
-      eventSource.close()
-      translating.value = false
-      throw new Error('进度连接失败，请检查网络连接')
-    }
+        try {
+          // 下载翻译结果
+          if (result.download_url) {
+            await translationService.downloadResult(result.download_url, `translated_summaries_${result.task_id}.zip`)
+            ElMessage.success('翻译完成！文件已下载')
 
-    eventSource.onopen = () => {
-      console.log('SSE连接已建立')
-      progress.currentItem = '正在接收进度更新...'
-    }
-
-    // 3. 设置连接超时（SSE不需要长超时）
-    setTimeout(() => {
-      if (eventSource.readyState !== EventSource.CLOSED) {
-        eventSource.close()
-        throw new Error('连接超时，请重试')
-      }
-    }, 300000) // 5分钟超时
+            // 延迟关闭进度窗口，给用户时间看到完成状态
+            setTimeout(() => {
+              showProgress.value = false
+            }, 2000)
+          }
+        } catch (downloadError) {
+          console.error('下载失败:', downloadError)
+          ElMessage.warning('翻译完成，但文件下载失败，请重试')
+          // 即使下载失败也要关闭进度窗口
+          setTimeout(() => {
+            showProgress.value = false
+          }, 2000)
+        }
+      },
+      onError: (error) => {
+        console.error('翻译失败:', error)
+        translating.value = false
+        ElMessage.error('翻译失败: ' + (error.message || '未知错误'))
+      },
+      timeout: 600000 // 10分钟超时
+    })
 
   } catch (error) {
     console.error('翻译失败:', error)
-    ElMessage.error('翻译失败：' + error.message)
-    progress.status = 'exception'
+    ElMessage.error('翻译失败：' + (error.message || '未知错误'))
+  } finally {
     translating.value = false
   }
 }
@@ -800,6 +665,25 @@ const handleReset = () => {
   form.excelFile = null
   form.mappingFile = null
   showAdvanced.value = false
+}
+// 进度组件事件处理
+const handleCancelProgress = async () => {
+  try {
+    await translationService.cancel()
+    translating.value = false
+    showProgress.value = false
+    ElMessage.info('翻译任务已取消')
+  } catch (error) {
+    console.error('取消翻译任务时发生错误:', error)
+    ElMessage.warning('取消任务时发生错误，但进度窗口已关闭')
+    translating.value = false
+    showProgress.value = false
+  }
+}
+
+const handleCloseProgress = () => {
+  showProgress.value = false
+  translating.value = false
 }
 </script>
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import vouchers, translate, progress, translate_v2, logs
+from app.api.v1.endpoints import vouchers, translate, progress, translate_v2, logs, bank_statements
 
 api_router = APIRouter()
 
@@ -12,3 +12,4 @@ api_router.include_router(translate.router, prefix="/translate", tags=["translat
 api_router.include_router(translate_v2.router, prefix="/translate", tags=["translate_v2"])
 api_router.include_router(progress.router, tags=["progress"])
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])
+api_router.include_router(bank_statements.router, prefix="/bank-statements", tags=["bank-statements"])

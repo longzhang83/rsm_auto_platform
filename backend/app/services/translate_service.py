@@ -59,6 +59,17 @@ class TranslateService:
                             max_workers=max_workers
                         )
                         print(f"异步多账户翻译服务已初始化，共 {len(api_keys)} 个API密钥，并发数: {max_workers}")
+
+                        # 调试：检查实际初始化的翻译服务
+                        from accounting_voucher_generation.translation_interface import get_translation_service
+                        from accounting_voucher_generation.async_translator import get_translation_service as async_get_service
+                        from accounting_voucher_generation.multi_account_translator import get_translation_service as multi_get_service
+
+                        main_service = get_translation_service()
+                        async_service = async_get_service()
+                        multi_service = multi_get_service()
+
+                        print(f"调试 - 主服务: {type(main_service)}, 异步服务: {type(async_service)}, 多账户服务: {type(multi_service)}")
                     except Exception as e:
                         print(f"初始化多账户翻译服务失败: {e}")
             else:

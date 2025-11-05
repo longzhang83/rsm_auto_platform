@@ -2,166 +2,619 @@
   <div class="bank-to-voucher">
     <div class="page-header mb-6">
       <h1 class="text-2xl font-bold text-gray-800 mb-2">银行流水转凭证</h1>
-      <p class="text-gray-600">自动识别银行流水数据，智能分类并生成对应会计凭证，支持多银行格式</p>
+      <p class="text-gray-600">将银行流水数据转化为会计凭证数据，方便企业进行财务核算和报表生成</p>
     </div>
 
-    <!-- 开发中提示 -->
-    <el-card class="development-card" shadow="hover">
-      <div class="development-content">
-        <div class="text-center py-12">
-          <el-icon class="development-icon text-6xl text-gray-400 mb-4">
-            <Tools />
-          </el-icon>
-          <h2 class="text-2xl font-bold text-gray-700 mb-4">功能开发中</h2>
-          <p class="text-gray-500 mb-6 max-w-2xl mx-auto">
-            银行流水转凭证功能正在紧锣密鼓地开发中，该功能将支持自动识别银行流水数据、智能分类、
-            多银行格式适配、自动科目匹配等强大功能，敬请期待！
-          </p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- 主要操作区域 -->
+      <div class="lg:col-span-2">
+        <el-card class="form-card" shadow="hover">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2 text-brand-600"><CreditCard /></el-icon>
+              <span class="text-lg font-semibold">银行流水转凭证</span>
+            </div>
+          </template>
 
-          <!-- 功能预览 -->
-          <div class="features-preview mt-8">
-            <h3 class="text-lg font-semibold text-gray-700 mb-6">即将推出的功能</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-blue-600"><CreditCard /></el-icon>
+          <el-form
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-position="top"
+            class="voucher-form"
+          >
+            <!-- 客户选择 -->
+            <el-form-item label="客户名称" prop="customerName">
+              <el-select
+                v-model="form.customerName"
+                placeholder="请选择客户"
+                style="width: 100%"
+                :loading="loadingCustomers"
+                @change="handleCustomerChange"
+              >
+                <el-option
+                  v-for="customer in customers"
+                  :key="customer"
+                  :label="customer"
+                  :value="customer"
+                />
+              </el-select>
+            </el-form-item>
+
+            <!-- 银行流水文件上传 -->
+            <el-form-item label="银行流水文件" prop="bankStatementFile">
+              <el-upload
+                ref="bankStatementUpload"
+                class="upload-demo"
+                drag
+                :auto-upload="false"
+                :limit="1"
+                :on-change="handleBankStatementFileChange"
+                :on-remove="handleBankStatementFileRemove"
+                accept=".xlsx,.xls,.csv"
+                :before-upload="beforeFileUpload"
+              >
+                <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+                <div class="el-upload__text">
+                  将文件拖到此处，或<em>点击上传</em>
                 </div>
-                <h4 class="font-semibold text-gray-700 mb-2">多银行支持</h4>
-                <p class="text-sm text-gray-500">
-                  支持主流银行流水格式导入，自动识别交易类型
-                </p>
+                <template #tip>
+                  <div class="el-upload__tip">
+                    支持 .xlsx/.xls/.csv 格式，文件大小不超过 10MB
+                  </div>
+                </template>
+              </el-upload>
+            </el-form-item>
+
+            <!-- 高级选项 -->
+            <el-collapse v-model="activeCollapse" class="mb-6">
+              <el-collapse-item title="高级选项" name="advanced">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <el-form-item label="制单人">
+                    <el-input v-model="form.preparer" placeholder="默认：cissy" />
+                  </el-form-item>
+                  <el-form-item label="凭证类别">
+                    <el-input v-model="form.voucherCategory" placeholder="默认：记" />
+                  </el-form-item>
+                  <el-form-item label="贷方科目">
+                    <el-input v-model="form.creditAccount" placeholder="默认：1001 (银行存款)" />
+                  </el-form-item>
+                  <el-form-item label="起始序号">
+                    <el-input-number v-model="form.startSeq" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+
+            <!-- 操作按钮 -->
+            <div class="action-buttons">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="generating"
+                @click="generateVouchers"
+                :disabled="!canGenerate"
+              >
+                <el-icon class="mr-1"><DocumentCopy /></el-icon>
+                生成凭证
+              </el-button>
+
+              <el-button
+                size="large"
+                @click="previewData"
+                :disabled="!canPreview"
+                :loading="previewing"
+              >
+                <el-icon class="mr-1"><View /></el-icon>
+                预览数据
+              </el-button>
+
+              <el-button size="large" @click="resetForm">
+                <el-icon class="mr-1"><RefreshLeft /></el-icon>
+                重置
+              </el-button>
+            </div>
+          </el-form>
+        </el-card>
+
+        <!-- 数据预览 -->
+        <el-card v-if="previewInfo" class="preview-card mt-6" shadow="hover">
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <el-icon class="mr-2 text-brand-600"><View /></el-icon>
+                <span class="text-lg font-semibold">数据预览</span>
               </div>
+              <el-tag type="info">{{ previewInfo.totalRows }} 条记录</el-tag>
+            </div>
+          </template>
 
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-green-600"><Tools /></el-icon>
-                </div>
-                <h4 class="font-semibold text-gray-700 mb-2">智能分类</h4>
-                <p class="text-sm text-gray-500">
-                  AI驱动的交易分类，自动识别收入、支出、转账等
-                </p>
-              </div>
-
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-purple-600"><Tickets /></el-icon>
-                </div>
-                <h4 class="font-semibold text-gray-700 mb-2">科目匹配</h4>
-                <p class="text-sm text-gray-500">
-                  智能匹配会计科目，支持自定义映射规则
-                </p>
-              </div>
-
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-yellow-600"><Document /></el-icon>
-                </div>
-                <h4 class="font-semibold text-gray-700 mb-2">批量处理</h4>
-                <p class="text-sm text-gray-500">
-                  支持大批量流水数据处理，提高工作效率
-                </p>
-              </div>
-
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-red-600"><Warning /></el-icon>
-                </div>
-                <h4 class="font-semibold text-gray-700 mb-2">异常检测</h4>
-                <p class="text-sm text-gray-500">
-                  自动识别异常交易，提供风险预警
-                </p>
-              </div>
-
-              <div class="feature-preview-item">
-                <div class="feature-icon bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <el-icon class="text-2xl text-indigo-600"><DataAnalysis /></el-icon>
-                </div>
-                <h4 class="font-semibold text-gray-700 mb-2">数据统计</h4>
-                <p class="text-sm text-gray-500">
-                  提供详细的交易统计和分析报告
-                </p>
+          <div class="preview-content">
+            <div class="mapping-info mb-4">
+              <h4 class="font-semibold mb-2">字段映射</h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                <div><strong>日期:</strong> {{ previewInfo.mapping.date }}</div>
+                <div><strong>对方户名:</strong> {{ previewInfo.mapping.counterparty }}</div>
+                <div><strong>摘要:</strong> {{ previewInfo.mapping.summary }}</div>
+                <div><strong>借方:</strong> {{ previewInfo.mapping.debit }}</div>
+                <div><strong>贷方:</strong> {{ previewInfo.mapping.credit }}</div>
               </div>
             </div>
-          </div>
 
-          <!-- 通知订阅 -->
-          <div class="notification-section mt-8">
-            <el-divider>
-              <span class="text-gray-500">功能上线通知</span>
-            </el-divider>
-            <div class="notification-form mt-6 max-w-md mx-auto">
-              <el-form :model="notificationForm" inline>
-                <el-form-item>
-                  <el-input
-                    v-model="notificationForm.email"
-                    placeholder="输入您的邮箱地址"
-                    clearable
-                    style="width: 250px"
-                  >
-                    <template #prepend>
-                      <el-icon><Message /></el-icon>
-                    </template>
-                  </el-input>
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" @click="subscribeNotification">
-                    <el-icon class="mr-1"><Bell /></el-icon>
-                    订阅通知
-                  </el-button>
-                </el-form-item>
-              </el-form>
-            </div>
+            <el-table
+              :data="previewInfo.data"
+              border
+              stripe
+              max-height="400"
+              class="preview-table"
+            >
+              <el-table-column
+                v-for="(column, index) in previewInfo.columns"
+                :key="index"
+                :prop="index.toString()"
+                :label="column"
+                min-width="120"
+              />
+            </el-table>
           </div>
-
-          <!-- 预计上线时间 -->
-          <div class="timeline-section mt-8">
-            <el-divider>
-              <span class="text-gray-500">开发进度</span>
-            </el-divider>
-            <div class="timeline mt-6">
-              <el-steps :active="2" align-center>
-                <el-step title="需求分析" description="已完成" />
-                <el-step title="功能设计" description="已完成" />
-                <el-step title="开发实现" description="进行中" />
-                <el-step title="测试验证" description="待开始" />
-                <el-step title="正式发布" description="预计2025年Q2" />
-              </el-steps>
-            </div>
-          </div>
-        </div>
+        </el-card>
       </div>
-    </el-card>
+
+      <!-- 侧边栏信息 -->
+      <div class="lg:col-span-1">
+        <!-- 功能说明 -->
+        <el-card class="info-card" shadow="hover">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2 text-brand-600"><InfoFilled /></el-icon>
+              <span class="font-semibold">功能说明</span>
+            </div>
+          </template>
+
+          <div class="info-content">
+            <div class="info-item">
+              <h4 class="font-semibold mb-2">🎯 主要功能</h4>
+              <ul class="text-sm text-gray-600 space-y-1">
+                <li>• 支持Excel/CSV格式银行流水导入</li>
+                <li>• 自动字段映射和数据清洗</li>
+                <li>• 智能会计科目匹配</li>
+                <li>• 自动生成标准会计凭证</li>
+                <li>• 支持多客户独立配置</li>
+              </ul>
+            </div>
+
+            <div class="info-item">
+              <h4 class="font-semibold mb-2">📋 数据要求</h4>
+              <ul class="text-sm text-gray-600 space-y-1">
+                <li>• 银行流水必须包含日期、摘要</li>
+                <li>• 包含借方或贷方金额字段</li>
+                <li>• 建议包含对方户名信息</li>
+              </ul>
+            </div>
+
+            <div class="info-item">
+              <h4 class="font-semibold mb-2">🔧 映射配置</h4>
+              <p class="text-sm text-gray-600">
+                系统会根据选择的客户自动加载对应的字段映射和科目映射配置。
+              </p>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 客户映射信息 -->
+        <el-card v-if="form.customerName && customerMapping" class="mapping-card mt-6" shadow="hover">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2 text-brand-600"><Setting /></el-icon>
+              <span class="font-semibold">客户映射配置</span>
+            </div>
+          </template>
+
+          <div class="mapping-content">
+            <div class="mapping-section">
+              <h4 class="font-semibold mb-3 text-sm">字段映射</h4>
+              <div class="mapping-list space-y-2">
+                <div class="mapping-item flex justify-between text-sm">
+                  <span class="text-gray-600">日期列:</span>
+                  <span class="font-mono">{{ customerMapping.column_mapping.date }}</span>
+                </div>
+                <div class="mapping-item flex justify-between text-sm">
+                  <span class="text-gray-600">对方户名列:</span>
+                  <span class="font-mono">{{ customerMapping.column_mapping.counterparty }}</span>
+                </div>
+                <div class="mapping-item flex justify-between text-sm">
+                  <span class="text-gray-600">摘要列:</span>
+                  <span class="font-mono">{{ customerMapping.column_mapping.summary }}</span>
+                </div>
+                <div class="mapping-item flex justify-between text-sm">
+                  <span class="text-gray-600">借方列:</span>
+                  <span class="font-mono">{{ customerMapping.column_mapping.debit }}</span>
+                </div>
+                <div class="mapping-item flex justify-between text-sm">
+                  <span class="text-gray-600">贷方列:</span>
+                  <span class="font-mono">{{ customerMapping.column_mapping.credit }}</span>
+                </div>
+              </div>
+            </div>
+
+            <el-divider />
+
+            <div class="mapping-section">
+              <h4 class="font-semibold mb-3 text-sm">
+                科目映射
+                <el-tag size="small" type="info" class="ml-2">
+                  {{ customerMapping.subject_mapping_count }} 条
+                </el-tag>
+              </h4>
+              <div class="subject-preview">
+                <div class="text-xs text-gray-500">
+                  支持按对方户名和摘要关键字匹配会计科目
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 处理结果 -->
+        <el-card v-if="result" class="result-card mt-6" shadow="hover">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2 text-green-600"><CircleCheckFilled /></el-icon>
+              <span class="font-semibold">处理结果</span>
+            </div>
+          </template>
+
+          <div class="result-content">
+            <div class="result-stats grid grid-cols-2 gap-4 mb-4">
+              <div class="stat-item text-center p-3 bg-blue-50 rounded">
+                <div class="text-2xl font-bold text-blue-600">{{ result.processed_records }}</div>
+                <div class="text-xs text-gray-600">处理记录</div>
+              </div>
+              <div class="stat-item text-center p-3 bg-green-50 rounded">
+                <div class="text-2xl font-bold text-green-600">{{ result.generated_vouchers }}</div>
+                <div class="text-xs text-gray-600">生成凭证</div>
+              </div>
+            </div>
+
+            <div class="download-section">
+              <el-button
+                type="primary"
+                plain
+                class="w-full"
+                @click="downloadResult"
+                :loading="downloading"
+              >
+                <el-icon class="mr-1"><Download /></el-icon>
+                下载凭证文件
+              </el-button>
+            </div>
+          </div>
+        </el-card>
+      </div>
+    </div>
+
+    <!-- 翻译进度组件 -->
+    <TranslationProgress
+      v-model="showProgress"
+      title="银行流水转凭证进度"
+      :processing="generating"
+      :cancellable="true"
+      @cancel="handleCancelProgress"
+      @close="handleCloseProgress"
+      ref="translationProgressRef"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Tools } from '@element-plus/icons-vue'
+import {
+  CreditCard,
+  DocumentCopy,
+  View,
+  RefreshLeft,
+  UploadFilled,
+  InfoFilled,
+  Setting,
+  CircleCheckFilled,
+  Download
+} from '@element-plus/icons-vue'
+import { generateBankStatementVouchers, getBankStatementCustomers, getBankStatementMapping, previewBankStatementData } from '@/api/bank-statement'
+import { generateBankVouchers, translationService } from '@/utils/translationService'
+import TranslationProgress from '@/components/TranslationProgress.vue'
 
-const notificationForm = reactive({
-  email: ''
+// 响应式数据
+const formRef = ref()
+const bankStatementUpload = ref()
+const translationProgressRef = ref()
+
+const form = reactive({
+  customerName: '',
+  preparer: 'cissy',
+  voucherCategory: '记',
+  creditAccount: '1001',
+  startSeq: 0
 })
 
-const subscribeNotification = () => {
-  if (!notificationForm.email) {
-    ElMessage.warning('请输入邮箱地址')
+const rules = {
+  customerName: [
+    { required: true, message: '请选择客户名称', trigger: 'change' }
+  ]
+}
+
+// 状态管理
+const loadingCustomers = ref(false)
+const generating = ref(false)
+const previewing = ref(false)
+const downloading = ref(false)
+const activeCollapse = ref([])
+
+// 数据
+const customers = ref([])
+const customerMapping = ref(null)
+const previewInfo = ref(null)
+const result = ref(null)
+
+// 进度管理
+const showProgress = ref(false)
+
+// 文件管理
+const bankStatementFile = ref(null)
+
+// 计算属性
+const canGenerate = computed(() => {
+  return form.customerName && bankStatementFile.value
+})
+
+const canPreview = computed(() => {
+  return form.customerName && bankStatementFile.value
+})
+
+// 生命周期
+onMounted(() => {
+  loadCustomers()
+})
+
+// 方法
+const loadCustomers = async () => {
+  try {
+    loadingCustomers.value = true
+    const response = await getBankStatementCustomers()
+    customers.value = response.customers || []
+
+    if (customers.value.length === 0) {
+      ElMessage.warning('暂无可用的客户配置，请先配置银行流水列名映射')
+    }
+  } catch (error) {
+    console.error('加载客户列表失败:', error)
+    ElMessage.error('加载客户列表失败')
+  } finally {
+    loadingCustomers.value = false
+  }
+}
+
+const handleCustomerChange = async (customerName) => {
+  if (!customerName) {
+    customerMapping.value = null
     return
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationForm.email)) {
-    ElMessage.warning('请输入正确的邮箱地址')
-    return
+  try {
+    const mapping = await getBankStatementMapping(customerName)
+    customerMapping.value = mapping
+  } catch (error) {
+    console.error('加载客户映射失败:', error)
+    ElMessage.error('加载客户映射配置失败')
+    customerMapping.value = null
   }
+}
 
-  ElMessage.success('订阅成功！功能上线后会第一时间通知您')
-  notificationForm.email = ''
+const handleBankStatementFileChange = (file) => {
+  bankStatementFile.value = file.raw
+
+  // 如果已选择客户，清除预览数据
+  if (previewInfo.value) {
+    previewInfo.value = null
+  }
+}
+
+const handleBankStatementFileRemove = () => {
+  bankStatementFile.value = null
+  previewInfo.value = null
+}
+
+const beforeFileUpload = (file) => {
+  const isValidType = ['.xlsx', '.xls', '.csv'].some(ext =>
+    file.name.toLowerCase().endsWith(ext)
+  )
+  const isLt10M = file.size / 1024 / 1024 < 10
+
+  if (!isValidType) {
+    ElMessage.error('只支持 .xlsx/.xls/.csv 格式的文件!')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('文件大小不能超过 10MB!')
+    return false
+  }
+  return true
+}
+
+const previewData = async () => {
+  if (!canPreview.value) return
+
+  try {
+    previewing.value = true
+    const formData = new FormData()
+    formData.append('bank_statement_file', bankStatementFile.value)
+    formData.append('customer_name', form.customerName)
+    formData.append('max_rows', 10)
+
+    const response = await previewBankStatementData(formData)
+
+    if (response.success) {
+      previewInfo.value = response.data
+      ElMessage.success('数据预览加载成功')
+    } else {
+      ElMessage.error('数据预览失败')
+    }
+  } catch (error) {
+    console.error('预览数据失败:', error)
+    ElMessage.error('预览数据失败: ' + (error.message || '未知错误'))
+  } finally {
+    previewing.value = false
+  }
+}
+
+const generateVouchers = async () => {
+  if (!canGenerate.value) return
+
+  try {
+    // 表单验证
+    await formRef.value.validate()
+
+    generating.value = true
+    showProgress.value = true
+
+    const formData = new FormData()
+    formData.append('bank_statement_file', bankStatementFile.value)
+    formData.append('customer_name', form.customerName)
+    formData.append('preparer', form.preparer)
+    formData.append('voucher_category', form.voucherCategory)
+    formData.append('credit_account', form.creditAccount)
+    formData.append('start_seq', form.startSeq.toString())
+
+    // 使用新的翻译服务，支持统一进度管理
+    const response = await generateBankVouchers(formData, {
+      onProgress: (progressData) => {
+        // 更新翻译进度组件
+        if (translationProgressRef.value) {
+          translationProgressRef.value.updateProgress(progressData)
+        }
+      },
+      onComplete: (downloadResult) => {
+        console.log('银行流水转凭证完成:', downloadResult)
+
+        // 更新结果数据
+        result.value = {
+          download_url: downloadResult.download_url,
+          processed_records: downloadResult.completed || 0,
+          generated_vouchers: Math.floor((downloadResult.completed || 0) * 0.8), // 估算凭证数量
+          task_id: downloadResult.task_id
+        }
+
+        // 自动触发下载
+        if (downloadResult.download_url) {
+          handleDownload(downloadResult.download_url)
+        }
+
+        ElMessage.success(`成功生成凭证！处理了 ${result.value.processed_records} 条记录，生成约 ${result.value.generated_vouchers} 个凭证`)
+      },
+      onError: (error) => {
+        console.error('生成凭证失败:', error)
+        ElMessage.error('生成凭证失败: ' + (error.message || '未知错误'))
+      },
+      timeout: 600000 // 10分钟超时
+    })
+
+  } catch (error) {
+    console.error('生成凭证失败:', error)
+    ElMessage.error('生成凭证失败: ' + (error.message || '未知错误'))
+  } finally {
+    generating.value = false
+    translationService.cleanup()
+  }
+}
+
+// 进度组件事件处理
+const handleCancelProgress = async () => {
+  try {
+    await translationService.cancel()
+    generating.value = false
+    showProgress.value = false
+    ElMessage.info('任务已取消')
+  } catch (error) {
+    console.error('取消任务时发生错误:', error)
+    ElMessage.warning('取消任务时发生错误，但进度窗口已关闭')
+    generating.value = false
+    showProgress.value = false
+  }
+}
+
+const handleCloseProgress = () => {
+  showProgress.value = false
+  generating.value = false
+}
+
+const handleDownload = async (downloadUrl) => {
+  if (!downloadUrl) return
+
+  try {
+    console.log('开始下载文件:', downloadUrl)
+
+    const response = await fetch(downloadUrl)
+    if (!response.ok) {
+      throw new Error('下载失败，请重试')
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `bank_vouchers_${Date.now()}.zip`
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+
+    setTimeout(() => {
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    }, 100)
+
+    ElMessage.success('文件下载已开始')
+  } catch (error) {
+    console.error('下载失败:', error)
+    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+  }
+}
+
+const downloadResult = async () => {
+  if (!result.value?.download_url) return
+
+  try {
+    downloading.value = true
+    await handleDownload(result.value.download_url)
+  } catch (error) {
+    console.error('下载失败:', error)
+    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
+  } finally {
+    downloading.value = false
+  }
+}
+
+const resetForm = () => {
+  formRef.value?.resetFields()
+  bankStatementUpload.value?.clearFiles()
+
+  bankStatementFile.value = null
+  customerMapping.value = null
+  previewInfo.value = null
+  result.value = null
+
+  // 重置为默认值
+  form.preparer = 'cissy'
+  form.voucherCategory = '记'
+  form.creditAccount = '1001'
+  form.startSeq = 0
+
+  ElMessage.success('表单已重置')
 }
 </script>
 
 <style scoped>
 .bank-to-voucher {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -170,72 +623,150 @@ const subscribeNotification = () => {
   padding-bottom: 1rem;
 }
 
-.development-card {
-  min-height: 600px;
+.form-card,
+.info-card,
+.mapping-card,
+.result-card,
+.preview-card {
+  margin-bottom: 1.5rem;
 }
 
-.development-content {
-  padding: 2rem;
+.voucher-form {
+  padding: 1rem 0;
 }
 
-.development-icon {
-  font-size: 4rem;
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  padding: 2rem 0 1rem;
+  border-top: 1px solid #e5e7eb;
 }
 
-.features-preview {
-  text-align: left;
+.info-content,
+.mapping-content,
+.result-content {
+  color: #374151;
 }
 
-.feature-preview-item {
-  text-align: center;
-  padding: 1.5rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: white;
+.info-item,
+.mapping-section {
+  margin-bottom: 1.5rem;
+}
+
+.info-item:last-child,
+.mapping-section:last-child {
+  margin-bottom: 0;
+}
+
+.info-item h4,
+.mapping-section h4 {
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.mapping-item {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.mapping-item:last-child {
+  border-bottom: none;
+}
+
+.result-stats {
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  border-radius: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.stat-item:hover {
+  transform: translateY(-1px);
+}
+
+.preview-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.mapping-info {
+  background-color: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid #3b82f6;
+}
+
+.preview-table {
+  font-size: 0.875rem;
+}
+
+
+/* 上传组件样式优化 */
+:deep(.el-upload-dragger) {
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  width: 100%;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   transition: all 0.3s ease;
 }
 
-.feature-preview-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+:deep(.el-upload-dragger:hover) {
+  border-color: #3b82f6;
+  background-color: #f0f9ff;
 }
 
-.feature-icon {
-  transition: transform 0.3s ease;
+:deep(.el-upload-dragger.is-dragover) {
+  border-color: #3b82f6;
+  background-color: #dbeafe;
 }
 
-.feature-preview-item:hover .feature-icon {
-  transform: scale(1.1);
+/* 折叠面板样式 */
+:deep(.el-collapse-item__header) {
+  font-weight: 500;
+  color: #374151;
 }
 
-.notification-section {
-  background-color: #f8f9fa;
-  padding: 2rem;
-  border-radius: 8px;
+/* 表格样式优化 */
+:deep(.el-table) {
+  font-size: 0.875rem;
 }
 
-.timeline-section {
-  padding: 2rem 0;
+:deep(.el-table th) {
+  background-color: #f8fafc;
+  color: #374151;
+  font-weight: 600;
 }
 
 /* 响应式设计 */
+@media (max-width: 1024px) {
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-buttons .el-button {
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
-  .features-preview .grid {
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .grid-cols-1.md\:grid-cols-2 {
     grid-template-columns: 1fr;
   }
 
-  .notification-form .el-form {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .notification-form .el-form-item {
-    margin-right: 0;
-    margin-bottom: 1rem;
-  }
-
-  .notification-form .el-button {
-    width: 100%;
+  .result-stats {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 }
 </style>
