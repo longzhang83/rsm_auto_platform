@@ -8,30 +8,26 @@ from typing import BinaryIO, Optional, List
 import os
 import csv
 
-import pandas as pd
 from fastapi import HTTPException, UploadFile
 
 from accounting_voucher_generation.summary_translator import SummaryTranslator, SummaryTranslatorConfig
 try:
-    # 优先尝试使用基于异步多账户的版本
-    from accounting_voucher_generation.chatglm_async import get_translation_service, configure_translation_service
+    # 直接使用多账户翻译器作为首选方案
+    from accounting_voucher_generation.multi_account_translator import get_translation_service, configure_translation_service
     MULTI_ACCOUNT_SUPPORT = True
     LANGCHAIN_AVAILABLE = False  # 不再使用LangChain
+    print("OK: Using multi_account_translator (recommended)")
 except ImportError:
-    try:
-        # 回退到v2版本
-        from accounting_voucher_generation.chatglm_v2 import get_translation_service, configure_translation_service
-        MULTI_ACCOUNT_SUPPORT = True
-        LANGCHAIN_AVAILABLE = False
-    except ImportError:
-        from accounting_voucher_generation.chatglm import get_translation_stats as old_get_stats
-        MULTI_ACCOUNT_SUPPORT = False
-        LANGCHAIN_AVAILABLE = False
+    from accounting_voucher_generation.chatglm_v2 import get_translation_service, configure_translation_service
+    MULTI_ACCOUNT_SUPPORT = True
+    LANGCHAIN_AVAILABLE = False
+    print("WARNING: Fallback to chatglm_v2")
+
 
 from app.core.config import settings
 from app.core.progress_manager import progress_manager
 from app.api.deps import validate_file_upload
-from app.utils.logger import get_logger, log_manager
+from app.utils.logger import get_logger
 
 
 class TranslateService:
@@ -51,35 +47,35 @@ class TranslateService:
                 api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
                 if api_keys:
                     try:
-                        # 使用配置的max_workers
+                        # 使用配置的参数
                         max_workers = settings.translation_max_workers
+                        model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+
                         configure_translation_service(
                             api_keys=api_keys,
                             cache_path=settings.translation_mapping_path,
-                            max_workers=max_workers
+                            max_workers=max_workers,
+                            **{"model": model}  # 通过**kwargs传递model参数
                         )
-                        print(f"异步多账户翻译服务已初始化，共 {len(api_keys)} 个API密钥，并发数: {max_workers}")
-
-                        # 调试：检查实际初始化的翻译服务
-                        from accounting_voucher_generation.translation_interface import get_translation_service
-                        from accounting_voucher_generation.async_translator import get_translation_service as async_get_service
-                        from accounting_voucher_generation.multi_account_translator import get_translation_service as multi_get_service
-
-                        main_service = get_translation_service()
-                        async_service = async_get_service()
-                        multi_service = multi_get_service()
-
-                        print(f"调试 - 主服务: {type(main_service)}, 异步服务: {type(async_service)}, 多账户服务: {type(multi_service)}")
+                        self.logger.info(f"多账户翻译服务已初始化 - 模型: {model}, API密钥数: {len(api_keys)}, 最大工作线程: {max_workers}")
                     except Exception as e:
-                        print(f"初始化多账户翻译服务失败: {e}")
+                        self.logger.error(f"初始化多账户翻译服务失败: {e}")
             else:
                 # 使用单个API密钥
                 if settings.zhipuai_api_key:
                     try:
-                        configure_translation_service([settings.zhipuai_api_key])
-                        print(f"单账户异步翻译服务已初始化")
+                        model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+                        configure_translation_service(
+                            api_keys=[settings.zhipuai_api_key],
+                            cache_path=settings.translation_mapping_path,
+                            max_workers=settings.translation_max_workers,
+                            **{"model": model}
+                        )
+                        self.logger.info(f"单账户翻译服务已初始化 - 模型: {model}")
                     except Exception as e:
-                        print(f"初始化翻译服务失败: {e}")
+                        self.logger.error(f"初始化单账户翻译服务失败: {e}")
+        else:
+            self.logger.warning("多账户翻译服务不可用")
 
     async def translate_summaries(
         self,

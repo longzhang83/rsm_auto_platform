@@ -543,7 +543,12 @@ class MultiAccountTranslationService:
 _translation_service: Optional[MultiAccountTranslationService] = None
 
 
-def init_translation_service(api_keys: List[str], max_workers: Optional[int] = None) -> MultiAccountTranslationService:
+def init_translation_service(
+    api_keys: List[str],
+    max_workers: Optional[int] = None,
+    model: Optional[str] = None,
+    system_prompt: Optional[str] = None
+) -> MultiAccountTranslationService:
     """初始化翻译服务"""
     global _translation_service
 
@@ -557,9 +562,13 @@ def init_translation_service(api_keys: List[str], max_workers: Optional[int] = N
     if max_workers is None:
         max_workers = min(len(accounts) * 6, 20)  # 每个账户最多6个worker，总共最多20个
 
-    # 从环境变量读取模型和系统提示
-    model = os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
-    system_prompt = os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
+    # 优先使用传入的model参数，否则从环境变量读取
+    if model is None:
+        model = os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+
+    # 优先使用传入的system_prompt参数，否则从环境变量读取
+    if system_prompt is None:
+        system_prompt = os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
 
     _translation_service = MultiAccountTranslationService(
         accounts=accounts,
@@ -613,8 +622,17 @@ def configure_translation_service(
             else:
                 raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
 
+    # 从kwargs中提取model参数
+    model = kwargs.get('model')
+    system_prompt = kwargs.get('system_prompt')
+
     # 初始化服务
-    return init_translation_service(api_keys=api_keys, max_workers=max_workers)
+    return init_translation_service(
+        api_keys=api_keys,
+        max_workers=max_workers,
+        model=model,
+        system_prompt=system_prompt
+    )
 
 
 def translate_text(text: str, target_language: str = "en") -> str:

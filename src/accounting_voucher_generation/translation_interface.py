@@ -144,15 +144,15 @@ def _select_best_strategy(needs_cancel: bool = False) -> str:
     Returns:
         最佳策略名称
     """
-    # 如果需要取消功能，优先选择支持取消且已初始化的实现
-    if needs_cancel:
-        # 检查多账户翻译器（支持取消且稳定）
-        if MULTI_ACCOUNT_AVAILABLE:
-            from .multi_account_translator import get_translation_service as multi_get_service
-            multi_service = multi_get_service()
-            if multi_service:
-                return TranslationStrategy.MULTI_ACCOUNT
+    # 优先使用多账户翻译器（推荐方案，支持取消且稳定）
+    if MULTI_ACCOUNT_AVAILABLE:
+        from .multi_account_translator import get_translation_service as multi_get_service
+        multi_service = multi_get_service()
+        if multi_service:
+            return TranslationStrategy.MULTI_ACCOUNT
 
+    # 如果多账户不可用，检查是否需要取消功能
+    if needs_cancel:
         # 检查异步翻译器（支持取消但可能未初始化）
         if ASYNC_AVAILABLE:
             from .async_translator import get_translation_service as async_get_service
@@ -164,11 +164,11 @@ def _select_best_strategy(needs_cancel: bool = False) -> str:
     if CHATGLM_V2_AVAILABLE:
         return TranslationStrategy.CHATGLM_V2
 
-    # 回退到其他实现
-    if MULTI_ACCOUNT_AVAILABLE:
-        return TranslationStrategy.MULTI_ACCOUNT
-    elif ASYNC_AVAILABLE:
+    # 最后回退到其他实现
+    if ASYNC_AVAILABLE:
         return TranslationStrategy.ASYNC
+    elif MULTI_ACCOUNT_AVAILABLE:
+        return TranslationStrategy.MULTI_ACCOUNT
 
     raise RuntimeError("没有可用的翻译实现")
 
@@ -340,28 +340,37 @@ def configure_translation_service(
             else:
                 raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
 
-    # 优先使用异步翻译器（支持取消功能），回退到chatglm_v2
-    if ASYNC_AVAILABLE:
+    # 优先使用多账户翻译器（推荐方案）
+    if MULTI_ACCOUNT_AVAILABLE:
+        try:
+            from .multi_account_translator import configure_translation_service as multi_configure
+            service = multi_configure(
+                api_keys=api_keys,
+                cache_path=cache_path,
+                max_workers=max_workers,
+                **kwargs
+            )
+            print(f"✅ 多账户翻译服务初始化成功: {type(service)}")
+            return service
+        except Exception as e:
+            print(f"⚠️  多账户翻译器初始化失败，回退到chatglm_v2: {e}")
+
+    # 回退到chatglm_v2（稳定版本）
+    if CHATGLM_V2_AVAILABLE:
+        from .chatglm_v2 import configure_translation_service as chatglm_v2_configure
+        return chatglm_v2_configure(api_keys=api_keys, cache_path=cache_path, max_workers=max_workers)
+    elif ASYNC_AVAILABLE:
         try:
             from .async_translator import init_async_translation_service
-            # 直接调用异步翻译器的初始化函数
             service = init_async_translation_service(
                 api_keys=api_keys,
                 cache_path=cache_path,
                 max_concurrent=max_workers
             )
-            print(f"异步翻译服务初始化成功: {type(service)}")
+            print(f"⚠️  回退到异步翻译服务: {type(service)}")
             return service
         except Exception as e:
-            print(f"异步翻译器初始化失败，回退到chatglm_v2: {e}")
-
-    # 回退到chatglm_v2
-    if CHATGLM_V2_AVAILABLE:
-        from .chatglm_v2 import configure_translation_service as chatglm_v2_configure
-        return chatglm_v2_configure(api_keys=api_keys, cache_path=cache_path, max_workers=max_workers)
-    elif MULTI_ACCOUNT_AVAILABLE:
-        from .multi_account_translator import configure_translation_service as multi_configure
-        return multi_configure(api_keys=api_keys, cache_path=cache_path, max_workers=max_workers, **kwargs)
+            print(f"❌ 异步翻译器初始化失败: {e}")
     else:
         raise RuntimeError("没有可用的翻译实现来配置")
 

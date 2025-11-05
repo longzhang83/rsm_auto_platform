@@ -43,7 +43,11 @@ The Accounting Voucher Generation project is a modern, bilingual (Chinese-Englis
 #### 1. Business Logic (`src/accounting_voucher_generation/`)
 - **pipeline.py**: Core voucher generation with `VoucherConfig` and `generate_vouchers()`
 - **summary_translator.py**: Translation service with batch processing
-- **chatglm_async.py**: Async multi-account ZhipuAI GLM integration with rate limiting and caching
+- **chatglm_v2.py**: Updated async multi-account ZhipuAI GLM integration with rate limiting and caching
+- **async_translator.py**: Enhanced async translation system with load balancing
+- **translation_interface.py**: Unified translation interface for multiple providers
+- **multi_account_translator.py**: Multi-account load balancing and error handling
+- **bank_statement_pipeline.py**: Bank statement processing and voucher generation
 - **cli.py**: Command-line interface
 
 #### 2. Backend Services (`backend/app/services/`)
@@ -54,6 +58,7 @@ The Accounting Voucher Generation project is a modern, bilingual (Chinese-Englis
 - **vouchers.py**: Voucher generation endpoints
 - **translate.py**: Translation endpoints
 - **translate_v2.py**: Enhanced translation with SSE progress streaming
+- **bank_statements.py**: Bank statement processing and voucher generation endpoints
 - **progress.py**: Real-time progress tracking endpoints
 - **logs.py**: Log management endpoints for enterprise monitoring
 
@@ -124,14 +129,46 @@ cd backend && uv sync
 # Install frontend dependencies
 cd frontend && npm install
 
-# Set environment variable for translation API
-export ZHIPUAI_API_KEY=your_api_key  # Linux/Mac
-# OR
-set ZHIPUAI_API_KEY=your_api_key     # Windows
-
-# Copy and configure environment variables
+# Create and configure environment variables (REQUIRED)
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your configuration - NEVER use hardcoded parameters!
+```
+
+### Environment Configuration (.env)
+
+**🚨 CRITICAL: Always use .env configuration - NEVER hardcode parameters in code!**
+
+Create a `.env` file in the project root:
+
+```bash
+# Translation API Configuration (Required)
+ZHIPUAI_API_KEY=your_single_api_key                                    # Single key (legacy)
+ZHIPUAI_API_KEYS=key1,key2,key3                                       # Multiple keys (recommended)
+ZHIPUAI_MODEL=glm-4.5-flash                                            # GLM model name
+ZHIPUAI_SYSTEM_PROMPT=You are a professional translator...              # Custom system prompt
+ZHIPUAI_RPS=18.0                                                       # Per-account rate limit
+
+# Logging Configuration
+LOG_LEVEL=INFO                                                         # DEBUG/INFO/WARNING/ERROR/CRITICAL
+LOG_ENABLE_CONSOLE=true                                                # Console output
+LOG_ENABLE_FILE=true                                                   # File output
+LOG_ENABLE_JSON=false                                                  # JSON format logging
+LOG_COLORED_CONSOLE=true                                               # Colored console output
+LOG_MAX_FILE_SIZE=10485760                                             # 10MB max file size
+LOG_BACKUP_COUNT=5                                                     # Number of backup files
+LOG_RETENTION_DAYS=30                                                  # Days to retain logs
+
+# Application Configuration
+ENVIRONMENT=development                                                # development/production
+DEBUG=false                                                           # Debug mode
+HOST=0.0.0.0                                                         # Backend server host
+PORT=8888                                                            # Backend server port
+
+# File Processing Configuration
+MAX_FILE_SIZE=52428800                                                # 50MB max file size
+ALLOWED_EXTENSIONS=.xlsx,.xls,.csv                                    # Allowed file extensions
+UPLOAD_DIR=uploads                                                   # File upload directory
+OUTPUT_DIR=outputs                                                   # Output directory
 ```
 
 ### Running the Application
@@ -172,6 +209,9 @@ cd frontend && npm run dev
 #### Translation Service
 - `POST /api/v1/translate/translate` - Translate summary texts
 - `POST /api/v1/translate/batch` - Batch translation with SSE progress streaming
+
+#### Bank Statement Processing
+- `POST /api/v1/bank-statements/process` - Process bank statements and generate vouchers
 
 #### Progress Tracking
 - `GET /api/v1/progress/{task_id}` - Get task progress
@@ -269,14 +309,18 @@ uv run pytest tests/test_api/test_vouchers.py -v
 
 ## Environment Variables
 
-### Translation Configuration
-- `ZHIPUAI_API_KEY`: Single ZhipuAI API key for translation (legacy)
+**🚨 All configuration should be managed via .env file - see Environment Configuration (.env) section above.**
+
+### Required Environment Variables
+
+#### Translation API Configuration (Required)
+- `ZHIPUAI_API_KEY`: Single ZhipuAI API key for translation (legacy support)
 - `ZHIPUAI_API_KEYS`: Multiple API keys for load balancing (recommended, comma-separated)
 - `ZHIPUAI_MODEL`: GLM model name (default: glm-4.5-flash)
 - `ZHIPUAI_SYSTEM_PROMPT`: Custom system prompt for translation
 - `ZHIPUAI_RPS`: Per-account rate limit (default: 18.0 for multi-account)
 
-### Logging Configuration
+#### Logging Configuration (Optional)
 - `LOG_LEVEL`: Logging level (DEBUG/INFO/WARNING/ERROR/CRITICAL, default: INFO)
 - `LOG_ENABLE_CONSOLE`: Enable console output (default: true)
 - `LOG_ENABLE_FILE`: Enable file output (default: true)
@@ -286,11 +330,17 @@ uv run pytest tests/test_api/test_vouchers.py -v
 - `LOG_BACKUP_COUNT`: Number of backup files to keep (default: 5)
 - `LOG_RETENTION_DAYS`: Days to retain log files (default: 30)
 
-### Application Configuration
+#### Application Configuration (Optional)
 - `ENVIRONMENT`: Application environment (development/production, default: development)
 - `DEBUG`: Enable debug mode (default: false)
 - `HOST`: Backend server host (default: 0.0.0.0)
 - `PORT`: Backend server port (default: 8888)
+
+#### File Processing Configuration (Optional)
+- `MAX_FILE_SIZE`: Maximum file size for uploads (default: 50MB)
+- `ALLOWED_EXTENSIONS`: Comma-separated list of allowed file extensions
+- `UPLOAD_DIR`: Directory for file uploads (default: uploads)
+- `OUTPUT_DIR`: Directory for generated files (default: outputs)
 
 ## Working with This Codebase
 
@@ -335,7 +385,14 @@ When you encounter these keywords, immediately check the relevant documentation:
 4. **Add New Endpoints**: Create in `backend/app/api/v1/endpoints/` and update `router.py`
 5. **Add Business Logic**: Implement in `backend/app/services/`
 6. **Frontend Features**: Develop in `frontend/src/`
-7. **Clear Translation Cache**: `uv run python -c "from src.accounting_voucher_generation.chatglm_async import clear_translation_cache; clear_translation_cache(drop_mapping_cache=True)"`
+7. **Clear Translation Cache**: `uv run python -c "from src.accounting_voucher_generation.chatglm_v2 import clear_translation_cache; clear_translation_cache(drop_mapping_cache=True)"`
+
+### Configuration Management Best Practices
+- **🚨 NEVER hardcode API keys, passwords, or configuration values in code**
+- **Always use environment variables via .env file for configuration**
+- **Use `backend/app/core/config.py` Pydantic settings for type-safe configuration**
+- **Validate all environment variables on application startup**
+- **Provide sensible defaults for optional configuration values**
 
 ### Error Handling Guidelines
 - Use FastAPI's `HTTPException` for API errors with proper status codes
