@@ -36,10 +36,7 @@ class BankStatementGenerateStartResponse(BaseModel):
 async def start_bank_statement_vouchers_generation(
     bank_statement_file: UploadFile = File(..., description="银行流水文件"),
     customer_name: str = Form(..., description="客户名称"),
-    preparer: str = Form(default="cissy", description="制单人"),
-    voucher_category: str = Form(default="记", description="凭证类别"),
-    credit_account: str = Form(default="1001", description="贷方科目"),
-    start_seq: int = Form(default=0, description="起始序号"),
+    enable_translation: str = Form(default="true", description="是否启用翻译 (true/false)"),
 ):
     """
     开始生成银行流水凭证（异步，支持进度显示）
@@ -47,10 +44,7 @@ async def start_bank_statement_vouchers_generation(
     Args:
         bank_statement_file: 银行流水Excel文件
         customer_name: 客户名称
-        preparer: 制单人
-        voucher_category: 凭证类别
-        credit_account: 贷方科目
-        start_seq: 起始序号
+        enable_translation: 是否启用翻译
 
     Returns:
         任务ID和消息
@@ -85,33 +79,34 @@ async def start_bank_statement_vouchers_generation(
                 df_out, processed_records, generated_vouchers, output_path = await bank_statement_service.generate_vouchers_from_bank_statement_with_progress(
                     bank_statement_file=bank_statement_file_obj,
                     customer_name=customer_name,
-                    preparer=preparer,
-                    voucher_category=voucher_category,
-                    credit_account=credit_account,
-                    start_seq=start_seq,
                     zhipuai_api_keys=api_keys,
                     task_id=current_task_id,
+                    enable_translation=enable_translation.lower() == 'true',
                 )
                 logger.info(f"[DEBUG] 银行流水转凭证完成，任务ID: {current_task_id}")
 
-                # 存储结果 - 读取文件内容并存储为字节数据，与翻译服务保持一致
+                # 存储Excel文件内容到progress manager
                 try:
                     with open(output_path, 'rb') as f:
-                        file_content = f.read()
-                    progress_manager.store_result(current_task_id, file_content)
-                    progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
-                    logger.info(f"[DEBUG] 任务完成并存储结果: {current_task_id}")
-                except Exception as file_error:
-                    logger.error(f"[DEBUG] 读取结果文件失败: {current_task_id}, 错误: {file_error}")
-                    # 如果文件读取失败，存储错误信息
+                        excel_bytes = f.read()
                     result_data = {
                         "processed_records": processed_records,
                         "generated_vouchers": generated_vouchers,
-                        "download_url": f"/api/v1/bank-statements/download/{Path(output_path).name}",
-                        "output_path": output_path,
-                        "error": f"文件读取失败: {file_error}"
+                        "excel_bytes": excel_bytes,
+                        "filename": Path(output_path).name
                     }
                     progress_manager.store_result(current_task_id, str(result_data).encode('utf-8'))
+                    progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
+                    logger.info(f"[DEBUG] 任务完成，存储Excel文件内容: {current_task_id}")
+                except Exception as file_error:
+                    logger.error(f"[DEBUG] 读取Excel文件失败: {current_task_id}, 错误: {file_error}")
+                    # 如果文件读取失败，存储错误信息
+                    error_data = {
+                        "processed_records": processed_records,
+                        "generated_vouchers": generated_vouchers,
+                        "error": f"文件读取失败: {file_error}"
+                    }
+                    progress_manager.store_result(current_task_id, str(error_data).encode('utf-8'))
                     progress_manager.complete_task(current_task_id, "银行流水转凭证完成（文件读取失败）")
 
             except Exception as e:
@@ -177,10 +172,6 @@ async def get_bank_statement_generation_result(task_id: str):
 async def generate_bank_statement_vouchers(
     bank_statement_file: UploadFile = File(..., description="银行流水文件"),
     customer_name: str = Form(..., description="客户名称"),
-    preparer: str = Form(default="cissy", description="制单人"),
-    voucher_category: str = Form(default="记", description="凭证类别"),
-    credit_account: str = Form(default="1001", description="贷方科目"),
-    start_seq: int = Form(default=0, description="起始序号"),
 ):
     """
     生成银行流水转凭证
@@ -188,10 +179,6 @@ async def generate_bank_statement_vouchers(
     Args:
         bank_statement_file: 银行流水Excel文件
         customer_name: 客户名称
-        preparer: 制单人
-        voucher_category: 凭证类别
-        credit_account: 贷方科目
-        start_seq: 起始序号
 
     Returns:
         生成结果信息
@@ -208,10 +195,6 @@ async def generate_bank_statement_vouchers(
         df_out, processed_records, generated_vouchers, output_path = await bank_statement_service.generate_vouchers_from_bank_statement(
             bank_statement_file=bank_statement_file,
             customer_name=customer_name,
-            preparer=preparer,
-            voucher_category=voucher_category,
-            credit_account=credit_account,
-            start_seq=start_seq,
             zhipuai_api_keys=api_keys,
         )
 
@@ -314,7 +297,7 @@ async def download_bank_statement_result(task_id: str):
     """
     下载银行流水转凭证结果（通过任务ID）
 
-    与翻译服务保持一致的下载方式
+    直接返回Excel文件内容
     """
     from fastapi.responses import StreamingResponse
 
@@ -322,17 +305,36 @@ async def download_bank_statement_result(task_id: str):
     if not result_data:
         raise HTTPException(status_code=404, detail="结果不存在或已过期")
 
-    # 流式传输结果
-    async def generate():
-        yield result_data
+    try:
+        # 解析结果数据
+        import ast
+        result_dict = ast.literal_eval(result_data.decode('utf-8'))
 
-    return StreamingResponse(
-        generate(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f"attachment; filename=bank_vouchers_{task_id}.xlsx"
-        }
-    )
+        if "error" in result_dict:
+            # 如果是错误信息，返回错误
+            raise HTTPException(status_code=500, detail=result_dict.get("error"))
+
+        # 获取Excel文件内容
+        excel_bytes = result_dict.get("excel_bytes")
+        if not excel_bytes:
+            raise HTTPException(status_code=500, detail="Excel文件内容不存在")
+
+        filename = result_dict.get("filename", f"bank_vouchers_{task_id}.xlsx")
+
+        # 流式传输Excel文件
+        async def generate():
+            yield excel_bytes
+
+        return StreamingResponse(
+            generate(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+    except Exception as e:
+        logger.error(f"解析银行流水转凭证结果失败: {e}")
+        raise HTTPException(status_code=500, detail="结果解析失败")
 
 
 @router.get("/download-file/{filename}")

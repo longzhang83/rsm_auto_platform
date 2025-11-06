@@ -562,15 +562,24 @@ def init_translation_service(
     api_keys: List[str],
     max_workers: Optional[int] = None,
     model: Optional[str] = None,
-    system_prompt: Optional[str] = None
+    system_prompt: Optional[str] = None,
+    rps: Optional[float] = None
 ) -> MultiAccountTranslationService:
     """初始化翻译服务"""
     global _translation_service
 
+    # 优先使用传入的rps参数，否则从环境变量读取
+    if rps is None:
+        rps = float(os.getenv("ZHIPUAI_RPS", "8.0"))  # 降低默认RPS到8.0
+
     accounts = []
     for i, api_key in enumerate(api_keys):
-        # 使用环境变量创建账户配置
-        account = GLMAccount.create_from_env(api_key, f"GLM_Account_{i+1}")
+        # 直接使用传入的参数创建账户配置
+        account = GLMAccount(
+            api_key=api_key,
+            name=f"GLM_Account_{i+1}",
+            requests_per_second=rps
+        )
         accounts.append(account)
 
     # 计算max_workers，优先使用传入参数，否则使用默认值
@@ -638,16 +647,18 @@ def configure_translation_service(
             else:
                 raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
 
-    # 从kwargs中提取model参数
+    # 从kwargs中提取参数
     model = kwargs.get('model')
     system_prompt = kwargs.get('system_prompt')
+    rps = kwargs.get('rps')  # 从kwargs中提取RPS参数
 
     # 初始化服务
     return init_translation_service(
         api_keys=api_keys,
         max_workers=max_workers,
         model=model,
-        system_prompt=system_prompt
+        system_prompt=system_prompt,
+        rps=rps
     )
 
 

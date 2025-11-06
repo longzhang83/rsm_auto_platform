@@ -32,7 +32,7 @@ const router = createRouter({
           path: 'bank-to-voucher',
           name: 'BankToVoucher',
           component: () => import('@/views/tools/bank-to-voucher/index.vue'),
-          meta: { title: '银行流水转凭证', icon: 'CreditCard', disabled: true }
+          meta: { title: '银行流水转凭证', icon: 'CreditCard' }
         },
         {
           path: 'history',

@@ -145,13 +145,15 @@ const updateProgress = (data) => {
   progress.completed = data.completed || 0
   progress.total = data.total || 0
   progress.currentItem = data.current_item || data.message || ''
-  progress.status = data.percentage >= 100 ? 'success' : 'success'
+  progress.status = (data.percentage >= 100) ? 'success' : 'success'
 
   // 计算处理速度
-  if (progress.completed > 0 && progress.total > 0) {
+  if (progress.completed > 0) {
     const elapsedSeconds = startTime.value ? Math.floor((Date.now() - startTime.value) / 1000) : 0
     const speed = elapsedSeconds > 0 ? Math.floor(progress.completed / elapsedSeconds * 60) : 0
     progress.speed = `${speed} 项/分钟`
+  } else {
+    progress.speed = '0 项/分钟'
   }
 
   // 更新已用时间
@@ -168,6 +170,8 @@ const updateProgress = (data) => {
       const minutes = Math.floor((elapsedSeconds % 3600) / 60)
       progress.elapsedTime = `${hours}小时${minutes}分钟`
     }
+  } else {
+    progress.elapsedTime = '0秒'
   }
 }
 
@@ -178,15 +182,20 @@ const resetProgress = () => {
   progress.total = 0
   progress.elapsedTime = '0秒'
   progress.currentItem = ''
-  progress.speed = ''
+  progress.speed = '0 项/分钟'
   progress.status = 'success'
+}
+
+// 完全重置（包括开始时间）
+const fullReset = () => {
+  resetProgress()
   startTime.value = null
 }
 
 // 开始处理
 const startProcessing = () => {
+  fullReset()
   startTime.value = Date.now()
-  resetProgress()
 }
 
 // 完成处理

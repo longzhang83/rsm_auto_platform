@@ -66,25 +66,39 @@
               </el-upload>
             </el-form-item>
 
-            <!-- 高级选项 -->
-            <el-collapse v-model="activeCollapse" class="mb-6">
-              <el-collapse-item title="高级选项" name="advanced">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <el-form-item label="制单人">
-                    <el-input v-model="form.preparer" placeholder="默认：cissy" />
-                  </el-form-item>
-                  <el-form-item label="凭证类别">
-                    <el-input v-model="form.voucherCategory" placeholder="默认：记" />
-                  </el-form-item>
-                  <el-form-item label="贷方科目">
-                    <el-input v-model="form.creditAccount" placeholder="默认：1001 (银行存款)" />
-                  </el-form-item>
-                  <el-form-item label="起始序号">
-                    <el-input-number v-model="form.startSeq" :min="0" style="width: 100%" />
-                  </el-form-item>
+  
+            <!-- 翻译设置 -->
+            <el-divider content-position="left">
+              <span class="text-sm font-medium text-gray-700">翻译设置</span>
+            </el-divider>
+            <el-form-item>
+              <div class="translation-setting">
+                <div class="setting-header">
+                  <el-switch
+                    v-model="form.enableTranslation"
+                    active-text="启用翻译"
+                    inactive-text="跳过翻译"
+                    size="default"
+                  />
                 </div>
-              </el-collapse-item>
-            </el-collapse>
+                <div class="setting-description">
+                  <div v-if="form.enableTranslation" class="status-enabled">
+                    <div class="status-icon">✅</div>
+                    <div class="status-text">
+                      <div class="status-title">翻译已启用</div>
+                      <div class="status-detail">将生成中英双语格式的摘要</div>
+                    </div>
+                  </div>
+                  <div v-else class="status-disabled">
+                    <div class="status-icon">⏸️</div>
+                    <div class="status-text">
+                      <div class="status-title">翻译已跳过</div>
+                      <div class="status-detail">将使用原始中文摘要格式</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-form-item>
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
@@ -318,7 +332,9 @@ import {
   InfoFilled,
   Setting,
   CircleCheckFilled,
-  Download
+  Download,
+  Check,
+  Close
 } from '@element-plus/icons-vue'
 import { generateBankStatementVouchers, getBankStatementCustomers, getBankStatementMapping, previewBankStatementData } from '@/api/bank-statement'
 import { generateBankVouchers, translationService } from '@/utils/translationService'
@@ -331,10 +347,7 @@ const translationProgressRef = ref()
 
 const form = reactive({
   customerName: '',
-  preparer: 'cissy',
-  voucherCategory: '记',
-  creditAccount: '1001',
-  startSeq: 0
+  enableTranslation: true
 })
 
 const rules = {
@@ -348,7 +361,6 @@ const loadingCustomers = ref(false)
 const generating = ref(false)
 const previewing = ref(false)
 const downloading = ref(false)
-const activeCollapse = ref([])
 
 // 数据
 const customers = ref([])
@@ -480,10 +492,7 @@ const generateVouchers = async () => {
     const formData = new FormData()
     formData.append('bank_statement_file', bankStatementFile.value)
     formData.append('customer_name', form.customerName)
-    formData.append('preparer', form.preparer)
-    formData.append('voucher_category', form.voucherCategory)
-    formData.append('credit_account', form.creditAccount)
-    formData.append('start_seq', form.startSeq.toString())
+    formData.append('enable_translation', form.enableTranslation.toString())
 
     // 使用新的翻译服务，支持统一进度管理
     const response = await generateBankVouchers(formData, {
@@ -493,20 +502,36 @@ const generateVouchers = async () => {
           translationProgressRef.value.updateProgress(progressData)
         }
       },
-      onComplete: (downloadResult) => {
+      onComplete: async (downloadResult) => {
         console.log('银行流水转凭证完成:', downloadResult)
 
-        // 更新结果数据
-        result.value = {
-          download_url: downloadResult.download_url,
-          processed_records: downloadResult.completed || 0,
-          generated_vouchers: Math.floor((downloadResult.completed || 0) * 0.8), // 估算凭证数量
-          task_id: downloadResult.task_id
-        }
+        try {
+          // 获取下载信息
+          const downloadInfoUrl = `/api/v1/bank-statements/download/${downloadResult.task_id}`
+          const downloadResponse = await fetch(downloadInfoUrl)
 
-        // 自动触发下载
-        if (downloadResult.download_url) {
-          handleDownload(downloadResult.download_url)
+          if (!downloadResponse.ok) {
+            throw new Error('获取下载信息失败')
+          }
+
+          const downloadInfo = await downloadResponse.json()
+          console.log('下载信息:', downloadInfo)
+
+          // 更新结果数据
+          result.value = {
+            download_url: downloadInfo.download_url,
+            processed_records: downloadInfo.processed_records || downloadResult.completed || 0,
+            generated_vouchers: downloadInfo.generated_vouchers || Math.floor((downloadResult.completed || 0) * 0.8),
+            task_id: downloadResult.task_id
+          }
+
+          // 自动触发下载
+          if (downloadInfo.download_url) {
+            handleDownload(downloadInfo.download_url)
+          }
+        } catch (error) {
+          console.error('获取下载信息失败:', error)
+          ElMessage.error('获取下载信息失败，请重试')
         }
 
         ElMessage.success(`成功生成凭证！处理了 ${result.value.processed_records} 条记录，生成约 ${result.value.generated_vouchers} 个凭证`)
@@ -562,7 +587,7 @@ const handleDownload = async (downloadUrl) => {
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `bank_vouchers_${Date.now()}.zip`
+    link.download = `bank_vouchers_${Date.now()}.xlsx`
     link.style.display = 'none'
     document.body.appendChild(link)
     link.click()
@@ -603,10 +628,7 @@ const resetForm = () => {
   result.value = null
 
   // 重置为默认值
-  form.preparer = 'cissy'
-  form.voucherCategory = '记'
-  form.creditAccount = '1001'
-  form.startSeq = 0
+  form.enableTranslation = true
 
   ElMessage.success('表单已重置')
 }
@@ -729,6 +751,97 @@ const resetForm = () => {
 
 /* 折叠面板样式 */
 :deep(.el-collapse-item__header) {
+  font-weight: 500;
+  color: #374151;
+}
+
+/* 翻译设置美化样式 */
+.translation-setting {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.translation-setting:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.setting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.setting-description {
+  padding: 0.75rem 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #f1f5f9;
+  transition: all 0.2s ease;
+}
+
+.status-enabled,
+.status-disabled {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.status-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.status-text {
+  flex: 1;
+}
+
+.status-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.status-detail {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.status-enabled .status-title {
+  color: #059669;
+}
+
+.status-disabled .status-title {
+  color: #6b7280;
+}
+
+.status-enabled .status-detail {
+  color: #047857;
+}
+
+.status-disabled .status-detail {
+  color: #9ca3af;
+}
+
+.status-enabled .setting-description {
+  border-left: 3px solid #10b981;
+  background: linear-gradient(90deg, #ecfdf5 0%, white 100%);
+}
+
+.status-disabled .setting-description {
+  border-left: 3px solid #9ca3af;
+  background: linear-gradient(90deg, #f9fafb 0%, white 100%);
+}
+
+.setting-header :deep(.el-switch__label) {
   font-weight: 500;
   color: #374151;
 }

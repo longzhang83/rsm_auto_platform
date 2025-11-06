@@ -50,14 +50,15 @@ class TranslateService:
                         # 使用配置的参数
                         max_workers = settings.translation_max_workers
                         model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+                        rps = settings.zhipuai_rps
 
                         configure_translation_service(
                             api_keys=api_keys,
                             cache_path=settings.translation_mapping_path,
                             max_workers=max_workers,
-                            **{"model": model}  # 通过**kwargs传递model参数
+                            **{"model": model, "rps": rps}  # 通过**kwargs传递model和rps参数
                         )
-                        self.logger.info(f"多账户翻译服务已初始化 - 模型: {model}, API密钥数: {len(api_keys)}, 最大工作线程: {max_workers}")
+                        self.logger.info(f"多账户翻译服务已初始化 - 模型: {model}, API密钥数: {len(api_keys)}, 最大工作线程: {max_workers}, RPS: {rps}")
                     except Exception as e:
                         self.logger.error(f"初始化多账户翻译服务失败: {e}")
             else:
@@ -71,7 +72,7 @@ class TranslateService:
                             max_workers=settings.translation_max_workers,
                             **{"model": model}
                         )
-                        self.logger.info(f"单账户翻译服务已初始化 - 模型: {model}")
+                        self.logger.info(f"单账户翻译服务已初始化 - 模型: {model}, RPS: {settings.zhipuai_rps}")
                     except Exception as e:
                         self.logger.error(f"初始化单账户翻译服务失败: {e}")
         else:

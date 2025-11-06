@@ -12,6 +12,7 @@ from fastapi import UploadFile, HTTPException
 from accounting_voucher_generation.bank_statement_pipeline import (
     BankStatementConfig,
     generate_bank_statement_vouchers,
+    generate_bank_statement_vouchers_from_bytes,
     load_bank_statement_column_mapping,
     load_accounting_subject_mapping,
     get_column_mapping_for_customer,
@@ -39,10 +40,6 @@ class BankStatementService:
         self,
         bank_statement_file: UploadFile,
         customer_name: str,
-        preparer: str = "cissy",
-        voucher_category: str = "记",
-        credit_account: str = "1001",
-        start_seq: int = 0,
         zhipuai_api_keys: Optional[List[str]] = None,
     ) -> Tuple[pd.DataFrame, int, int, str]:
         """
@@ -51,10 +48,6 @@ class BankStatementService:
         Args:
             bank_statement_file: 银行流水文件
             customer_name: 客户名称
-            preparer: 制单人
-            voucher_category: 凭证类别
-            credit_account: 贷方科目
-            start_seq: 起始序号
             zhipuai_api_keys: 翻译API密钥列表
 
         Returns:
@@ -101,10 +94,6 @@ class BankStatementService:
                 data_dir=self.data_dir,
                 bank_statement_file=temp_file_path.name,
                 customer_name=customer_name,
-                preparer=preparer,
-                voucher_category=voucher_category,
-                credit_account_default=credit_account,
-                voucher_start_sequence=start_seq,
                 zhipuai_api_keys=zhipuai_api_keys or [],
             )
 
@@ -128,24 +117,13 @@ class BankStatementService:
             logger.error(f"生成银行流水凭证失败: {e}")
             raise HTTPException(status_code=500, detail=f"生成凭证失败: {str(e)}")
 
-        finally:
-            # 清理临时文件
-            if 'temp_file_path' in locals() and temp_file_path.exists():
-                try:
-                    temp_file_path.unlink()
-                except Exception as e:
-                    logger.warning(f"清理临时文件失败: {e}")
-
     async def generate_vouchers_from_bank_statement_with_progress(
         self,
         bank_statement_file: UploadFile,
         customer_name: str,
-        preparer: str = "cissy",
-        voucher_category: str = "记",
-        credit_account: str = "1001",
-        start_seq: int = 0,
         zhipuai_api_keys: Optional[List[str]] = None,
         task_id: Optional[str] = None,
+        enable_translation: bool = True,
     ) -> Tuple[pd.DataFrame, int, int, str]:
         """
         从银行流水文件生成会计凭证（支持进度显示）
@@ -153,12 +131,9 @@ class BankStatementService:
         Args:
             bank_statement_file: 银行流水文件
             customer_name: 客户名称
-            preparer: 制单人
-            voucher_category: 凭证类别
-            credit_account: 贷方科目
-            start_seq: 起始序号
             zhipuai_api_keys: 翻译API密钥列表
             task_id: 进度任务ID
+            enable_translation: 是否启用翻译
 
         Returns:
             Tuple[DataFrame, processed_records, generated_vouchers, output_path]
@@ -168,28 +143,23 @@ class BankStatementService:
 
             # 使用传入的task_id或创建新的
             current_task_id = task_id or progress_manager.create_task()
-            progress_manager.update_progress(current_task_id, 0.0, "正在提交银行流水转凭证任务...")
+            progress_manager.update_progress(current_task_id, 0, "正在提交银行流水转凭证任务...")
 
             # 验证客户名称
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            progress_manager.update_progress(current_task_id, 0.1, "保存银行流水文件...")
+            progress_manager.update_progress(current_task_id, 10, "读取银行流水文件...")
 
-            # 保存上传的文件
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_extension = Path(bank_statement_file.filename).suffix
-            temp_file_path = self.data_dir / f"temp_bank_statement_{timestamp}{file_extension}"
-
+            # 直接读取文件内容到内存，不保存临时文件
             try:
                 content = await bank_statement_file.read()
-                with open(temp_file_path, "wb") as f:
-                    f.write(content)
+                logger.info(f"成功读取银行流水文件内容，大小: {len(content)} 字节")
             except Exception as e:
-                logger.error(f"保存银行流水文件失败: {e}")
-                raise HTTPException(status_code=500, detail="文件保存失败")
+                logger.error(f"读取银行流水文件失败: {e}")
+                raise HTTPException(status_code=500, detail="文件读取失败")
 
-            progress_manager.update_progress(current_task_id, 0.2, "验证映射文件...")
+            progress_manager.update_progress(current_task_id, 20, "验证映射文件...")
 
             # 验证映射文件是否存在
             column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
@@ -207,7 +177,7 @@ class BankStatementService:
                     detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
                 )
 
-            progress_manager.update_progress(current_task_id, 0.3, "准备生成配置...")
+            progress_manager.update_progress(current_task_id, 30, "准备生成配置...")
 
             # 定义进度回调函数
             def progress_callback(completed: int, total: int, message: str):
@@ -218,25 +188,24 @@ class BankStatementService:
                         logger.info(f"[bank_statement_service] 任务已取消，停止更新进度: {current_task_id}")
                         return
 
-                    # 计算百分比
+                    # 计算百分比（0-100范围）
                     percentage = (completed / total) * 100 if total > 0 else 0.0
                     logger.info(f"[bank_statement_service] 收到进度回调: {percentage:.1f}% ({completed}/{total}) - {message}")
 
-                    # 根据处理阶段计算总体进度
+                    # 根据处理阶段计算总体进度（参考翻译模块，直接使用0-100范围）
                     if "翻译" in message:
-                        # 翻译阶段：0.4-0.8 (40%进度范围，从40%开始)
-                        overall_percentage = 0.4 + (percentage / 100 * 0.4)
+                        # 翻译阶段：10-70% (60%进度范围)
+                        overall_percentage = 10 + (percentage * 0.6)
                     else:
-                        # 凭证生成阶段：0.8-0.95 (15%进度范围，从80%开始)
-                        overall_percentage = 0.8 + (percentage / 100 * 0.15)
+                        # 凭证生成阶段：70-95% (25%进度范围)
+                        overall_percentage = 70 + (percentage * 0.25)
 
                     # 确保进度在合理范围内
-                    overall_percentage = max(0.4, min(0.95, overall_percentage))
+                    overall_percentage = max(10, min(95, overall_percentage))
 
-                    # 调试：输出详细的计算过程 (强制重载)
-                    logger.info(f"[bank_statement_service] 进度计算: 翻译{percentage:.1f}% -> 总体{overall_percentage:.1f}%")
+                    logger.info(f"[bank_statement_service] 进度计算: {percentage:.1f}% -> 总体{overall_percentage:.1f}%")
 
-                    # 直接调用ProgressManager，跳过log_manager以避免潜在问题
+                    # 直接调用ProgressManager，传递0-100范围的百分比值
                     progress_manager.update_progress(current_task_id, overall_percentage, message, completed, total, message)
                     logger.info(f"[bank_statement_service] 进度已发送到ProgressManager: {overall_percentage:.1f}%")
                 except Exception as e:
@@ -248,21 +217,18 @@ class BankStatementService:
                 """取消检查函数"""
                 return progress_manager.is_cancelled(current_task_id)
 
-            # 创建配置
+            # 创建配置（不需要设置bank_statement_file，因为我们直接使用字节数据）
             config = BankStatementConfig(
                 data_dir=self.data_dir,
-                bank_statement_file=temp_file_path.name,
+                bank_statement_file="",  # 不需要文件路径
                 customer_name=customer_name,
-                preparer=preparer,
-                voucher_category=voucher_category,
-                credit_account_default=credit_account,
-                voucher_start_sequence=start_seq,
                 zhipuai_api_keys=zhipuai_api_keys or [],
                 progress_callback=progress_callback,
                 cancel_check=cancel_check,
+                enable_translation=enable_translation,
             )
 
-            progress_manager.update_progress(current_task_id, 0.4, "开始生成凭证...")
+            progress_manager.update_progress(current_task_id, 40, "开始生成凭证...")
 
             try:
                 logger.info(f"开始银行流水凭证生成任务 [{current_task_id}]")
@@ -279,8 +245,10 @@ class BankStatementService:
                             logger.info(f"[bank_statement_service] 任务已取消，停止银行流水处理: {current_task_id}")
                             return pd.DataFrame(), 0, 0
 
-                        # 生成凭证
-                        df_out, processed_records, generated_vouchers = generate_bank_statement_vouchers(config)
+                        # 生成凭证（直接从字节数据处理，不保存临时文件）
+                        df_out, processed_records, generated_vouchers, excel_bytes = generate_bank_statement_vouchers_from_bytes(
+                            config, content, bank_statement_file.filename
+                        )
                         return df_out, processed_records, generated_vouchers
                     except Exception as e:
                         logger.error(f"[bank_statement_service] 同步银行流水处理失败: {e}")
@@ -298,7 +266,7 @@ class BankStatementService:
                     logger.info(f"[bank_statement_service] 任务已取消，跳过后续处理: {current_task_id}")
                     return pd.DataFrame(), 0, 0, ""
 
-                progress_manager.update_progress(current_task_id, 0.9, "保存输出文件...")
+                progress_manager.update_progress(current_task_id, 90, "保存输出文件...")
 
                 # 构建输出路径
                 output_dir = config.output_dir / f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}"
@@ -324,14 +292,6 @@ class BankStatementService:
             if 'current_task_id' in locals():
                 progress_manager.fail_task(current_task_id, str(e))
             raise HTTPException(status_code=500, detail=f"生成凭证失败: {str(e)}")
-
-        finally:
-            # 清理临时文件
-            if 'temp_file_path' in locals() and temp_file_path.exists():
-                try:
-                    temp_file_path.unlink()
-                except Exception as e:
-                    logger.warning(f"清理临时文件失败: {e}")
 
     def get_available_customers(self) -> List[str]:
         """获取可用的客户列表"""
@@ -451,32 +411,27 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            # 保存临时文件
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_extension = Path(bank_statement_file.filename).suffix
-            temp_file_path = self.data_dir / f"temp_preview_{timestamp}{file_extension}"
-
+            # 直接读取文件内容到内存，不保存临时文件
             try:
                 content = await bank_statement_file.read()
-                with open(temp_file_path, "wb") as f:
-                    f.write(content)
+                logger.info(f"成功读取预览文件内容，大小: {len(content)} 字节")
             except Exception as e:
-                logger.error(f"保存预览文件失败: {e}")
-                raise HTTPException(status_code=500, detail="文件保存失败")
+                logger.error(f"读取预览文件失败: {e}")
+                raise HTTPException(status_code=500, detail="文件读取失败")
 
             try:
                 # 获取列名映射
                 mapping = self.get_customer_column_mapping(customer_name)
 
-                # 读取数据预览
+                # 直接从字节数据读取预览
                 config = BankStatementConfig(
                     data_dir=self.data_dir,
-                    bank_statement_file=temp_file_path.name,
+                    bank_statement_file="",
                     customer_name=customer_name
                 )
 
-                from ...accounting_voucher_generation.bank_statement_pipeline import load_bank_statement_data
-                df = load_bank_statement_data(config)
+                from accounting_voucher_generation.bank_statement_pipeline import load_bank_statement_data_from_bytes
+                df = load_bank_statement_data_from_bytes(content, bank_statement_file.filename, config)
 
                 # 应用列名映射
                 available_columns = [col for col in mapping.values() if col in df.columns]
@@ -492,13 +447,9 @@ class BankStatementService:
 
                 return preview_data
 
-            finally:
-                # 清理临时文件
-                if temp_file_path.exists():
-                    try:
-                        temp_file_path.unlink()
-                    except Exception as e:
-                        logger.warning(f"清理预览临时文件失败: {e}")
+            except Exception as e:
+                logger.error(f"预览数据失败: {e}")
+                raise
 
         except HTTPException:
             raise

@@ -98,18 +98,18 @@ class BankStatementConfig:
     default_debit_column: str = "借方"
     default_credit_column: str = "贷方"
 
-    # 凭证配置
-    voucher_category: str = "记"
-    preparer: str = "cissy"
+    # 凭证配置（使用默认值）
     credit_account_default: str = "1001"  # 银行存款
     voucher_start_sequence: int = 0
     currency_name: str = "人民币元"
+    preparer: str = "系统"  # 制单人，使用默认值
 
     # 翻译配置
     translation_mapping_path: Path = field(default_factory=lambda: Path("data") / "translation_mapping.csv")
     translation_max_workers: int = 3
     translation_requests_per_second: float = 0.6
     zhipuai_api_keys: list[str] = field(default_factory=list)
+    enable_translation: bool = True  # 是否启用翻译功能
 
     # 进度回调函数（可选）
     progress_callback: Optional[callable] = None
@@ -136,6 +136,39 @@ def load_bank_statement_data(config: BankStatementConfig, *, usecols: Optional[I
         sheet_name = excel.sheet_names[0]
 
     df = excel.parse(sheet_name=sheet_name, header=0, usecols=usecols)
+    df.columns = [str(col).strip() for col in df.columns]
+    return df
+
+
+def load_bank_statement_data_from_bytes(file_bytes: bytes, file_name: str, config: BankStatementConfig, *, usecols: Optional[Iterable[str]] = None) -> pd.DataFrame:
+    """从字节数据直接加载银行流水数据"""
+    import io
+
+    # 根据文件扩展名选择处理方式
+    file_extension = Path(file_name).suffix.lower()
+
+    if file_extension in ['.xlsx', '.xls']:
+        # 使用BytesIO在内存中处理Excel文件
+        excel_file = io.BytesIO(file_bytes)
+        excel = pd.ExcelFile(excel_file, engine="openpyxl")
+
+        if config.bank_statement_sheet is not None:
+            sheet_name = config.bank_statement_sheet
+        else:
+            if not excel.sheet_names:
+                raise ValueError("Excel文件中没有找到工作表")
+            sheet_name = excel.sheet_names[0]
+
+        df = excel.parse(sheet_name=sheet_name, header=0, usecols=usecols)
+    elif file_extension == '.csv':
+        # 处理CSV文件
+        import io
+        csv_file = io.StringIO(file_bytes.decode('utf-8'))
+        df = pd.read_csv(csv_file, usecols=usecols)
+    else:
+        raise ValueError(f"不支持的文件格式: {file_extension}")
+
+    # 清理列名
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
@@ -398,16 +431,23 @@ def generate_bank_statement_vouchers(
             logger.info("银行流水处理已取消，跳过后续翻译")
             return pd.DataFrame(), 0, 0
 
-        translated_texts = batch_translate_texts(
-            list(unique_summaries),
-            max_workers=cfg.translation_max_workers,
-            requests_per_second=cfg.translation_requests_per_second,
-            progress_description="翻译银行流水摘要",
-            mapping_path=cfg.translation_mapping_path,
-            progress_callback=cfg.progress_callback,
-            cancel_check=cfg.cancel_check,
-        )
-        translation_cache.update(translated_texts)
+        # 根据配置决定是否执行翻译
+        translated_texts = {}
+        if cfg.enable_translation:
+            translated_texts = batch_translate_texts(
+                list(unique_summaries),
+                max_workers=cfg.translation_max_workers,
+                requests_per_second=cfg.translation_requests_per_second,
+                progress_description="翻译银行流水摘要",
+                mapping_path=cfg.translation_mapping_path,
+                progress_callback=cfg.progress_callback,
+                cancel_check=cfg.cancel_check,
+            )
+            translation_cache.update(translated_texts)
+        else:
+            logger.info("翻译功能已禁用，跳过翻译步骤")
+            # 保持原文不变
+            translated_texts = {summary: summary for summary in unique_summaries}
 
     # 生成凭证
     voucher_rows = []
@@ -416,10 +456,11 @@ def generate_bank_statement_vouchers(
 
     for _, row in _iter_rows_with_progress(valid_df, "生成银行流水凭证", cfg.cancel_check):
         date = row["date"]
-        counterparty = row["counterparty"]
-        summary = row["summary"]
-        debit_amount = row["debit"]
-        credit_amount = row["credit"]
+        # 安全获取各列数据，处理缺失列的情况
+        counterparty = row.get("counterparty", "")
+        summary = row.get("summary", "")
+        debit_amount = row.get("debit")
+        credit_amount = row.get("credit")
 
         # 跳过空记录
         if pd.isna(debit_amount) and pd.isna(credit_amount):
@@ -519,26 +560,315 @@ def generate_bank_statement_vouchers(
     output_dir = cfg.output_dir / f"{cfg.customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 按照PRD要求，第一行为空行，列名在第二行
-    output_file_path = output_dir / f"{cfg.customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+    # 在内存中创建Excel文件，不保存到磁盘
+    import io
+    excel_buffer = io.BytesIO()
 
-    # 创建Excel writer，写入格式要求的数据
-    with pd.ExcelWriter(output_file_path, engine="openpyxl") as writer:
+    # 按照要求，第1、3、4行留空，第2行列名
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
         # 第一行：空行
-        empty_row = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
-        empty_row.to_excel(writer, index=False, header=False, startrow=0)
+        empty_row1 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row1.to_excel(writer, index=False, header=False, startrow=0)
 
         # 第二行：列名
         header_row = pd.DataFrame([BANK_STATEMENT_OUTPUT_COLUMNS], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
         header_row.to_excel(writer, index=False, header=False, startrow=1)
 
-        # 第三行开始：数据
-        if not df_out.empty:
-            df_out.to_excel(writer, index=False, header=False, startrow=2)
+        # 第三行：空行
+        empty_row3 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row3.to_excel(writer, index=False, header=False, startrow=2)
 
-    # 也保存CSV格式（便于查看）
-    csv_path = output_dir / f"{cfg.customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.csv"
-    df_out.to_csv(csv_path, index=False, encoding="utf-8-sig")
+        # 第四行：空行
+        empty_row4 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row4.to_excel(writer, index=False, header=False, startrow=3)
+
+        # 第五行开始：数据
+        if not df_out.empty:
+            df_out.to_excel(writer, index=False, header=False, startrow=4)
+
+    # 获取Excel文件的字节数据
+    excel_bytes = excel_buffer.getvalue()
+    excel_buffer.close()
 
     generated_vouchers = voucher_seq
-    return df_out, processed_records, generated_vouchers
+    return df_out, processed_records, generated_vouchers, excel_bytes
+
+
+def generate_bank_statement_vouchers_from_bytes(
+    config: BankStatementConfig,
+    file_bytes: bytes,
+    file_name: str,
+    *,
+    column_mapping_df: Optional[pd.DataFrame] = None,
+    subject_mapping_df: Optional[pd.DataFrame] = None,
+) -> Tuple[pd.DataFrame, int, int, bytes]:
+    """
+    直接从文件字节数据生成银行流水凭证（不保存临时文件）
+
+    Args:
+        config: 银行流水处理配置
+        file_bytes: 文件字节数据
+        file_name: 文件名（用于判断文件类型）
+        column_mapping_df: 列名映射DataFrame（可选）
+        subject_mapping_df: 科目映射DataFrame（可选）
+
+    Returns:
+        Tuple[DataFrame, processed_records, generated_vouchers, excel_bytes]
+    """
+    cfg = config.resolved()
+
+    # 初始化翻译服务
+    if cfg.zhipuai_api_keys:
+        try:
+            configure_translation_service(
+                api_keys=cfg.zhipuai_api_keys,
+                cache_path=cfg.translation_mapping_path,
+                max_workers=cfg.translation_max_workers,
+            )
+            print(f"已初始化多账户翻译服务，共 {len(cfg.zhipuai_api_keys)} 个API密钥")
+        except Exception as e:
+            print(f"初始化多账户翻译服务失败: {e}")
+
+    # 直接从字节数据加载数据，不保存临时文件
+    bank_statement_df = load_bank_statement_data_from_bytes(file_bytes, file_name, cfg)
+    column_mapping_df = column_mapping_df if column_mapping_df is not None else load_bank_statement_column_mapping(cfg)
+    subject_mapping_df = subject_mapping_df if subject_mapping_df is not None else load_accounting_subject_mapping(cfg)
+
+    # 获取映射关系
+    column_mapping = get_column_mapping_for_customer(column_mapping_df, cfg.customer_name, cfg)
+    subject_mapping = build_subject_mapping(subject_mapping_df, cfg.customer_name)
+
+    # 过滤有效的列
+    available_columns = [col for col in column_mapping.values() if col in bank_statement_df.columns]
+    if len(available_columns) < 4:  # 至少需要日期、摘要、借方、贷方中的3个
+        raise ValueError(f"银行流水文件中缺少必要的列，找到的列: {available_columns}")
+
+    # 准备数据
+    processed_df = bank_statement_df.copy()
+
+    # 提取需要的列并重命名（过滤掉None值）
+    columns_to_extract = []
+    for col_key in ["date", "counterparty", "summary", "debit", "credit"]:
+        col_name = column_mapping[col_key]
+        if col_name is not None:  # 只添加非None的列名
+            columns_to_extract.append(col_name)
+
+    processed_df = processed_df[columns_to_extract].copy()
+
+    # 为提取的列设置正确的列名
+    new_columns = []
+    for col_key in ["date", "counterparty", "summary", "debit", "credit"]:
+        col_name = column_mapping[col_key]
+        if col_name is not None:  # 只为实际存在的列设置新列名
+            new_columns.append(col_key)
+
+    processed_df.columns = new_columns
+
+    # 转换数据类型（只处理存在的列）
+    if "date" in processed_df.columns:
+        processed_df["date"] = pd.to_datetime(processed_df["date"], errors="coerce")
+    if "debit" in processed_df.columns:
+        processed_df["debit"] = processed_df["debit"].apply(_coerce_amount)
+    if "credit" in processed_df.columns:
+        processed_df["credit"] = processed_df["credit"].apply(_coerce_amount)
+    if "summary" in processed_df.columns:
+        processed_df["summary"] = processed_df["summary"].astype(str).str.strip()
+    if "counterparty" in processed_df.columns:
+        processed_df["counterparty"] = processed_df["counterparty"].astype(str).str.strip()
+
+    # 过滤无效数据
+    if "date" in processed_df.columns:
+        valid_df = processed_df.dropna(subset=["date"])
+    else:
+        valid_df = processed_df  # 如果没有日期列，不过滤
+
+    # 根据借方/贷方金额过滤有效记录
+    amount_conditions = []
+    if "debit" in valid_df.columns:
+        amount_conditions.append(valid_df["debit"].notna() & (valid_df["debit"] > 0))
+    if "credit" in valid_df.columns:
+        amount_conditions.append(valid_df["credit"].notna() & (valid_df["credit"] > 0))
+
+    if amount_conditions:  # 如果有金额列
+        combined_condition = amount_conditions[0]
+        for condition in amount_conditions[1:]:
+            combined_condition = combined_condition | condition
+        valid_df = valid_df[combined_condition]
+
+    if valid_df.empty:
+        raise ValueError("没有找到有效的银行流水记录")
+
+    # 收集需要翻译的摘要（如果summary列存在）
+    unique_summaries = set()
+    if "summary" in valid_df.columns:
+        unique_summaries = set(valid_df["summary"].tolist())
+
+    # 批量翻译摘要
+    translation_cache = {}
+    if unique_summaries:
+        # 检查是否取消
+        if cfg.cancel_check and cfg.cancel_check():
+            logger.info("银行流水处理已取消，跳过后续翻译")
+            return pd.DataFrame(), 0, 0
+
+        # 根据配置决定是否执行翻译
+        translated_texts = {}
+        if cfg.enable_translation:
+            translated_texts = batch_translate_texts(
+                list(unique_summaries),
+                max_workers=cfg.translation_max_workers,
+                requests_per_second=cfg.translation_requests_per_second,
+                progress_description="翻译银行流水摘要",
+                mapping_path=cfg.translation_mapping_path,
+                progress_callback=cfg.progress_callback,
+                cancel_check=cfg.cancel_check,
+            )
+            translation_cache.update(translated_texts)
+        else:
+            logger.info("翻译功能已禁用，跳过翻译步骤")
+            # 保持原文不变
+            translated_texts = {summary: summary for summary in unique_summaries}
+
+    # 生成凭证
+    voucher_rows = []
+    voucher_seq = cfg.voucher_start_sequence
+    processed_records = 0
+
+    for _, row in _iter_rows_with_progress(valid_df, "生成银行流水凭证", cfg.cancel_check):
+        date = row["date"]
+        # 安全获取各列数据，处理缺失列的情况
+        counterparty = row.get("counterparty", "")
+        summary = row.get("summary", "")
+        debit_amount = row.get("debit")
+        credit_amount = row.get("credit")
+
+        # 跳过空记录
+        if pd.isna(debit_amount) and pd.isna(credit_amount):
+            continue
+
+        processed_records += 1
+        voucher_seq += 1
+
+        # 翻译摘要
+        english_summary = translation_cache.get(summary, "")
+        bilingual_summary = f"{summary}/{english_summary}" if english_summary else summary
+
+        # 映射会计科目
+        subject_code = map_subject_by_counterparty_or_summary(counterparty, summary, subject_mapping)
+        if not subject_code:
+            # 如果没有映射到科目，使用默认科目
+            if debit_amount and debit_amount > 0:
+                subject_code = "1001"  # 银行存款借方用银行存款
+            else:
+                subject_code = "1001"  # 银行存款贷方也用银行存款
+
+        # 格式化日期
+        formatted_date = date.strftime("%Y-%m-%d")
+        voucher_no = f"{voucher_seq:04d}"
+
+        # 确定借贷方向和金额
+        if debit_amount and debit_amount > 0:
+            # 借方记录
+            voucher_row = _init_bank_statement_output_row()
+            voucher_row.update({
+                BANK_STATEMENT_OUTPUT_SCHEMA["date"]: formatted_date,
+                BANK_STATEMENT_OUTPUT_SCHEMA["voucher_no"]: voucher_no,
+                BANK_STATEMENT_OUTPUT_SCHEMA["attachment"]: "1",
+                BANK_STATEMENT_OUTPUT_SCHEMA["summary"]: bilingual_summary,
+                BANK_STATEMENT_OUTPUT_SCHEMA["subject_code"]: subject_code,
+                BANK_STATEMENT_OUTPUT_SCHEMA["currency"]: "CNY",
+                BANK_STATEMENT_OUTPUT_SCHEMA["debit"]: debit_amount,
+                BANK_STATEMENT_OUTPUT_SCHEMA["credit"]: 0.0,
+                BANK_STATEMENT_OUTPUT_SCHEMA["preparer"]: cfg.preparer,
+                BANK_STATEMENT_OUTPUT_SCHEMA["status"]: "未审核",
+            })
+            voucher_rows.append(voucher_row)
+
+            # 对应的贷方记录（银行存款减少）
+            credit_row = _init_bank_statement_output_row()
+            credit_row.update({
+                BANK_STATEMENT_OUTPUT_SCHEMA["date"]: formatted_date,
+                BANK_STATEMENT_OUTPUT_SCHEMA["voucher_no"]: voucher_no,
+                BANK_STATEMENT_OUTPUT_SCHEMA["attachment"]: "",
+                BANK_STATEMENT_OUTPUT_SCHEMA["summary"]: bilingual_summary,
+                BANK_STATEMENT_OUTPUT_SCHEMA["subject_code"]: cfg.credit_account_default,
+                BANK_STATEMENT_OUTPUT_SCHEMA["currency"]: "CNY",
+                BANK_STATEMENT_OUTPUT_SCHEMA["debit"]: 0.0,
+                BANK_STATEMENT_OUTPUT_SCHEMA["credit"]: debit_amount,
+                BANK_STATEMENT_OUTPUT_SCHEMA["preparer"]: cfg.preparer,
+                BANK_STATEMENT_OUTPUT_SCHEMA["status"]: "未审核",
+            })
+            voucher_rows.append(credit_row)
+
+        elif credit_amount and credit_amount > 0:
+            # 贷方记录（银行存款增加）
+            voucher_row = _init_bank_statement_output_row()
+            voucher_row.update({
+                BANK_STATEMENT_OUTPUT_SCHEMA["date"]: formatted_date,
+                BANK_STATEMENT_OUTPUT_SCHEMA["voucher_no"]: voucher_no,
+                BANK_STATEMENT_OUTPUT_SCHEMA["attachment"]: "1",
+                BANK_STATEMENT_OUTPUT_SCHEMA["summary"]: bilingual_summary,
+                BANK_STATEMENT_OUTPUT_SCHEMA["subject_code"]: cfg.credit_account_default,
+                BANK_STATEMENT_OUTPUT_SCHEMA["currency"]: "CNY",
+                BANK_STATEMENT_OUTPUT_SCHEMA["debit"]: 0.0,
+                BANK_STATEMENT_OUTPUT_SCHEMA["credit"]: credit_amount,
+                BANK_STATEMENT_OUTPUT_SCHEMA["preparer"]: cfg.preparer,
+                BANK_STATEMENT_OUTPUT_SCHEMA["status"]: "未审核",
+            })
+            voucher_rows.append(voucher_row)
+
+            # 对应的借方记录
+            debit_row = _init_bank_statement_output_row()
+            debit_row.update({
+                BANK_STATEMENT_OUTPUT_SCHEMA["date"]: formatted_date,
+                BANK_STATEMENT_OUTPUT_SCHEMA["voucher_no"]: voucher_no,
+                BANK_STATEMENT_OUTPUT_SCHEMA["attachment"]: "",
+                BANK_STATEMENT_OUTPUT_SCHEMA["summary"]: bilingual_summary,
+                BANK_STATEMENT_OUTPUT_SCHEMA["subject_code"]: subject_code,
+                BANK_STATEMENT_OUTPUT_SCHEMA["currency"]: "CNY",
+                BANK_STATEMENT_OUTPUT_SCHEMA["debit"]: credit_amount,
+                BANK_STATEMENT_OUTPUT_SCHEMA["credit"]: 0.0,
+                BANK_STATEMENT_OUTPUT_SCHEMA["preparer"]: cfg.preparer,
+                BANK_STATEMENT_OUTPUT_SCHEMA["status"]: "未审核",
+            })
+            voucher_rows.append(debit_row)
+
+    # 创建输出DataFrame
+    df_out = pd.DataFrame(voucher_rows, columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+
+    # 保存文件
+    output_dir = cfg.output_dir / f"{cfg.customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 在内存中创建Excel文件，不保存到磁盘
+    import io
+    excel_buffer = io.BytesIO()
+
+    # 按照要求，第1、3、4行留空，第2行列名
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+        # 第一行：空行
+        empty_row1 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row1.to_excel(writer, index=False, header=False, startrow=0)
+
+        # 第二行：列名
+        header_row = pd.DataFrame([BANK_STATEMENT_OUTPUT_COLUMNS], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        header_row.to_excel(writer, index=False, header=False, startrow=1)
+
+        # 第三行：空行
+        empty_row3 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row3.to_excel(writer, index=False, header=False, startrow=2)
+
+        # 第四行：空行
+        empty_row4 = pd.DataFrame([[""] * len(BANK_STATEMENT_OUTPUT_COLUMNS)], columns=BANK_STATEMENT_OUTPUT_COLUMNS)
+        empty_row4.to_excel(writer, index=False, header=False, startrow=3)
+
+        # 第五行开始：数据
+        if not df_out.empty:
+            df_out.to_excel(writer, index=False, header=False, startrow=4)
+
+    # 获取Excel文件的字节数据
+    excel_bytes = excel_buffer.getvalue()
+    excel_buffer.close()
+
+    generated_vouchers = voucher_seq
+    return df_out, processed_records, generated_vouchers, excel_bytes
