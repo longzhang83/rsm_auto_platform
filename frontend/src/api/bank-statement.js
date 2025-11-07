@@ -1,4 +1,4 @@
-// 获取可用的客户列表
+// 获取可用的客户列表（包含银行信息）
 export async function getBankStatementCustomers() {
   try {
     const response = await fetch('/api/v1/bank-statements/customers')
@@ -12,10 +12,31 @@ export async function getBankStatementCustomers() {
   }
 }
 
-// 获取客户的映射配置
-export async function getBankStatementMapping(customerName) {
+// 获取客户对应的银行列表
+export async function getCustomerBanks(customerName) {
   try {
-    const response = await fetch(`/api/v1/bank-statements/mapping/${encodeURIComponent(customerName)}`)
+    const response = await fetch(`/api/v1/bank-statements/customers/${encodeURIComponent(customerName)}/banks`)
+    if (!response.ok) {
+      throw new Error('获取客户银行列表失败')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('获取客户银行列表失败:', error)
+    throw error
+  }
+}
+
+// 获取客户的映射配置（支持银行名称）
+export async function getBankStatementMapping(customerName, bankName = null) {
+  try {
+    let url = `/api/v1/bank-statements/mapping/${encodeURIComponent(customerName)}`
+    if (bankName) {
+      const params = new URLSearchParams()
+      params.append('bank_name', bankName)
+      url += `?${params.toString()}`
+    }
+
+    const response = await fetch(url)
     if (!response.ok) {
       throw new Error('获取客户映射配置失败')
     }
@@ -168,10 +189,24 @@ export async function generateBankStatementVouchersAsync(formData, onProgress) {
   }
 }
 
-// 下载银行流水凭证文件
+// 下载银行流水凭证文件（通过任务ID）
+export async function downloadBankStatementResult(taskId) {
+  try {
+    const response = await fetch(`/api/v1/bank-statements/download/${encodeURIComponent(taskId)}`)
+    if (!response.ok) {
+      throw new Error('下载文件失败')
+    }
+    return response.blob()
+  } catch (error) {
+    console.error('下载文件失败:', error)
+    throw error
+  }
+}
+
+// 下载银行流水凭证文件（通过文件名）
 export async function downloadBankStatementFile(filename) {
   try {
-    const response = await fetch(`/api/v1/bank-statements/download/${encodeURIComponent(filename)}`)
+    const response = await fetch(`/api/v1/bank-statements/download-file/${encodeURIComponent(filename)}`)
     if (!response.ok) {
       throw new Error('下载文件失败')
     }
@@ -198,6 +233,36 @@ export async function validateBankStatementFile(file) {
     return await response.json()
   } catch (error) {
     console.error('验证文件失败:', error)
+    throw error
+  }
+}
+
+// 取消银行流水生成任务
+export async function cancelBankStatementGeneration(taskId) {
+  try {
+    const response = await fetch(`/api/v1/bank-statements/generate/cancel/${encodeURIComponent(taskId)}`, {
+      method: 'POST'
+    })
+    if (!response.ok) {
+      throw new Error('取消任务失败')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('取消任务失败:', error)
+    throw error
+  }
+}
+
+// 获取银行流水生成结果
+export async function getBankStatementGenerationResult(taskId) {
+  try {
+    const response = await fetch(`/api/v1/bank-statements/generate/result/${encodeURIComponent(taskId)}`)
+    if (!response.ok) {
+      throw new Error('获取生成结果失败')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('获取生成结果失败:', error)
     throw error
   }
 }

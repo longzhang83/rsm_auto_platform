@@ -34,11 +34,34 @@
               >
                 <el-option
                   v-for="customer in customers"
-                  :key="customer"
-                  :label="customer"
-                  :value="customer"
+                  :key="customer.name || customer"
+                  :label="customer.name || customer"
+                  :value="customer.name || customer"
                 />
               </el-select>
+            </el-form-item>
+
+            <!-- 银行选择 -->
+            <el-form-item v-if="form.customerName" label="银行名称" prop="bankName">
+              <el-select
+                v-model="form.bankName"
+                placeholder="请选择银行（可选）"
+                style="width: 100%"
+                :loading="loadingBanks"
+                @change="handleBankChange"
+                clearable
+                :no-data-text="loadingBanks ? '加载中...' : '该客户暂无银行配置，将使用通用配置'"
+              >
+                <el-option
+                  v-for="bank in availableBanks"
+                  :key="bank"
+                  :label="bank"
+                  :value="bank"
+                />
+              </el-select>
+              <div class="mt-1 text-xs text-gray-500">
+                选择银行可以获得更精确的映射配置，如无匹配银行将使用通用配置
+              </div>
             </el-form-item>
 
             <!-- 银行流水文件上传 -->
@@ -336,7 +359,7 @@ import {
   Check,
   Close
 } from '@element-plus/icons-vue'
-import { generateBankStatementVouchers, getBankStatementCustomers, getBankStatementMapping, previewBankStatementData } from '@/api/bank-statement'
+import { generateBankStatementVouchers, getBankStatementCustomers, getCustomerBanks, getBankStatementMapping, previewBankStatementData } from '@/api/bank-statement'
 import { generateBankVouchers, translationService } from '@/utils/translationService'
 import TranslationProgress from '@/components/TranslationProgress.vue'
 
@@ -347,7 +370,8 @@ const translationProgressRef = ref()
 
 const form = reactive({
   customerName: '',
-  enableTranslation: true
+  bankName: '',
+  enableTranslation: false
 })
 
 const rules = {
@@ -358,12 +382,14 @@ const rules = {
 
 // 状态管理
 const loadingCustomers = ref(false)
+const loadingBanks = ref(false)
 const generating = ref(false)
 const previewing = ref(false)
 const downloading = ref(false)
 
 // 数据
 const customers = ref([])
+const availableBanks = ref([])
 const customerMapping = ref(null)
 const previewInfo = ref(null)
 const result = ref(null)
@@ -409,16 +435,68 @@ const loadCustomers = async () => {
 const handleCustomerChange = async (customerName) => {
   if (!customerName) {
     customerMapping.value = null
+    availableBanks.value = []
+    form.bankName = ''
     return
   }
 
   try {
-    const mapping = await getBankStatementMapping(customerName)
+    // 重置银行选择
+    availableBanks.value = []
+    form.bankName = ''
+
+    // 并行加载客户映射和银行列表
+    const [mapping, banksResponse] = await Promise.all([
+      getBankStatementMapping(customerName),
+      loadCustomerBanks(customerName)
+    ])
+
     customerMapping.value = mapping
   } catch (error) {
     console.error('加载客户映射失败:', error)
     ElMessage.error('加载客户映射配置失败')
     customerMapping.value = null
+    availableBanks.value = []
+    form.bankName = ''
+  }
+}
+
+const loadCustomerBanks = async (customerName) => {
+  try {
+    loadingBanks.value = true
+    const response = await getCustomerBanks(customerName)
+    availableBanks.value = response.banks || []
+
+    // 自动选择第一个银行作为默认值
+    if (availableBanks.value.length > 0) {
+      form.bankName = availableBanks.value[0]
+    } else {
+      form.bankName = ''
+    }
+
+    return response
+  } catch (error) {
+    console.error('加载客户银行列表失败:', error)
+    availableBanks.value = []
+    form.bankName = ''
+    throw error
+  } finally {
+    loadingBanks.value = false
+  }
+}
+
+const handleBankChange = async (bankName) => {
+  if (!form.customerName) {
+    return
+  }
+
+  try {
+    // 重新加载映射，传递银行名称
+    const mapping = await getBankStatementMapping(form.customerName, bankName)
+    customerMapping.value = mapping
+  } catch (error) {
+    console.error('加载银行映射配置失败:', error)
+    ElMessage.error('加载银行映射配置失败')
   }
 }
 
@@ -461,6 +539,9 @@ const previewData = async () => {
     const formData = new FormData()
     formData.append('bank_statement_file', bankStatementFile.value)
     formData.append('customer_name', form.customerName)
+    if (form.bankName) {
+      formData.append('bank_name', form.bankName)
+    }
     formData.append('max_rows', 10)
 
     const response = await previewBankStatementData(formData)
@@ -492,6 +573,9 @@ const generateVouchers = async () => {
     const formData = new FormData()
     formData.append('bank_statement_file', bankStatementFile.value)
     formData.append('customer_name', form.customerName)
+    if (form.bankName) {
+      formData.append('bank_name', form.bankName)
+    }
     formData.append('enable_translation', form.enableTranslation.toString())
 
     // 使用新的翻译服务，支持统一进度管理
@@ -506,32 +590,32 @@ const generateVouchers = async () => {
         console.log('银行流水转凭证完成:', downloadResult)
 
         try {
-          // 获取下载信息
-          const downloadInfoUrl = `/api/v1/bank-statements/download/${downloadResult.task_id}`
-          const downloadResponse = await fetch(downloadInfoUrl)
+          // 获取结果信息
+          const resultUrl = `/api/v1/bank-statements/generate/result/${downloadResult.task_id}`
+          const resultResponse = await fetch(resultUrl)
 
-          if (!downloadResponse.ok) {
-            throw new Error('获取下载信息失败')
+          if (!resultResponse.ok) {
+            throw new Error('获取结果信息失败')
           }
 
-          const downloadInfo = await downloadResponse.json()
-          console.log('下载信息:', downloadInfo)
+          const resultInfo = await resultResponse.json()
+          console.log('结果信息:', resultInfo)
 
           // 更新结果数据
           result.value = {
-            download_url: downloadInfo.download_url,
-            processed_records: downloadInfo.processed_records || downloadResult.completed || 0,
-            generated_vouchers: downloadInfo.generated_vouchers || Math.floor((downloadResult.completed || 0) * 0.8),
+            download_url: `/api/v1/bank-statements/download/${downloadResult.task_id}`,
+            processed_records: resultInfo.processed_records || downloadResult.completed || 0,
+            generated_vouchers: resultInfo.generated_vouchers || Math.floor((downloadResult.completed || 0) * 0.8),
             task_id: downloadResult.task_id
           }
 
           // 自动触发下载
-          if (downloadInfo.download_url) {
-            handleDownload(downloadInfo.download_url)
+          if (result.value.download_url) {
+            handleDownload(result.value.download_url)
           }
         } catch (error) {
-          console.error('获取下载信息失败:', error)
-          ElMessage.error('获取下载信息失败，请重试')
+          console.error('获取结果信息失败:', error)
+          ElMessage.error('获取结果信息失败，请重试')
         }
 
         ElMessage.success(`成功生成凭证！处理了 ${result.value.processed_records} 条记录，生成约 ${result.value.generated_vouchers} 个凭证`)
@@ -623,12 +707,13 @@ const resetForm = () => {
   bankStatementUpload.value?.clearFiles()
 
   bankStatementFile.value = null
+  availableBanks.value = []
   customerMapping.value = null
   previewInfo.value = null
   result.value = null
 
   // 重置为默认值
-  form.enableTranslation = true
+  form.enableTranslation = false
 
   ElMessage.success('表单已重置')
 }

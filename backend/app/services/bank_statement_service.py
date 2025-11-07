@@ -16,6 +16,8 @@ from accounting_voucher_generation.bank_statement_pipeline import (
     load_bank_statement_column_mapping,
     load_accounting_subject_mapping,
     get_column_mapping_for_customer,
+    get_customer_banks,
+    get_available_customers,
     DEFAULT_BANK_STATEMENT_MAPPING_FILE,
     DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE,
 )
@@ -40,6 +42,7 @@ class BankStatementService:
         self,
         bank_statement_file: UploadFile,
         customer_name: str,
+        bank_name: str = "",
         zhipuai_api_keys: Optional[List[str]] = None,
     ) -> Tuple[pd.DataFrame, int, int, str]:
         """
@@ -60,18 +63,13 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            # 保存上传的文件
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_extension = Path(bank_statement_file.filename).suffix
-            temp_file_path = self.data_dir / f"temp_bank_statement_{timestamp}{file_extension}"
-
+            # 直接读取文件内容到内存，不保存临时文件
             try:
                 content = await bank_statement_file.read()
-                with open(temp_file_path, "wb") as f:
-                    f.write(content)
+                logger.info(f"成功读取银行流水文件内容，大小: {len(content)} 字节")
             except Exception as e:
-                logger.error(f"保存银行流水文件失败: {e}")
-                raise HTTPException(status_code=500, detail="文件保存失败")
+                logger.error(f"读取银行流水文件失败: {e}")
+                raise HTTPException(status_code=500, detail="文件读取失败")
 
             # 验证映射文件是否存在
             column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
@@ -89,27 +87,25 @@ class BankStatementService:
                     detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
                 )
 
-            # 创建配置
+            # 创建配置（不需要设置bank_statement_file，因为我们直接使用字节数据）
             config = BankStatementConfig(
                 data_dir=self.data_dir,
-                bank_statement_file=temp_file_path.name,
+                bank_statement_file="",  # 不需要文件路径
                 customer_name=customer_name,
                 zhipuai_api_keys=zhipuai_api_keys or [],
             )
 
-            # 生成凭证
-            df_out, processed_records, generated_vouchers = generate_bank_statement_vouchers(config)
-
-            # 构建输出路径
-            output_dir = config.output_dir / f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}"
-            output_file_path = output_dir / f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+            # 生成凭证（直接从字节数据处理，不保存临时文件）
+            df_out, processed_records, generated_vouchers, excel_bytes = generate_bank_statement_vouchers_from_bytes(
+                config, content, bank_statement_file.filename
+            )
 
             logger.info(
                 f"银行流水转凭证完成，处理记录数: {processed_records}，生成凭证数: {generated_vouchers}，"
-                f"输出文件: {output_file_path}"
+                f"输出文件大小: {len(excel_bytes)} 字节"
             )
 
-            return df_out, processed_records, generated_vouchers, str(output_file_path)
+            return df_out, processed_records, generated_vouchers, excel_bytes
 
         except HTTPException:
             raise
@@ -121,6 +117,7 @@ class BankStatementService:
         self,
         bank_statement_file: UploadFile,
         customer_name: str,
+        bank_name: str = "",
         zhipuai_api_keys: Optional[List[str]] = None,
         task_id: Optional[str] = None,
         enable_translation: bool = True,
@@ -222,6 +219,7 @@ class BankStatementService:
                 data_dir=self.data_dir,
                 bank_statement_file="",  # 不需要文件路径
                 customer_name=customer_name,
+                bank_name=bank_name,
                 zhipuai_api_keys=zhipuai_api_keys or [],
                 progress_callback=progress_callback,
                 cancel_check=cancel_check,
@@ -249,7 +247,7 @@ class BankStatementService:
                         df_out, processed_records, generated_vouchers, excel_bytes = generate_bank_statement_vouchers_from_bytes(
                             config, content, bank_statement_file.filename
                         )
-                        return df_out, processed_records, generated_vouchers
+                        return df_out, processed_records, generated_vouchers, excel_bytes
                     except Exception as e:
                         logger.error(f"[bank_statement_service] 同步银行流水处理失败: {e}")
                         import traceback
@@ -259,27 +257,23 @@ class BankStatementService:
                 # 使用线程池执行器运行同步银行流水处理
                 loop = asyncio.get_event_loop()
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    df_out, processed_records, generated_vouchers = await loop.run_in_executor(executor, run_bank_statement_sync)
+                    df_out, processed_records, generated_vouchers, excel_bytes = await loop.run_in_executor(executor, run_bank_statement_sync)
 
                 # 检查是否取消
                 if progress_manager.is_cancelled(current_task_id):
                     logger.info(f"[bank_statement_service] 任务已取消，跳过后续处理: {current_task_id}")
-                    return pd.DataFrame(), 0, 0, ""
+                    return pd.DataFrame(), 0, 0, b""
 
-                progress_manager.update_progress(current_task_id, 90, "保存输出文件...")
-
-                # 构建输出路径
-                output_dir = config.output_dir / f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}"
-                output_file_path = output_dir / f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                progress_manager.update_progress(current_task_id, 90, "准备输出文件...")
 
                 progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
 
                 logger.info(
                     f"银行流水转凭证完成，处理记录数: {processed_records}，生成凭证数: {generated_vouchers}，"
-                    f"输出文件: {output_file_path}"
+                    f"输出文件大小: {len(excel_bytes)} 字节"
                 )
 
-                return df_out, processed_records, generated_vouchers, str(output_file_path)
+                return df_out, processed_records, generated_vouchers, excel_bytes
 
             except Exception as e:
                 progress_manager.fail_task(current_task_id, str(e))
@@ -293,8 +287,8 @@ class BankStatementService:
                 progress_manager.fail_task(current_task_id, str(e))
             raise HTTPException(status_code=500, detail=f"生成凭证失败: {str(e)}")
 
-    def get_available_customers(self) -> List[str]:
-        """获取可用的客户列表"""
+    def get_available_customers(self) -> List[Dict[str, Any]]:
+        """获取可用的客户列表（包含银行信息）"""
         try:
             logger.info(f"开始获取客户列表，数据目录: {self.data_dir}")
             column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
@@ -311,13 +305,10 @@ class BankStatementService:
             )
             logger.info(f"成功加载映射文件，形状: {column_mapping_df.shape}")
 
-            # 获取第一列的客户名称
-            customers = column_mapping_df.iloc[:, 0].dropna().unique().tolist()
-            logger.info(f"原始客户名称: {customers}")
-
-            cleaned_customers = [str(customer).strip() for customer in customers if str(customer).strip()]
-            logger.info(f"清理后的客户名称: {cleaned_customers}")
-            return cleaned_customers
+            # 使用新的函数获取客户和银行信息
+            customers = get_available_customers(column_mapping_df)
+            logger.info(f"获取到 {len(customers)} 个客户")
+            return customers
 
         except Exception as e:
             logger.error(f"获取客户列表失败: {e}")
@@ -325,8 +316,8 @@ class BankStatementService:
             logger.error(f"错误详情: {traceback.format_exc()}")
             return []
 
-    def get_customer_column_mapping(self, customer_name: str) -> Dict[str, str]:
-        """获取客户的列名映射"""
+    def get_customer_column_mapping(self, customer_name: str, bank_name: Optional[str] = None) -> Dict[str, str]:
+        """获取客户的列名映射（支持银行名称）"""
         try:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
@@ -341,7 +332,7 @@ class BankStatementService:
             config = BankStatementConfig(data_dir=self.data_dir)
             column_mapping_df = load_bank_statement_column_mapping(config)
 
-            mapping = get_column_mapping_for_customer(column_mapping_df, customer_name, config)
+            mapping = get_column_mapping_for_customer(column_mapping_df, customer_name, config, bank_name)
             return mapping
 
         except HTTPException:
@@ -349,6 +340,24 @@ class BankStatementService:
         except Exception as e:
             logger.error(f"获取客户列名映射失败: {e}")
             raise HTTPException(status_code=500, detail=f"获取映射配置失败: {str(e)}")
+
+    def get_customer_banks(self, customer_name: str) -> List[str]:
+        """获取客户对应的银行列表"""
+        try:
+            if not customer_name.strip():
+                raise HTTPException(status_code=400, detail="客户名称不能为空")
+
+            config = BankStatementConfig(data_dir=self.data_dir)
+            column_mapping_df = load_bank_statement_column_mapping(config)
+
+            banks = get_customer_banks(column_mapping_df, customer_name)
+            return banks
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"获取客户银行列表失败: {e}")
+            raise HTTPException(status_code=500, detail=f"获取银行列表失败: {str(e)}")
 
     def get_customer_subject_mapping(self, customer_name: str) -> pd.DataFrame:
         """获取客户的会计科目映射"""

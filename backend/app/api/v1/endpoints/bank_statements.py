@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import List
+from datetime import datetime
 import asyncio
 import io
 
@@ -17,6 +18,9 @@ from app.schemas.bank_statement import (
     BankStatementGenerateResponse,
     BankStatementMappingRequest,
     BankStatementMappingResponse,
+    CustomersResponse,
+    CustomerBanksResponse,
+    CustomerInfo,
 )
 from app.utils.logger import get_logger
 from app.core.config import settings
@@ -36,6 +40,7 @@ class BankStatementGenerateStartResponse(BaseModel):
 async def start_bank_statement_vouchers_generation(
     bank_statement_file: UploadFile = File(..., description="银行流水文件"),
     customer_name: str = Form(..., description="客户名称"),
+    bank_name: str = Form(default="", description="银行名称"),
     enable_translation: str = Form(default="true", description="是否启用翻译 (true/false)"),
 ):
     """
@@ -76,9 +81,10 @@ async def start_bank_statement_vouchers_generation(
                 logger.info(f"[DEBUG] 开始后台银行流水转凭证任务: {current_task_id}")
 
                 # 执行银行流水转凭证
-                df_out, processed_records, generated_vouchers, output_path = await bank_statement_service.generate_vouchers_from_bank_statement_with_progress(
+                df_out, processed_records, generated_vouchers, excel_bytes = await bank_statement_service.generate_vouchers_from_bank_statement_with_progress(
                     bank_statement_file=bank_statement_file_obj,
                     customer_name=customer_name,
+                    bank_name=bank_name,
                     zhipuai_api_keys=api_keys,
                     task_id=current_task_id,
                     enable_translation=enable_translation.lower() == 'true',
@@ -87,26 +93,31 @@ async def start_bank_statement_vouchers_generation(
 
                 # 存储Excel文件内容到progress manager
                 try:
-                    with open(output_path, 'rb') as f:
-                        excel_bytes = f.read()
+                    filename = f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+                    # 将Excel二进制数据进行base64编码以便JSON序列化
+                    import base64
+                    import json
+                    excel_bytes_b64 = base64.b64encode(excel_bytes).decode('ascii')
                     result_data = {
                         "processed_records": processed_records,
                         "generated_vouchers": generated_vouchers,
-                        "excel_bytes": excel_bytes,
-                        "filename": Path(output_path).name
+                        "excel_bytes_b64": excel_bytes_b64,
+                        "filename": filename,
+                        "customer_name": customer_name
                     }
-                    progress_manager.store_result(current_task_id, str(result_data).encode('utf-8'))
+                    progress_manager.store_result(current_task_id, json.dumps(result_data, ensure_ascii=False).encode('utf-8'))
                     progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
                     logger.info(f"[DEBUG] 任务完成，存储Excel文件内容: {current_task_id}")
                 except Exception as file_error:
-                    logger.error(f"[DEBUG] 读取Excel文件失败: {current_task_id}, 错误: {file_error}")
-                    # 如果文件读取失败，存储错误信息
+                    logger.error(f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}")
+                    # 如果Excel处理失败，存储错误信息
+                    import json
                     error_data = {
                         "processed_records": processed_records,
                         "generated_vouchers": generated_vouchers,
-                        "error": f"文件读取失败: {file_error}"
+                        "error": f"Excel处理失败: {file_error}"
                     }
-                    progress_manager.store_result(current_task_id, str(error_data).encode('utf-8'))
+                    progress_manager.store_result(current_task_id, json.dumps(error_data, ensure_ascii=False).encode('utf-8'))
                     progress_manager.complete_task(current_task_id, "银行流水转凭证完成（文件读取失败）")
 
             except Exception as e:
@@ -160,11 +171,17 @@ async def get_bank_statement_generation_result(task_id: str):
 
     try:
         # 解析结果数据
-        import ast
-        result_dict = ast.literal_eval(result_data.decode('utf-8'))
+        import json
+        import base64
+        result_dict = json.loads(result_data.decode('utf-8'))
+
+        # 对于JSON API响应，保持base64格式，不解码为二进制
+        # 下载API (/download/{task_id}) 会负责解码为二进制数据
         return result_dict
     except Exception as e:
         logger.error(f"解析银行流水转凭证结果失败: {e}")
+        import traceback
+        logger.error(f"解析银行流水转凭证结果失败详细错误: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="结果解析失败")
 
 
@@ -192,16 +209,27 @@ async def generate_bank_statement_vouchers(
             api_keys = [settings.zhipuai_api_key]
 
         # 生成凭证
-        df_out, processed_records, generated_vouchers, output_path = await bank_statement_service.generate_vouchers_from_bank_statement(
+        df_out, processed_records, generated_vouchers, excel_bytes = await bank_statement_service.generate_vouchers_from_bank_statement(
             bank_statement_file=bank_statement_file,
             customer_name=customer_name,
             zhipuai_api_keys=api_keys,
         )
 
+        # 将Excel字节数据存储到progress manager中，使用task_id作为键
+        import uuid
+        temp_task_id = str(uuid.uuid4())
+        from app.core.progress_manager import progress_manager
+        progress_manager.set_result(temp_task_id, {
+            "excel_bytes": excel_bytes,
+            "processed_records": processed_records,
+            "generated_vouchers": generated_vouchers,
+            "customer_name": customer_name,
+        })
+
         return BankStatementGenerateResponse(
             message=f"成功生成银行流水凭证，处理 {processed_records} 条记录，生成 {generated_vouchers} 个凭证",
-            file_count=2,  # Excel + CSV
-            download_url=f"/api/v1/bank-statements/download/{Path(output_path).name}",
+            file_count=1,  # Excel only
+            download_url=f"/api/v1/bank-statements/download/{temp_task_id}",
             processed_records=processed_records,
             generated_vouchers=generated_vouchers,
         )
@@ -213,9 +241,9 @@ async def generate_bank_statement_vouchers(
         raise HTTPException(status_code=500, detail=f"生成凭证失败: {str(e)}")
 
 
-@router.get("/customers")
+@router.get("/customers", response_model=CustomersResponse)
 async def get_available_customers():
-    """获取可用的客户列表"""
+    """获取可用的客户列表（包含银行信息）"""
     logger.info("API: 收到获取客户列表的请求")
     try:
         logger.info("API: 开始调用银行流水服务获取客户列表")
@@ -232,12 +260,35 @@ async def get_available_customers():
         raise HTTPException(status_code=500, detail=f"获取客户列表失败: {str(e)}")
 
 
-@router.get("/mapping/{customer_name}")
-async def get_customer_mapping(customer_name: str):
-    """获取客户的字段映射配置"""
+@router.get("/customers/{customer_name}/banks", response_model=CustomerBanksResponse)
+async def get_customer_banks(customer_name: str):
+    """获取客户对应的银行列表"""
     try:
-        # 获取列名映射
-        column_mapping = bank_statement_service.get_customer_column_mapping(customer_name)
+        logger.info(f"API: 收到获取客户银行列表的请求，客户: {customer_name}")
+        banks = bank_statement_service.get_customer_banks(customer_name)
+        logger.info(f"API: 成功获取客户银行列表，银行数量: {len(banks)}")
+        return {
+            "customer_name": customer_name,
+            "banks": banks,
+            "count": len(banks)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API: 获取客户银行列表失败: {e}")
+        import traceback
+        logger.error(f"API: 错误详情: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"获取银行列表失败: {str(e)}")
+
+
+@router.get("/mapping/{customer_name}")
+async def get_customer_mapping(customer_name: str, bank_name: Optional[str] = None):
+    """获取客户的字段映射配置（支持银行名称）"""
+    try:
+        logger.info(f"API: 获取客户映射配置，客户: {customer_name}, 银行: {bank_name}")
+
+        # 获取列名映射（支持银行名称）
+        column_mapping = bank_statement_service.get_customer_column_mapping(customer_name, bank_name)
 
         # 获取科目映射
         subject_mapping_df = bank_statement_service.get_customer_subject_mapping(customer_name)
@@ -254,6 +305,7 @@ async def get_customer_mapping(customer_name: str):
 
         return {
             "customer_name": customer_name,
+            "bank_name": bank_name,
             "column_mapping": column_mapping,
             "subject_mapping": subject_mapping,
             "subject_mapping_count": len(subject_mapping)
@@ -306,20 +358,32 @@ async def download_bank_statement_result(task_id: str):
         raise HTTPException(status_code=404, detail="结果不存在或已过期")
 
     try:
-        # 解析结果数据
-        import ast
-        result_dict = ast.literal_eval(result_data.decode('utf-8'))
+        # 解析结果数据（与generate/result API保持一致）
+        import json
+        import base64
+        result_dict = json.loads(result_data.decode('utf-8'))
 
         if "error" in result_dict:
             # 如果是错误信息，返回错误
             raise HTTPException(status_code=500, detail=result_dict.get("error"))
 
-        # 获取Excel文件内容
+        # 获取Excel文件内容（支持base64格式）
         excel_bytes = result_dict.get("excel_bytes")
-        if not excel_bytes:
+        if excel_bytes:
+            # 如果是二进制数据，直接使用
+            pass
+        elif "excel_bytes_b64" in result_dict:
+            # 如果是base64编码，解码为二进制
+            excel_bytes = base64.b64decode(result_dict["excel_bytes_b64"])
+        else:
             raise HTTPException(status_code=500, detail="Excel文件内容不存在")
 
-        filename = result_dict.get("filename", f"bank_vouchers_{task_id}.xlsx")
+        customer_name = result_dict.get("customer_name", "unknown")
+        filename = f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+
+        # 对中文文件名进行URL编码，解决HTTP头编码问题
+        from urllib.parse import quote
+        encoded_filename = quote(filename, safe='')
 
         # 流式传输Excel文件
         async def generate():
@@ -329,7 +393,7 @@ async def download_bank_statement_result(task_id: str):
             generate(),
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
-                "Content-Disposition": f"attachment; filename={filename}"
+                "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
             }
         )
     except Exception as e:
