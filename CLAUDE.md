@@ -211,7 +211,17 @@ cd frontend && npm run dev
 - `POST /api/v1/translate/batch` - Batch translation with SSE progress streaming
 
 #### Bank Statement Processing
-- `POST /api/v1/bank-statements/process` - Process bank statements and generate vouchers
+- `POST /api/v1/bank-statements/generate/start` - Start bank statement voucher generation (async with progress)
+- `POST /api/v1/bank-statements/generate/cancel/{task_id}` - Cancel bank statement generation task
+- `GET /api/v1/bank-statements/generate/result/{task_id}` - Get bank statement generation result
+- `POST /api/v1/bank-statements/generate` - Generate bank statement vouchers (sync)
+- `GET /api/v1/bank-statements/customers` - Get available customers
+- `GET /api/v1/bank-statements/mapping/{customer_name}` - Get customer field mapping configuration
+- `POST /api/v1/bank-statements/preview` - Preview bank statement data
+- `GET /api/v1/bank-statements/download/{task_id}` - Download generated Excel file
+- `GET /api/v1/bank-statements/download-file/{filename}` - Download bank statement result file
+- `GET /api/v1/bank-statements/info` - Get bank statement feature information
+- `POST /api/v1/bank-statements/validate` - Validate bank statement file format
 
 #### Progress Tracking
 - `GET /api/v1/progress/{task_id}` - Get task progress
@@ -288,6 +298,18 @@ uv run pytest tests/test_api/test_vouchers.py -v
 - **Format Support**: Chinese-English format (e.g., "差旅费-Business travel expenses")
 - **SSE Streaming**: Real-time progress updates via Server-Sent Events
 
+### Bank Statement Processing (Updated per PRD)
+- **Data Standardization**: Automatically handles different bank statement formats
+  - Supports dual amount columns (debit/credit) or single amount column (positive=debit, negative=credit)
+  - Auto-maps payer/payee names to counterparty based on transaction direction
+  - Auto-maps payer/payee accounts to bank account based on transaction direction
+- **Triple Subject Mapping System**:
+  1. **Bank Account Mapping**: Maps bank accounts to bank accounting subjects (for bank科目)
+  2. **Summary Keyword Mapping**: Maps summary keywords to transaction counterparty subjects
+  3. **Counterparty Name Mapping**: Maps counterparty names to accounting subjects
+- **In-Memory Processing**: Complete memory-based processing with no temporary files
+- **Excel Output Format**: PRD-compliant output (row 1 empty, row 2 headers, rows 3-4 sample data, actual data from row 5)
+
 ### Enterprise Logging System
 - **Multiple Outputs**: Console, file, and JSON format logging
 - **Log Rotation**: Automatic file rotation with configurable size and retention
@@ -349,6 +371,20 @@ uv run pytest tests/test_api/test_vouchers.py -v
 1. **`docs/MEMORY_CHECKLIST.md`** - Essential memory checklist for avoiding past mistakes
 2. **`docs/TROUBLESHOOTING_GUIDE.md`** - Common problems and solutions
 3. **`docs/DEVELOPMENT_PATTERNS.md`** - Best practices and anti-patterns
+
+### 📋 Bank Statement Processing Architecture
+**Key Understanding for Bank Statement Module:**
+1. **Triple Subject Mapping System**:
+   - `map_bank_account_subject()`: Maps bank accounts → bank accounting subjects (for bank科目)
+   - `map_subject_by_counterparty_or_summary()`: Maps transaction counterparty → accounting subjects
+2. **Data Standardization Pipeline**:
+   - `standardize_bank_statement_data()`: Handles different bank statement formats automatically
+   - Supports single amount column (positive=debit, negative=credit) or dual debit/credit columns
+   - Auto-maps payer/payee based on transaction direction
+3. **In-Memory Processing**:
+   - `generate_bank_statement_vouchers_from_bytes()`: Complete memory-based processing
+   - No temporary files saved to disk
+   - Direct Excel streaming to client
 
 ### 🎯 Key Lessons to Remember
 1. **Function Parameter Matching**: Always check callback function signatures before calling
@@ -413,4 +449,4 @@ When you encounter these keywords, immediately check the relevant documentation:
 - Configure log retention based on storage constraints
 - Use JSON logging for integration with log analysis tools
 
-This codebase demonstrates modern Python web development with FastAPI, Vue.js, enterprise-grade logging, and clean architecture principles.
+This codebase demonstrates modern Python web development with FastAPI, Vue.js, enterprise-grade logging, and clean architecture principles, with comprehensive bank statement processing capabilities following PRD specifications.

@@ -5,7 +5,12 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "Bash(uv run python:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "mcp__smithery-ai-server-sequential-thinking__sequentialthinking",
+      "WebSearch",
+      "Bash(uv run:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

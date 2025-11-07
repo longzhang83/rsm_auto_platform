@@ -188,6 +188,11 @@ class LogManager:
         if enable_json:
             logger.info(f"JSON日志: {log_dir / 'app.json.log'}")
 
+        # 关闭干扰性的第三方库DEBUG日志
+        logging.getLogger('python_multipart.multipart').setLevel(logging.WARNING)
+        logging.getLogger('urllib3.connectionpool').setLevel(logging.WARNING)
+        logging.getLogger('uvicorn').setLevel(logging.INFO)  # 只显示INFO及以上级别
+
     def get_logger(self, name: str) -> logging.Logger:
         """获取指定名称的日志器"""
         if name not in self.loggers:

@@ -44,11 +44,10 @@
    - 数据示例：
 
       ```csv
-     客户名称, 日期, 对方户名, 银行账号, 付款人账号, 付款人名称, 收款人账号, 收款人名称, 摘要, 借方, 贷方, 金额
-     泊客软件科技,（无锡）有限责任公司, 记账日期, 对方户名, 账号, 摘要, 贷方发生额（收入）, 借方发生额（支取）
-     20Cube, 日期, 银行账号, 摘要, 借, 贷
-     iCare-中国银行, 交易日期[ Transaction Date ], 付款人账号[ Debit Account No. ], 付款人名称[ Payer's Name ], 收款人账号[ Payee's Account Number ], 收款人名称[ Payee's Name ], 交易附言[ Remark ], 交易金额[ Trade Amount ]
-
+     客户名称, 银行名称, 日期, 对方户名, 银行账号, 付款人账号, 付款人名称, 收款人账号, 收款人名称, 摘要, 借方, 贷方, 金额
+     泊客软件科技,默认,（无锡）有限责任公司, 记账日期, 对方户名, 账号, 摘要, 贷方发生额（收入）, 借方发生额（支取）
+     20Cube, 日期,默认, 银行账号, 摘要, 借, 贷
+     iCare,中国银行， 交易日期[ Transaction Date ], 付款人账号[ Debit Account No. ], 付款人名称[ Payer's Name ], 收款人账号[ Payee's Account Number ], 收款人名称[ Payee's Name ], 交易附言[ Remark ], 交易金额[ Trade Amount ]
 
       ```
 
