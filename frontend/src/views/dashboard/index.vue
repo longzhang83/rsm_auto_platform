@@ -304,7 +304,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { getDashboardData } from '@/api/dashboard'
 
 const router = useRouter()
 
@@ -314,61 +316,63 @@ const currentDate = ref('')
 const lastUpdateTime = ref('')
 let timeInterval = null
 
+// 加载状态
+const loading = ref(false)
+
 // 统计数据
 const stats = ref({
-  voucherCount: 156,
-  translateCount: 89,
-  totalAmount: 456780,
-  avgProcessTime: 3.2
+  voucherCount: 0,
+  translateCount: 0,
+  totalAmount: 0,
+  avgProcessTime: 0
 })
 
 // 最近记录
-const recentRecords = ref([
-  {
-    time: '2025-01-15 14:32:15',
-    tool: '费用清单转凭证',
-    fileName: '2025年1月费用报销表.xlsx',
-    status: '成功',
-    duration: '2.8s'
-  },
-  {
-    time: '2025-01-15 14:28:42',
-    tool: '摘要翻译',
-    fileName: '费用摘要翻译.xlsx',
-    status: '成功',
-    duration: '1.5s'
-  },
-  {
-    time: '2025-01-15 14:15:30',
-    tool: '费用清单转凭证',
-    fileName: '差旅费报销单.xlsx',
-    status: '失败',
-    duration: '5.2s'
-  },
-  {
-    time: '2025-01-15 13:52:18',
-    tool: '摘要翻译',
-    fileName: 'Q4费用报表.xlsx',
-    status: '成功',
-    duration: '3.1s'
-  }
-])
+const recentRecords = ref([])
 
 // 更新时间
 const updateTime = () => {
   currentTime.value = dayjs().format('HH:mm:ss')
   currentDate.value = dayjs().format('YYYY年MM月DD日 dddd')
-  lastUpdateTime.value = dayjs().format('HH:mm:ss')
+}
+
+// 加载Dashboard数据
+const loadDashboardData = async () => {
+  loading.value = true
+  try {
+    const response = await getDashboardData()
+    const data = response.data
+
+    // 更新统计数据
+    stats.value.voucherCount = data.stats.voucher_count
+    stats.value.translateCount = data.stats.translate_count
+    stats.value.totalAmount = data.stats.total_amount
+    stats.value.avgProcessTime = data.stats.avg_process_time
+
+    // 更新最近记录 - 转换字段名
+    recentRecords.value = data.recent_records.map(record => ({
+      id: record.id,
+      time: record.time,
+      tool: record.tool,
+      fileName: record.file_name,
+      status: record.status,
+      duration: record.duration,
+      amount: record.amount
+    }))
+
+    lastUpdateTime.value = data.last_update_time
+  } catch (error) {
+    console.error('加载Dashboard数据失败:', error)
+    ElMessage.error('加载Dashboard数据失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 刷新统计数据
-const refreshStats = () => {
-  // 模拟数据刷新
-  stats.value.voucherCount = Math.floor(Math.random() * 50) + 150
-  stats.value.translateCount = Math.floor(Math.random() * 30) + 80
-  stats.value.totalAmount = Math.floor(Math.random() * 100000) + 400000
-  stats.value.avgProcessTime = (Math.random() * 2 + 2).toFixed(1)
-  lastUpdateTime.value = dayjs().format('HH:mm:ss')
+const refreshStats = async () => {
+  await loadDashboardData()
+  ElMessage.success('数据已刷新')
 }
 
 // 导航到工具页面
@@ -399,6 +403,8 @@ const downloadRecord = (record) => {
 onMounted(() => {
   updateTime()
   timeInterval = setInterval(updateTime, 1000)
+  // 加载Dashboard数据
+  loadDashboardData()
 })
 
 onUnmounted(() => {

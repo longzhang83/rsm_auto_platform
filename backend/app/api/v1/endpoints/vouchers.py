@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -7,6 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from app.schemas.voucher import VoucherGenerateRequest, VoucherGenerateResponse
 from app.services.voucher_service import VoucherService
+from app.services.dashboard_service import dashboard_service
 
 router = APIRouter()
 voucher_service = VoucherService()
@@ -39,6 +41,9 @@ async def generate_vouchers(
     - **expense_period**: 费用期间
     - **expense_sheet**: 费用工作表名称
     """
+    # 记录开始时间
+    start_time = time.time()
+
     try:
         print(f"收到请求: expense_file={expense_file.filename}, preparer={preparer}")
         zip_buffer = await voucher_service.generate_vouchers(
@@ -54,6 +59,18 @@ async def generate_vouchers(
             expense_sheet=expense_sheet,
         )
 
+        # 计算处理时长
+        duration = time.time() - start_time
+
+        # 记录成功的处理
+        dashboard_service.add_record(
+            tool="费用清单转凭证",
+            file_name=expense_file.filename,
+            status="成功",
+            duration=duration,
+            amount=0.0,  # TODO: 从凭证数据中提取总金额
+        )
+
         headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
         return StreamingResponse(
             zip_buffer,
@@ -62,9 +79,27 @@ async def generate_vouchers(
         )
 
     except HTTPException as e:
+        # 记录失败的处理
+        duration = time.time() - start_time
+        dashboard_service.add_record(
+            tool="费用清单转凭证",
+            file_name=expense_file.filename,
+            status="失败",
+            duration=duration,
+            amount=0.0,
+        )
         print(f"HTTP异常: {e.detail}")
         raise
     except Exception as exc:
+        # 记录失败的处理
+        duration = time.time() - start_time
+        dashboard_service.add_record(
+            tool="费用清单转凭证",
+            file_name=expense_file.filename,
+            status="失败",
+            duration=duration,
+            amount=0.0,
+        )
         print(f"未知异常: {exc}")
         import traceback
         traceback.print_exc()

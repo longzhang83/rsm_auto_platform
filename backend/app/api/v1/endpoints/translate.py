@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Optional, List
 from pathlib import Path
 import io
@@ -11,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from app.schemas.translate import TranslateRequest, TranslateResponse, CacheItem, CacheUpdateRequest
 from app.services.translate_service import TranslateService
 from app.core.progress_manager import progress_manager
+from app.services.dashboard_service import dashboard_service
 
 router = APIRouter()
 translate_service = TranslateService()
@@ -37,6 +39,9 @@ async def translate_summaries(
     - **force**: 是否强制重新翻译
     - **target_language**: 目标语言 ('en' 为英文, 'zh' 为中文)
     """
+    # 记录开始时间
+    start_time = time.time()
+
     try:
         print(f"收到翻译请求: file={excel_file.filename}, column={summary_column}, force={force}, target_language={target_language}")
         zip_buffer, task_id = await translate_service.translate_summaries(
@@ -49,6 +54,18 @@ async def translate_summaries(
             target_language=target_language,
         )
 
+        # 计算处理时长
+        duration = time.time() - start_time
+
+        # 记录成功的处理
+        dashboard_service.add_record(
+            tool="摘要翻译",
+            file_name=excel_file.filename,
+            status="成功",
+            duration=duration,
+            amount=0.0,
+        )
+
         headers = {"Content-Disposition": f"attachment; filename=translated_summaries.zip"}
         return StreamingResponse(
             zip_buffer,
@@ -57,9 +74,27 @@ async def translate_summaries(
         )
 
     except HTTPException as e:
+        # 记录失败的处理
+        duration = time.time() - start_time
+        dashboard_service.add_record(
+            tool="摘要翻译",
+            file_name=excel_file.filename,
+            status="失败",
+            duration=duration,
+            amount=0.0,
+        )
         print(f"HTTP异常: {e.detail}")
         raise
     except Exception as exc:
+        # 记录失败的处理
+        duration = time.time() - start_time
+        dashboard_service.add_record(
+            tool="摘要翻译",
+            file_name=excel_file.filename,
+            status="失败",
+            duration=duration,
+            amount=0.0,
+        )
         print(f"翻译异常: {exc}")
         import traceback
         traceback.print_exc()
