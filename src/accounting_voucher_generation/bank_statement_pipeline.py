@@ -399,6 +399,60 @@ def _coerce_amount(value: object) -> Optional[float]:
     return round(amount, 2)
 
 
+def _extract_summary_from_columns(
+    row: pd.Series, summary_col_spec: str, df: pd.DataFrame
+) -> str:
+    """
+    从列规范中提取摘要，支持一对多字段映射
+
+    支持格式:
+    - "摘要" - 单列映射
+    - "摘要/备注/说明" - 多列映射，以/分隔，按顺序检查，第一个非空值即为结果
+
+    Args:
+        row: DataFrame行数据
+        summary_col_spec: 摘要列规范字符串（可能包含/分隔的多个列名）
+        df: 完整的DataFrame，用于检查列是否存在
+
+    Returns:
+        提取到的摘要字符串，如果所有列都为空则返回空字符串
+    """
+    if not summary_col_spec:
+        return ""
+
+    # 解析多列规范
+    column_names = [col.strip() for col in summary_col_spec.split("/")]
+
+    # 按顺序检查每个列，返回第一个非空值
+    for col_name in column_names:
+        if col_name not in df.columns:
+            logger.debug(f"[摘要提取] 列'{col_name}'不存在于数据中，跳过")
+            continue
+
+        try:
+            value = row[col_name]
+            # 检查是否为空（None, NaN, 空字符串）
+            if value is None or (isinstance(value, float) and pd.isna(value)):
+                logger.debug(f"[摘要提取] 列'{col_name}'为空，尝试下一个列")
+                continue
+
+            # 转为字符串并去除空格
+            summary = str(value).strip()
+            if summary and summary != "nan":
+                logger.debug(f"[摘要提取] 从列'{col_name}'获取摘要: '{summary}'")
+                return summary
+            else:
+                logger.debug(f"[摘要提取] 列'{col_name}'为空字符串，尝试下一个列")
+                continue
+
+        except Exception as e:
+            logger.debug(f"[摘要提取] 从列'{col_name}'读取时出错: {e}")
+            continue
+
+    logger.debug(f"[摘要提取] 所有列都为空，返回空摘要")
+    return ""
+
+
 def _iter_rows_with_progress(
     df: pd.DataFrame, description: str, cancel_check: Optional[callable] = None
 ):
@@ -493,13 +547,28 @@ def standardize_bank_statement_data(
     original_columns = df.columns.tolist()
     logger.info(f"[数据标准化] 原始数据列名: {original_columns}")
 
-    # 1. 检查核心必需的列是否存在
+    # 1. 检查核心必需的列是否存在（支持多列映射）
     core_required_mappings = ["date", "summary"]
     core_missing_mappings = []
     for mapping_key in core_required_mappings:
         mapped_col = column_mapping.get(mapping_key)
-        if not mapped_col or mapped_col not in original_columns:
+        if not mapped_col:
             core_missing_mappings.append(f"{mapping_key} -> '{mapped_col}'")
+            continue
+
+        # 对于摘要列，支持多列映射（以/分隔）
+        if mapping_key == "summary" and "/" in mapped_col:
+            # 解析多列映射，检查是否至少有一个列存在
+            summary_cols = [col.strip() for col in mapped_col.split("/")]
+            has_any_column = any(col in original_columns for col in summary_cols)
+            if not has_any_column:
+                core_missing_mappings.append(
+                    f"{mapping_key} -> '{mapped_col}' (none of the columns exist)"
+                )
+        else:
+            # 对于其他列，直接检查
+            if mapped_col not in original_columns:
+                core_missing_mappings.append(f"{mapping_key} -> '{mapped_col}'")
 
     if core_missing_mappings:
         error_msg = f"缺少核心必需的列映射配置 - {', '.join(core_missing_mappings)}"
@@ -551,8 +620,13 @@ def standardize_bank_statement_data(
 
     #日期列=源数据
     standardized_df["日期"] = standardized_df[date_col]
-    #摘要列=源数据
-    standardized_df["摘要"] = standardized_df[summary_col].str.strip()
+    #摘要列=源数据（支持一对多字段映射）
+    logger.info(f"[数据标准化] 摘要字段配置: '{summary_col}'")
+    # 使用新的摘要提取函数，支持一对多字段映射（以/分隔多个列名）
+    standardized_df["摘要"] = standardized_df.apply(
+        lambda row: _extract_summary_from_columns(row, summary_col, standardized_df),
+        axis=1
+    )
 
     # 初始化标准化列
 
