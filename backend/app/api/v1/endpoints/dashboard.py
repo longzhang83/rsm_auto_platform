@@ -138,8 +138,17 @@ async def generate_test_data():
         "年度报表翻译.xlsx",
     ]
 
+    bank_statement_files = [
+        "中国银行2025年1月流水.xlsx",
+        "建设银行Q1季度流水.xlsx",
+        "工商银行账户流水.xlsx",
+        "招商银行月度流水.xlsx",
+        "农业银行流水明细.xlsx",
+    ]
+
     voucher_count = 0
     translate_count = 0
+    bank_statement_count = 0
 
     # 生成10条凭证处理记录
     for i in range(10):
@@ -174,9 +183,27 @@ async def generate_test_data():
         if status == "成功":
             translate_count += 1
 
+    # 生成6条银行流水转凭证记录
+    for i in range(6):
+        file_name = random.choice(bank_statement_files)
+        status = random.choice(["成功", "成功", "成功", "失败"])
+        duration = random.uniform(2.0, 10.0)
+        amount = random.uniform(80000, 500000) if status == "成功" else 0.0
+
+        dashboard_service.add_record(
+            tool="银行流水转凭证",
+            file_name=file_name,
+            status=status,
+            duration=duration,
+            amount=amount,
+        )
+        if status == "成功":
+            bank_statement_count += 1
+
     return {
         "message": "测试数据生成成功",
         "voucher_records": voucher_count,
         "translate_records": translate_count,
-        "total_records": 18,
+        "bank_statement_records": bank_statement_count,
+        "total_records": 24,
     }

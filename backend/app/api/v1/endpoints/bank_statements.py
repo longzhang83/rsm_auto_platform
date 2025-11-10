@@ -6,6 +6,7 @@ from typing import List
 from datetime import datetime
 import asyncio
 import io
+import time
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -25,6 +26,7 @@ from app.schemas.bank_statement import (
 from app.utils.logger import get_logger
 from app.core.config import settings
 from app.core.progress_manager import progress_manager
+from app.services.dashboard_service import dashboard_service
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -77,6 +79,7 @@ async def start_bank_statement_vouchers_generation(
 
         # 在后台启动生成任务
         async def run_generation_task(current_task_id: str):
+            start_time = time.time()
             try:
                 logger.info(f"[DEBUG] 开始后台银行流水转凭证任务: {current_task_id}")
 
@@ -108,6 +111,16 @@ async def start_bank_statement_vouchers_generation(
                     progress_manager.store_result(current_task_id, json.dumps(result_data, ensure_ascii=False).encode('utf-8'))
                     progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
                     logger.info(f"[DEBUG] 任务完成，存储Excel文件内容: {current_task_id}")
+
+                    # 添加dashboard统计
+                    duration = time.time() - start_time
+                    dashboard_service.add_record(
+                        tool="银行流水转凭证",
+                        file_name=bank_statement_file.filename,
+                        status="成功",
+                        duration=duration,
+                        amount=0.0
+                    )
                 except Exception as file_error:
                     logger.error(f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}")
                     # 如果Excel处理失败，存储错误信息
@@ -120,11 +133,31 @@ async def start_bank_statement_vouchers_generation(
                     progress_manager.store_result(current_task_id, json.dumps(error_data, ensure_ascii=False).encode('utf-8'))
                     progress_manager.complete_task(current_task_id, "银行流水转凭证完成（文件读取失败）")
 
+                    # 添加dashboard统计（失败）
+                    duration = time.time() - start_time
+                    dashboard_service.add_record(
+                        tool="银行流水转凭证",
+                        file_name=bank_statement_file.filename,
+                        status="失败",
+                        duration=duration,
+                        amount=0.0
+                    )
+
             except Exception as e:
                 logger.error(f"[DEBUG] 银行流水转凭证任务失败: {current_task_id}, 错误: {e}")
                 import traceback
                 traceback.print_exc()
                 progress_manager.fail_task(current_task_id, str(e))
+
+                # 添加dashboard统计（失败）
+                duration = time.time() - start_time
+                dashboard_service.add_record(
+                    tool="银行流水转凭证",
+                    file_name=bank_statement_file.filename,
+                    status="失败",
+                    duration=duration,
+                    amount=0.0
+                )
 
         # 启动后台任务
         logger.info(f"[DEBUG] 创建后台银行流水转凭证任务，任务ID: {task_id}")

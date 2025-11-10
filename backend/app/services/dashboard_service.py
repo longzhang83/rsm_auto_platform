@@ -40,6 +40,7 @@ class DashboardService:
         self._stats = {
             "voucher_count": 0,
             "translate_count": 0,
+            "bank_statement_count": 0,
             "total_amount": 0.0,
             "total_process_time": 0.0,
             "process_count": 0,
@@ -102,6 +103,9 @@ class DashboardService:
                 self._stats["total_amount"] += amount
             elif tool == "摘要翻译":
                 self._stats["translate_count"] += 1
+            elif tool == "银行流水转凭证":
+                self._stats["bank_statement_count"] += 1
+                self._stats["total_amount"] += amount
 
             self._stats["total_process_time"] += duration
             self._stats["process_count"] += 1
@@ -119,6 +123,7 @@ class DashboardService:
             return DashboardStats(
                 voucher_count=self._stats["voucher_count"],
                 translate_count=self._stats["translate_count"],
+                bank_statement_count=self._stats["bank_statement_count"],
                 total_amount=self._stats["total_amount"],
                 avg_process_time=round(avg_time, 1),
             )
@@ -177,6 +182,7 @@ class DashboardService:
             self._stats = {
                 "voucher_count": 0,
                 "translate_count": 0,
+                "bank_statement_count": 0,
                 "total_amount": 0.0,
                 "total_process_time": 0.0,
                 "process_count": 0,

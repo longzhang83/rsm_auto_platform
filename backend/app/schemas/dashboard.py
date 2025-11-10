@@ -10,6 +10,7 @@ class DashboardStats(BaseModel):
     """Dashboard统计数据"""
     voucher_count: int = Field(description="处理凭证数量")
     translate_count: int = Field(description="翻译摘要数量")
+    bank_statement_count: int = Field(description="银行流水转凭证数量")
     total_amount: float = Field(description="处理总金额")
     avg_process_time: float = Field(description="平均处理时间(秒)")
 
