@@ -143,3 +143,8 @@ cython_debug/
 /backend/statci
 test*
 
+
+#jupyter
+/.ipynb_checkpoints
+*.ipynb
+

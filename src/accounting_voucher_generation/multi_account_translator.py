@@ -19,6 +19,41 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
 import random
 import logging
 
+# .env文件加载支持
+def load_env_file(env_path: Optional[Union[str, Path]] = None) -> None:
+    """
+    加载 .env 文件到环境变量
+
+    Args:
+        env_path: .env文件路径，如果为None则自动查找
+    """
+    if env_path is None:
+        # 自动查找项目根目录的 .env 文件
+        current_dir = Path(__file__).resolve().parent
+        while current_dir.parent != current_dir:  # 直到根目录
+            potential_env = current_dir / ".env"
+            if potential_env.exists():
+                env_path = potential_env
+                break
+            current_dir = current_dir.parent
+
+    if env_path and Path(env_path).exists():
+        try:
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ[key.strip()] = value.strip()
+                        logger = logging.getLogger(__name__)
+                        logger.debug(f"Loaded from .env: {key.strip()}")
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to load .env file from {env_path}: {e}")
+
+# 自动加载 .env 文件
+load_env_file()
+
 try:
     from tqdm import tqdm
 except ImportError:
