@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.utils.logger import setup_logging, get_logger, get_translation_logger, get_summary_logger
+from app.db.database import engine, Base
 
 # 设置日志系统
 setup_logging(
@@ -42,6 +43,11 @@ async def lifespan(app: FastAPI):
     settings.data_dir.mkdir(exist_ok=True)
     settings.output_dir.mkdir(exist_ok=True)
     settings.log_dir.mkdir(exist_ok=True)
+
+    # 初始化数据库
+    logger.info("初始化数据库...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("数据库初始化完成")
 
     logger.info(f"应用启动 - {settings.app_name} v{settings.app_version}")
     logger.info(f"环境: {settings.environment}")
