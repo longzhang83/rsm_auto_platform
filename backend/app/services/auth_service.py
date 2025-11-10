@@ -4,8 +4,8 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.db.models import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
-from app.utils.auth import get_password_hash, verify_password, create_access_token
+from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, PasswordResetRequest, PasswordResetResponse, PasswordResetConfirm
+from app.utils.auth import get_password_hash, verify_password, create_access_token, create_password_reset_token, verify_password_reset_token
 
 
 class AuthService:
@@ -117,3 +117,74 @@ class AuthService:
                 detail="用户不存在"
             )
         return user
+
+    @staticmethod
+    def request_password_reset(db: Session, request_data: PasswordResetRequest) -> PasswordResetResponse:
+        """
+        请求重置密码
+
+        Args:
+            db: 数据库会话
+            request_data: 重置请求数据
+
+        Returns:
+            重置响应（包含token，仅用于开发环境）
+
+        Raises:
+            HTTPException: 邮箱不存在
+        """
+        # 查找用户
+        user = db.query(User).filter(User.email == request_data.email).first()
+        if not user:
+            # 为了安全，不透露邮箱是否存在，返回相同的消息
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="如果该邮箱已注册，您将收到重置密码的链接"
+            )
+
+        # 生成重置token
+        reset_token = create_password_reset_token(user.email)
+
+        # 在生产环境中，应该通过邮件发送reset_token
+        # 这里为了开发方便，直接返回token
+        return PasswordResetResponse(
+            message="密码重置链接已生成",
+            reset_token=reset_token  # 仅用于开发，生产环境应该通过邮件发送
+        )
+
+    @staticmethod
+    def reset_password(db: Session, reset_data: PasswordResetConfirm) -> dict:
+        """
+        重置密码
+
+        Args:
+            db: 数据库会话
+            reset_data: 重置密码数据
+
+        Returns:
+            成功消息
+
+        Raises:
+            HTTPException: token无效或用户不存在
+        """
+        # 验证token
+        email = verify_password_reset_token(reset_data.token)
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="重置密码链接无效或已过期"
+            )
+
+        # 查找用户
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="用户不存在"
+            )
+
+        # 更新密码
+        user.hashed_password = get_password_hash(reset_data.new_password)
+        db.commit()
+
+        return {"message": "密码重置成功，请使用新密码登录"}

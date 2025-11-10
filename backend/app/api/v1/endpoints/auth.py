@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
+from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, PasswordResetRequest, PasswordResetResponse, PasswordResetConfirm
 from app.services.auth_service import AuthService
 from app.api.dependencies import get_current_user
 
@@ -54,3 +54,36 @@ async def get_current_user_info(
     需要认证
     """
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/forgot-password", response_model=PasswordResetResponse, summary="请求重置密码")
+async def forgot_password(
+    request_data: PasswordResetRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    请求重置密码
+
+    - **email**: 注册邮箱地址
+
+    Returns:
+        重置密码响应（开发环境包含token）
+    """
+    return AuthService.request_password_reset(db, request_data)
+
+
+@router.post("/reset-password", summary="重置密码")
+async def reset_password(
+    reset_data: PasswordResetConfirm,
+    db: Session = Depends(get_db)
+):
+    """
+    重置密码
+
+    - **token**: 重置密码token
+    - **new_password**: 新密码（6-100字符）
+
+    Returns:
+        成功消息
+    """
+    return AuthService.reset_password(db, reset_data)

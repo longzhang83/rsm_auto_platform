@@ -44,3 +44,32 @@ export function getCurrentUser() {
     method: 'get'
   })
 }
+
+/**
+ * 请求重置密码
+ * @param {Object} data - 重置请求数据
+ * @param {string} data.email - 注册邮箱
+ * @returns {Promise}
+ */
+export function forgotPassword(data) {
+  return request({
+    url: '/auth/forgot-password',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 重置密码
+ * @param {Object} data - 重置密码数据
+ * @param {string} data.token - 重置token
+ * @param {string} data.new_password - 新密码
+ * @returns {Promise}
+ */
+export function resetPassword(data) {
+  return request({
+    url: '/auth/reset-password',
+    method: 'post',
+    data
+  })
+}

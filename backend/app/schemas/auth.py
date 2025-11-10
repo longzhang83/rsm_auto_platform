@@ -42,3 +42,20 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Token数据模型"""
     username: Optional[str] = None
+
+
+class PasswordResetRequest(BaseModel):
+    """请求重置密码模型"""
+    email: EmailStr = Field(..., description="注册邮箱地址")
+
+
+class PasswordResetConfirm(BaseModel):
+    """确认重置密码模型"""
+    token: str = Field(..., description="重置密码token")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
+
+
+class PasswordResetResponse(BaseModel):
+    """重置密码响应模型"""
+    message: str
+    reset_token: Optional[str] = None  # 仅用于开发环境，生产环境应通过邮件发送

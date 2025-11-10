@@ -51,6 +51,10 @@
           还没有账号？
           <router-link to="/register" class="link">立即注册</router-link>
         </div>
+
+        <div class="forgot-password-link">
+          <router-link to="/forgot-password" class="link">忘记密码？</router-link>
+        </div>
       </el-form>
     </div>
   </div>
@@ -158,6 +162,12 @@ const handleLogin = async () => {
   text-align: center;
   margin-top: 20px;
   color: #7f8c8d;
+  font-size: 14px;
+}
+
+.forgot-password-link {
+  text-align: center;
+  margin-top: 12px;
   font-size: 14px;
 }
 
