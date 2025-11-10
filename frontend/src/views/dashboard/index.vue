@@ -275,7 +275,7 @@
       <div class="bg-white rounded-lg card-shadow">
         <el-table :data="recentRecords" style="width: 100%">
           <el-table-column prop="time" label="处理时间" width="180" />
-          <el-table-column prop="tool" label="使用工具" width="120">
+          <el-table-column prop="tool" label="使用工具" width="140">
             <template #default="scope">
               <el-tag :type="getToolTagType(scope.row.tool)" size="small">
                 {{ scope.row.tool }}
@@ -291,12 +291,6 @@
             </template>
           </el-table-column>
           <el-table-column prop="duration" label="处理时长" width="120" />
-          <el-table-column label="操作" width="120">
-            <template #default="scope">
-              <el-button type="text" size="small" @click="viewRecord(scope.row)">查看</el-button>
-              <el-button type="text" size="small" @click="downloadRecord(scope.row)">下载</el-button>
-            </template>
-          </el-table-column>
         </el-table>
       </div>
     </div>
@@ -390,16 +384,6 @@ const getToolTagType = (tool) => {
     '银行流水转凭证': 'warning'
   }
   return typeMap[tool] || 'info'
-}
-
-// 查看记录
-const viewRecord = (record) => {
-  console.log('查看记录:', record)
-}
-
-// 下载记录
-const downloadRecord = (record) => {
-  console.log('下载记录:', record)
 }
 
 onMounted(() => {
