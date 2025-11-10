@@ -63,12 +63,13 @@ async def generate_vouchers(
         duration = time.time() - start_time
 
         # 记录成功的处理
+        # TODO: 优化为统计实际生成的凭证条数
         dashboard_service.add_record(
             tool="费用清单转凭证",
             file_name=expense_file.filename,
             status="成功",
             duration=duration,
-            amount=0.0,  # TODO: 从凭证数据中提取总金额
+            record_count=1,  # 暂时记录为1个文件，后续可优化为实际凭证条数
         )
 
         headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
@@ -86,7 +87,7 @@ async def generate_vouchers(
             file_name=expense_file.filename,
             status="失败",
             duration=duration,
-            amount=0.0,
+            record_count=0,  # 失败时记录数为0
         )
         print(f"HTTP异常: {e.detail}")
         raise
@@ -98,7 +99,7 @@ async def generate_vouchers(
             file_name=expense_file.filename,
             status="失败",
             duration=duration,
-            amount=0.0,
+            record_count=0,  # 失败时记录数为0
         )
         print(f"未知异常: {exc}")
         import traceback

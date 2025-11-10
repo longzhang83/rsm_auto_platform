@@ -155,14 +155,14 @@ async def generate_test_data():
         file_name = random.choice(expense_files)
         status = random.choice(["成功", "成功", "成功", "失败"])
         duration = random.uniform(1.5, 8.0)
-        amount = random.uniform(5000, 150000) if status == "成功" else 0.0
+        record_count = random.randint(10, 50) if status == "成功" else 0
 
         dashboard_service.add_record(
             tool="费用清单转凭证",
             file_name=file_name,
             status=status,
             duration=duration,
-            amount=amount,
+            record_count=record_count,
         )
         if status == "成功":
             voucher_count += 1
@@ -172,13 +172,14 @@ async def generate_test_data():
         file_name = random.choice(translate_files)
         status = random.choice(["成功", "成功", "成功", "成功", "失败"])
         duration = random.uniform(0.8, 5.0)
+        record_count = random.randint(20, 100) if status == "成功" else 0
 
         dashboard_service.add_record(
             tool="摘要翻译",
             file_name=file_name,
             status=status,
             duration=duration,
-            amount=0.0,
+            record_count=record_count,
         )
         if status == "成功":
             translate_count += 1
@@ -188,14 +189,14 @@ async def generate_test_data():
         file_name = random.choice(bank_statement_files)
         status = random.choice(["成功", "成功", "成功", "失败"])
         duration = random.uniform(2.0, 10.0)
-        amount = random.uniform(80000, 500000) if status == "成功" else 0.0
+        record_count = random.randint(30, 150) if status == "成功" else 0
 
         dashboard_service.add_record(
             tool="银行流水转凭证",
             file_name=file_name,
             status=status,
             duration=duration,
-            amount=amount,
+            record_count=record_count,
         )
         if status == "成功":
             bank_statement_count += 1

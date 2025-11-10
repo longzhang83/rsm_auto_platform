@@ -105,12 +105,13 @@ async def start_translation(
                 print(f"[DEBUG] 任务完成并存储结果: {current_task_id}")
 
                 # 记录成功的处理到Dashboard
+                # TODO: 优化为统计实际翻译的记录条数
                 dashboard_service.add_record(
                     tool="摘要翻译",
                     file_name=excel_filename,
                     status="成功",
                     duration=duration,
-                    amount=0.0,
+                    record_count=1,  # 暂时记录为1个文件，后续可优化为实际翻译条数
                 )
 
             except Exception as e:
@@ -128,7 +129,7 @@ async def start_translation(
                     file_name=excel_filename,
                     status="失败",
                     duration=duration,
-                    amount=0.0,
+                    record_count=0,  # 失败时记录数为0
                 )
 
         # 启动后台任务

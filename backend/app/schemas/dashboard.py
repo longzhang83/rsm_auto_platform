@@ -11,8 +11,12 @@ class DashboardStats(BaseModel):
     voucher_count: int = Field(description="处理凭证数量")
     translate_count: int = Field(description="翻译摘要数量")
     bank_statement_count: int = Field(description="银行流水转凭证数量")
-    total_amount: float = Field(description="处理总金额")
     avg_process_time: float = Field(description="平均处理时间(秒)")
+    # 时间节约统计（单位：分钟）
+    time_saved_today: float = Field(description="今日节约时间(分钟)")
+    time_saved_week: float = Field(description="本周节约时间(分钟)")
+    time_saved_year: float = Field(description="本年节约时间(分钟)")
+    time_saved_total: float = Field(description="总计节约时间(分钟)")
 
 
 class ProcessRecord(BaseModel):
@@ -23,7 +27,7 @@ class ProcessRecord(BaseModel):
     file_name: str = Field(description="文件名称")
     status: Literal["成功", "失败", "处理中"] = Field(description="处理状态")
     duration: str = Field(description="处理时长")
-    amount: float = Field(default=0.0, description="处理金额")
+    record_count: int = Field(default=0, description="处理记录条数")
 
 
 class RecentRecordsResponse(BaseModel):

@@ -40,16 +40,16 @@ def generate_test_data():
         file_name = random.choice(expense_files)
         status = random.choice(["成功", "成功", "成功", "失败"])  # 75%成功率
         duration = random.uniform(1.5, 8.0)
-        amount = random.uniform(5000, 150000) if status == "成功" else 0.0
+        record_count = random.randint(10, 50) if status == "成功" else 0
 
         record_id = dashboard_service.add_record(
             tool="费用清单转凭证",
             file_name=file_name,
             status=status,
             duration=duration,
-            amount=amount,
+            record_count=record_count,
         )
-        print(f"  [{i+1}/10] {status}: {file_name} - {duration:.1f}s - ¥{amount:,.2f}")
+        print(f"  [{i+1}/10] {status}: {file_name} - {duration:.1f}s - {record_count}条记录")
         time.sleep(0.1)  # 稍微延迟，模拟真实处理时间
 
     # 生成8条翻译记录
@@ -58,15 +58,16 @@ def generate_test_data():
         file_name = random.choice(translate_files)
         status = random.choice(["成功", "成功", "成功", "成功", "失败"])  # 80%成功率
         duration = random.uniform(0.8, 5.0)
+        record_count = random.randint(20, 100) if status == "成功" else 0
 
         record_id = dashboard_service.add_record(
             tool="摘要翻译",
             file_name=file_name,
             status=status,
             duration=duration,
-            amount=0.0,
+            record_count=record_count,
         )
-        print(f"  [{i+1}/8] {status}: {file_name} - {duration:.1f}s")
+        print(f"  [{i+1}/8] {status}: {file_name} - {duration:.1f}s - {record_count}条记录")
         time.sleep(0.1)
 
     # 获取并显示统计数据
@@ -76,8 +77,13 @@ def generate_test_data():
     stats = dashboard_service.get_stats()
     print(f"处理凭证数量: {stats.voucher_count}")
     print(f"翻译摘要数量: {stats.translate_count}")
-    print(f"处理总金额: ¥{stats.total_amount:,.2f}")
+    print(f"银行流水处理数量: {stats.bank_statement_count}")
     print(f"平均处理时间: {stats.avg_process_time:.1f}秒")
+    print(f"\n时间节约统计:")
+    print(f"  今日节约: {stats.time_saved_today:.1f}分钟 ({stats.time_saved_today/60:.1f}小时)")
+    print(f"  本周节约: {stats.time_saved_week:.1f}分钟 ({stats.time_saved_week/60:.1f}小时)")
+    print(f"  本年节约: {stats.time_saved_year:.1f}分钟 ({stats.time_saved_year/60:.1f}小时)")
+    print(f"  总计节约: {stats.time_saved_total:.1f}分钟 ({stats.time_saved_total/60:.1f}小时)")
 
     recent = dashboard_service.get_recent_records(limit=5)
     print(f"\n最近{len(recent.records)}条记录:")

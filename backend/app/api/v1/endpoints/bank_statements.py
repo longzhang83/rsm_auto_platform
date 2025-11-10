@@ -119,7 +119,7 @@ async def start_bank_statement_vouchers_generation(
                         file_name=bank_statement_file.filename,
                         status="成功",
                         duration=duration,
-                        amount=0.0
+                        record_count=processed_records
                     )
                 except Exception as file_error:
                     logger.error(f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}")
@@ -140,7 +140,7 @@ async def start_bank_statement_vouchers_generation(
                         file_name=bank_statement_file.filename,
                         status="失败",
                         duration=duration,
-                        amount=0.0
+                        record_count=0  # 失败时记录数为0
                     )
 
             except Exception as e:
@@ -156,7 +156,7 @@ async def start_bank_statement_vouchers_generation(
                     file_name=bank_statement_file.filename,
                     status="失败",
                     duration=duration,
-                    amount=0.0
+                    record_count=0  # 失败时记录数为0
                 )
 
         # 启动后台任务

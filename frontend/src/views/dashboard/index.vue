@@ -219,24 +219,30 @@
         <div class="stat-card group">
           <div class="stat-card-header">
             <div class="stat-icon yellow">
-              <el-icon><Money /></el-icon>
+              <el-icon><Clock /></el-icon>
             </div>
             <div class="stat-trend positive">
               <el-icon><CaretTop /></el-icon>
-              <span>5%</span>
+              <span>持续增长</span>
             </div>
           </div>
           <div class="stat-content">
-            <div class="stat-number">¥{{ stats.totalAmount.toLocaleString() }}</div>
-            <div class="stat-label">处理总金额</div>
-          </div>
-          <div class="stat-chart">
-            <div class="chart-bar" style="height: 70%"></div>
-            <div class="chart-bar" style="height: 85%"></div>
-            <div class="chart-bar" style="height: 60%"></div>
-            <div class="chart-bar" style="height: 95%"></div>
-            <div class="chart-bar" style="height: 80%"></div>
-            <div class="chart-bar" style="height: 90%"></div>
+            <div class="stat-number">{{ (stats.timeSavedTotal / 60).toFixed(1) }}h</div>
+            <div class="stat-label">累计节约时间</div>
+            <div class="time-breakdown mt-3 text-xs text-gray-600 space-y-1">
+              <div class="flex justify-between">
+                <span>今日:</span>
+                <span class="font-semibold">{{ (stats.timeSavedToday / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本周:</span>
+                <span class="font-semibold">{{ (stats.timeSavedWeek / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本年:</span>
+                <span class="font-semibold">{{ (stats.timeSavedYear / 60).toFixed(1) }}小时</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -319,8 +325,11 @@ const loading = ref(false)
 const stats = ref({
   voucherCount: 0,
   translateCount: 0,
-  totalAmount: 0,
-  avgProcessTime: 0
+  avgProcessTime: 0,
+  timeSavedToday: 0,
+  timeSavedWeek: 0,
+  timeSavedYear: 0,
+  timeSavedTotal: 0
 })
 
 // 最近记录
@@ -342,8 +351,11 @@ const loadDashboardData = async () => {
     // 更新统计数据
     stats.value.voucherCount = data.stats.voucher_count
     stats.value.translateCount = data.stats.translate_count
-    stats.value.totalAmount = data.stats.total_amount
     stats.value.avgProcessTime = data.stats.avg_process_time
+    stats.value.timeSavedToday = data.stats.time_saved_today
+    stats.value.timeSavedWeek = data.stats.time_saved_week
+    stats.value.timeSavedYear = data.stats.time_saved_year
+    stats.value.timeSavedTotal = data.stats.time_saved_total
 
     // 更新最近记录 - 转换字段名
     recentRecords.value = data.recent_records.map(record => ({
@@ -353,7 +365,7 @@ const loadDashboardData = async () => {
       fileName: record.file_name,
       status: record.status,
       duration: record.duration,
-      amount: record.amount
+      recordCount: record.record_count
     }))
 
     lastUpdateTime.value = data.last_update_time
