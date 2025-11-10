@@ -10,7 +10,11 @@
       "mcp__smithery-ai-server-sequential-thinking__sequentialthinking",
       "WebSearch",
       "Bash(uv run:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(nul)",
+      "Bash(findstr:*)",
+      "Bash(tree:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
