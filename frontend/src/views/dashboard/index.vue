@@ -119,14 +119,16 @@
         </div>
 
         <!-- 银行流水转凭证 -->
-        <div class="enhanced-tool-card bg-white rounded-2xl p-8 opacity-90 relative overflow-hidden">
-          <div class="absolute top-0 right-0 bg-gradient-to-l from-gray-500 to-transparent px-4 py-2">
-            <span class="text-white text-xs font-semibold">即将推出</span>
-          </div>
-
+        <div
+          class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
+          @click="navigateToTool('/bank-to-voucher')"
+        >
           <div class="flex items-start justify-between mb-6">
-            <div class="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
               <el-icon class="text-3xl text-white"><CreditCard /></el-icon>
+            </div>
+            <div class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-3 py-1 rounded-full">
+              财务工具
             </div>
           </div>
 
@@ -137,12 +139,12 @@
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-100">
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-              <span class="text-sm font-medium text-yellow-700">开发中</span>
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span class="text-sm font-medium text-green-700">运行正常</span>
             </div>
-            <div class="flex items-center text-gray-400">
-              <span class="text-sm font-medium mr-2">敬请期待</span>
-              <el-icon><ArrowRight /></el-icon>
+            <div class="flex items-center text-blue-600 group-hover:text-blue-700 transition-colors duration-200">
+              <span class="text-sm font-medium mr-2">立即使用</span>
+              <el-icon class="transform group-hover:translate-x-1 transition-transform duration-200"><ArrowRight /></el-icon>
             </div>
           </div>
         </div>
