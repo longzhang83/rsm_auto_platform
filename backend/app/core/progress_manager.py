@@ -130,14 +130,15 @@ class ProgressManager:
             # 获取初始状态
             initial_progress = self.get_progress(task_id)
             if initial_progress:
-                yield f"data: {json.dumps({
+                progress_data = {
                     'percentage': initial_progress.percentage,
                     'message': initial_progress.message,
                     'completed': initial_progress.completed,
                     'total': initial_progress.total,
                     'current_item': initial_progress.current_item,
                     'cancelled': initial_progress.cancelled
-                })}\n\n"
+                }
+                yield f"data: {json.dumps(progress_data)}\n\n"
                 last_percentage = initial_progress.percentage
                 last_message = initial_progress.message
 
@@ -159,14 +160,15 @@ class ProgressManager:
                         if (current_progress.percentage != last_percentage or
                             current_progress.message != last_message):
 
-                            yield f"data: {json.dumps({
+                            progress_data = {
                                 'percentage': current_progress.percentage,
                                 'message': current_progress.message,
                                 'completed': current_progress.completed,
                                 'total': current_progress.total,
                                 'current_item': current_progress.current_item,
                                 'cancelled': current_progress.cancelled
-                            })}\n\n"
+                            }
+                            yield f"data: {json.dumps(progress_data)}\n\n"
 
                             last_percentage = current_progress.percentage
                             last_message = current_progress.message
