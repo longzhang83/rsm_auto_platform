@@ -99,15 +99,15 @@
               </div>
             </div>
 
-            <el-dropdown trigger="click" class="avatar-container">
+            <el-dropdown trigger="click" class="avatar-container" v-if="authStore.user">
               <div class="avatar-wrapper">
                 <div class="user-avatar-wrapper">
-                  <img :src="authStore.user.avatar" class="user-avatar" />
+                  <div class="user-avatar-placeholder">{{ userInitials }}</div>
                   <div class="user-status online"></div>
                 </div>
                 <div class="user-info">
-                  <span class="user-name">{{ authStore.user.name }}</span>
-                  <span class="user-role">高级会计师</span>
+                  <span class="user-name">{{ authStore.user.username }}</span>
+                  <span class="user-role">会计师</span>
                 </div>
                 <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
               </div>
@@ -115,10 +115,10 @@
                 <el-dropdown-menu class="user-dropdown">
                   <el-dropdown-item class="dropdown-header">
                     <div class="header-info">
-                      <img :src="authStore.user.avatar" class="header-avatar" />
+                      <div class="header-avatar-placeholder">{{ userInitials }}</div>
                       <div class="header-text">
-                        <div class="header-name">{{ authStore.user.name }}</div>
-                        <div class="header-role">高级会计师</div>
+                        <div class="header-name">{{ authStore.user.username }}</div>
+                        <div class="header-role">会计师</div>
                       </div>
                     </div>
                   </el-dropdown-item>
@@ -185,6 +185,12 @@ const breadcrumbs = computed(() => {
     path: item.path,
     title: item.meta.title
   }))
+})
+
+// 用户头像首字母
+const userInitials = computed(() => {
+  if (!authStore.user?.username) return 'U'
+  return authStore.user.username.substring(0, 1).toUpperCase()
 })
 
 // 切换侧边栏
@@ -638,16 +644,23 @@ const handleLogout = () => {
   justify-content: center;
 }
 
-.user-avatar {
+.user-avatar-placeholder {
   width: 36px;
   height: 36px;
   border-radius: 8px;
   border: 2px solid white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.user-avatar:hover {
+.user-avatar-placeholder:hover {
   transform: scale(1.05);
 }
 
@@ -876,12 +889,19 @@ const handleLogout = () => {
   gap: 12px;
 }
 
-.header-avatar {
+.header-avatar-placeholder {
   width: 40px;
   height: 40px;
   border-radius: 8px;
   border: 2px solid white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
 }
 
 .header-text {

@@ -59,13 +59,14 @@ class VerificationService:
         return domain in allowed_domains
 
     @staticmethod
-    def send_code(db: Session, email: str) -> tuple[bool, str]:
+    def send_code(db: Session, email: str, code_type: str = "register") -> tuple[bool, str]:
         """
         发送验证码到邮箱
 
         Args:
             db: 数据库会话
             email: 邮箱地址
+            code_type: 验证码类型 (register/reset_password)
 
         Returns:
             (是否成功, 消息)
@@ -75,9 +76,17 @@ class VerificationService:
             allowed_domains = settings.allowed_email_domains
             return False, f"邮箱域名必须为: {allowed_domains}"
 
-        # 检查是否在5分钟内已发送过验证码
+        # 如果是密码重置，需要检查邮箱是否已注册
+        if code_type == "reset_password":
+            from app.db.models import User
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                return False, "该邮箱未注册"
+
+        # 检查是否在1分钟内已发送过验证码
         recent_code = db.query(VerificationCode).filter(
             VerificationCode.email == email,
+            VerificationCode.code_type == code_type,
             VerificationCode.created_at > datetime.utcnow() - timedelta(minutes=1)
         ).order_by(VerificationCode.created_at.desc()).first()
 
@@ -94,6 +103,7 @@ class VerificationService:
         verification_code = VerificationCode(
             email=email,
             code=code,
+            code_type=code_type,
             expires_at=expires_at
         )
         db.add(verification_code)
@@ -101,20 +111,23 @@ class VerificationService:
         db.refresh(verification_code)
 
         # 发送邮件
-        success = EmailService.send_verification_code(email, code)
+        if code_type == "reset_password":
+            success = EmailService.send_reset_password_code(email, code)
+        else:
+            success = EmailService.send_verification_code(email, code)
 
         if success:
-            logger.info(f"验证码已发送至: {email}")
+            logger.info(f"{code_type}验证码已发送至: {email}")
             return True, "验证码已发送至邮箱，请查收"
         else:
-            logger.error(f"验证码发送失败: {email}")
+            logger.error(f"{code_type}验证码发送失败: {email}")
             # 删除已保存的验证码
             db.delete(verification_code)
             db.commit()
             return False, "验证码发送失败，请稍后重试"
 
     @staticmethod
-    def verify_code(db: Session, email: str, code: str) -> tuple[bool, str]:
+    def verify_code(db: Session, email: str, code: str, code_type: str = "register") -> tuple[bool, str]:
         """
         验证邮箱验证码
 
@@ -122,6 +135,7 @@ class VerificationService:
             db: 数据库会话
             email: 邮箱地址
             code: 用户输入的验证码
+            code_type: 验证码类型 (register/reset_password)
 
         Returns:
             (是否成功, 消息)
@@ -129,6 +143,7 @@ class VerificationService:
         # 查询最新的未验证码
         verification_code = db.query(VerificationCode).filter(
             VerificationCode.email == email,
+            VerificationCode.code_type == code_type,
             VerificationCode.is_verified == False
         ).order_by(VerificationCode.created_at.desc()).first()
 

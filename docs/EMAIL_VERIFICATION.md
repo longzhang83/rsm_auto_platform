@@ -28,16 +28,53 @@ verification_code_expiry: int = 300            # 验证码有效期（秒），�
 verification_code_length: int = 6              # 验证码长度
 ```
 
-**配置方法**：在 `.env` 文件中设置：
-```
+**配置方法**：在项目根目录的 `.env` 文件中设置：
+
+```bash
+# =============================================================================
+# 邮箱服务器配置（用于发送验证码）
+# =============================================================================
+
+# SMTP服务器地址
 SMTP_SERVER=smtp.qq.com
+
+# SMTP服务器端口（587: STARTTLS加密，推荐）
 SMTP_PORT=587
+
+# SMTP用户名（发件人邮箱地址）
 SMTP_USERNAME=your-email@qq.com
-SMTP_PASSWORD=your-auth-code
-ALLOWED_EMAIL_DOMAINS=rsmchina.com.cn,other-domain.com
+
+# SMTP密码或授权码（QQ邮箱需要使用授权码）
+SMTP_PASSWORD=your-authorization-code
+
+# 发件人显示名称
+EMAIL_FROM_NAME=容诚税务师事务所
+
+# =============================================================================
+# 邮箱验证码配置
+# =============================================================================
+
+# 允许注册的邮箱域名（多个域名用逗号分隔）
+ALLOWED_EMAIL_DOMAINS=rsmchina.com.cn
+
+# 验证码有效期（秒），默认5分钟
 VERIFICATION_CODE_EXPIRY=300
+
+# 验证码长度（数字位数）
 VERIFICATION_CODE_LENGTH=6
 ```
+
+**如何获取QQ邮箱授权码**：
+1. 登录 [QQ邮箱](https://mail.qq.com) → 设置 → 账户
+2. 找到 "POP3/IMAP/SMTP/Exchange/CardDAV/CalDAV服务"
+3. 开启 "IMAP/SMTP服务"
+4. 点击 "生成授权码"，按提示完成验证
+5. 将生成的授权码填入 `SMTP_PASSWORD` 配置项
+
+**其他邮箱服务器配置**：
+- **163邮箱**: `SMTP_SERVER=smtp.163.com`, `SMTP_PORT=465`（SSL）或 `587`（STARTTLS）
+- **Gmail**: `SMTP_SERVER=smtp.gmail.com`, `SMTP_PORT=587`
+- **企业邮箱**: 根据企业邮箱服务商提供的SMTP配置
 
 ### 2. 数据库模型 (`backend/app/db/models.py`)
 

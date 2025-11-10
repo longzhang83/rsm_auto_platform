@@ -17,6 +17,12 @@ const router = createRouter({
       meta: { title: '注册', requiresAuth: false }
     },
     {
+      path: '/forgot-password',
+      name: 'ForgotPassword',
+      component: () => import('@/views/auth/ForgotPassword.vue'),
+      meta: { title: '忘记密码', requiresAuth: false }
+    },
+    {
       path: '/',
       name: 'Layout',
       component: () => import('@/layout/index.vue'),
@@ -89,8 +95,9 @@ router.beforeEach(async (to, from, next) => {
       })
     }
   } else {
-    // 如果已登录，访问登录/注册页面时重定向到首页
-    if ((to.path === '/login' || to.path === '/register') && authStore.isLoggedIn) {
+    // 如果已登录，访问登录/注册/忘记密码页面时重定向到首页
+    const authPages = ['/login', '/register', '/forgot-password']
+    if (authPages.includes(to.path) && authStore.isLoggedIn) {
       next('/')
     } else {
       next()

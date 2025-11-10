@@ -60,3 +60,16 @@ class VerifyCodeRequest(BaseModel):
     """验证验证码请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     code: str = Field(..., description="验证码")
+
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    email: EmailStr = Field(..., description="邮箱地址")
+    verification_code: str = Field(..., min_length=6, max_length=6, description="验证码")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
+
+
+class ResetPasswordResponse(BaseModel):
+    """重置密码响应"""
+    success: bool
+    message: str

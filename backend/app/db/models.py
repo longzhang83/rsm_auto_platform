@@ -28,10 +28,11 @@ class VerificationCode(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(100), index=True, nullable=False)
     code = Column(String(10), nullable=False)
+    code_type = Column(String(20), default="register", nullable=False)  # register 或 reset_password
     is_verified = Column(Boolean, default=False)
     attempts = Column(Integer, default=0)  # 验证尝试次数
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
     def __repr__(self):
-        return f"<VerificationCode(email={self.email}, verified={self.is_verified})>"
+        return f"<VerificationCode(email={self.email}, type={self.code_type}, verified={self.is_verified})>"

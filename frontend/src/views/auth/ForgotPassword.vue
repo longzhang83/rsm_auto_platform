@@ -1,40 +1,30 @@
 <template>
-  <div class="register-container">
-    <div class="register-box">
-      <div class="register-header">
+  <div class="forgot-password-container">
+    <div class="forgot-password-box">
+      <div class="forgot-password-header">
         <img src="/images/logo.png" alt="Logo" class="logo" />
-        <h1 class="title">用户注册</h1>
+        <h1 class="title">忘记密码</h1>
         <p class="subtitle">容诚税务师事务所 - 智能化自动化工具平台</p>
       </div>
 
       <el-form
-        ref="registerFormRef"
-        :model="registerForm"
-        :rules="registerRules"
-        class="register-form"
+        ref="forgotPasswordFormRef"
+        :model="forgotPasswordForm"
+        :rules="forgotPasswordRules"
+        class="forgot-password-form"
       >
-        <el-form-item prop="username">
-          <el-input
-            v-model="registerForm.username"
-            placeholder="用户名（3-50个字符）"
-            size="large"
-            prefix-icon="User"
-            clearable
-          />
-        </el-form-item>
-
         <el-form-item prop="email">
           <div class="email-input-group">
             <el-input
-              v-model="registerForm.email"
-              placeholder="邮箱 (@rsmchina.com.cn;@rsmcn.cloud)"
+              v-model="forgotPasswordForm.email"
+              placeholder="注册时使用的邮箱地址"
               size="large"
               prefix-icon="Message"
               clearable
             />
             <el-button
               type="primary"
-              :disabled="!registerForm.email || codeLoading || codeCountdown > 0"
+              :disabled="!forgotPasswordForm.email || codeLoading || codeCountdown > 0"
               :loading="codeLoading"
               @click="sendVerificationCode"
               class="send-code-btn"
@@ -46,7 +36,7 @@
 
         <el-form-item prop="verification_code">
           <el-input
-            v-model="registerForm.verification_code"
+            v-model="forgotPasswordForm.verification_code"
             placeholder="邮箱验证码"
             size="large"
             prefix-icon="Key"
@@ -54,11 +44,11 @@
           />
         </el-form-item>
 
-        <el-form-item prop="password">
+        <el-form-item prop="new_password">
           <el-input
-            v-model="registerForm.password"
+            v-model="forgotPasswordForm.new_password"
             type="password"
-            placeholder="密码（至少6个字符）"
+            placeholder="新密码（至少6个字符）"
             size="large"
             prefix-icon="Lock"
             show-password
@@ -66,16 +56,16 @@
           />
         </el-form-item>
 
-        <el-form-item prop="confirmPassword">
+        <el-form-item prop="confirm_password">
           <el-input
-            v-model="registerForm.confirmPassword"
+            v-model="forgotPasswordForm.confirm_password"
             type="password"
-            placeholder="确认密码"
+            placeholder="确认新密码"
             size="large"
             prefix-icon="Lock"
             show-password
             clearable
-            @keyup.enter="handleRegister"
+            @keyup.enter="handleResetPassword"
           />
         </el-form-item>
 
@@ -83,17 +73,17 @@
           <el-button
             type="primary"
             size="large"
-            class="register-button"
+            class="reset-button"
             :loading="loading"
-            @click="handleRegister"
+            @click="handleResetPassword"
           >
-            {{ loading ? '注册中...' : '注册' }}
+            {{ loading ? '重置中...' : '重置密码' }}
           </el-button>
         </el-form-item>
 
         <div class="login-link">
-          已有账号？
-          <router-link to="/login" class="link">立即登录</router-link>
+          想起密码了？
+          <router-link to="/login" class="link">返回登录</router-link>
         </div>
       </el-form>
     </div>
@@ -103,35 +93,21 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import request from '@/api/request'
 
 const router = useRouter()
-const authStore = useAuthStore()
-const registerFormRef = ref(null)
+const forgotPasswordFormRef = ref(null)
 const loading = ref(false)
 const codeLoading = ref(false)
 const codeCountdown = ref(0)
 
-const registerForm = reactive({
-  username: '',
+const forgotPasswordForm = reactive({
   email: '',
-  password: '',
-  confirmPassword: '',
-  verification_code: ''
+  verification_code: '',
+  new_password: '',
+  confirm_password: ''
 })
-
-// 验证确认密码
-const validateConfirmPassword = (rule, value, callback) => {
-  if (value === '') {
-    callback(new Error('请再次输入密码'))
-  } else if (value !== registerForm.password) {
-    callback(new Error('两次输入密码不一致'))
-  } else {
-    callback()
-  }
-}
 
 // 允许的邮箱域名列表
 const allowedEmailDomains = ['rsmchina.com.cn', 'rsmcn.cloud']
@@ -161,11 +137,18 @@ const validateEmailDomain = (rule, value, callback) => {
   callback()
 }
 
-const registerRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' }
-  ],
+// 验证确认密码
+const validateConfirmPassword = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入密码'))
+  } else if (value !== forgotPasswordForm.new_password) {
+    callback(new Error('两次输入密码不一致'))
+  } else {
+    callback()
+  }
+}
+
+const forgotPasswordRules = {
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: ['blur', 'change'] },
@@ -178,11 +161,11 @@ const registerRules = {
     { required: true, message: '请输入邮箱验证码', trigger: 'blur' },
     { len: 6, message: '验证码为 6 位数字', trigger: 'blur' }
   ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
+  new_password: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, max: 100, message: '密码长度在 6 到 100 个字符', trigger: 'blur' }
   ],
-  confirmPassword: [
+  confirm_password: [
     { required: true, validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
@@ -190,14 +173,14 @@ const registerRules = {
 // 发送验证码
 const sendVerificationCode = async () => {
   // 验证邮箱格式
-  if (!registerForm.email) {
+  if (!forgotPasswordForm.email) {
     ElMessage.warning('请输入邮箱地址')
     return
   }
 
   // 验证邮箱域名
   const emailPattern = /^[^\s@]+@([^\s@]+)$/
-  const match = registerForm.email.match(emailPattern)
+  const match = forgotPasswordForm.email.match(emailPattern)
 
   if (!match) {
     ElMessage.error('请输入正确的邮箱地址')
@@ -214,10 +197,10 @@ const sendVerificationCode = async () => {
   codeLoading.value = true
   try {
     const response = await request({
-      url: '/auth/send-verification-code',
+      url: '/auth/send-reset-password-code',
       method: 'post',
       data: {
-        email: registerForm.email
+        email: forgotPasswordForm.email
       }
     })
 
@@ -244,27 +227,37 @@ const sendVerificationCode = async () => {
   }
 }
 
-const handleRegister = async () => {
-  if (!registerFormRef.value) return
+const handleResetPassword = async () => {
+  if (!forgotPasswordFormRef.value) return
 
-  await registerFormRef.value.validate(async (valid) => {
+  await forgotPasswordFormRef.value.validate(async (valid) => {
     if (!valid) return
 
     loading.value = true
     try {
-      const success = await authStore.register({
-        username: registerForm.username,
-        email: registerForm.email,
-        password: registerForm.password,
-        verification_code: registerForm.verification_code
+      const response = await request({
+        url: '/auth/reset-password',
+        method: 'post',
+        data: {
+          email: forgotPasswordForm.email,
+          verification_code: forgotPasswordForm.verification_code,
+          new_password: forgotPasswordForm.new_password
+        }
       })
 
-      if (success) {
-        // 注册成功，跳转到登录页
+      const result = response.data
+      if (result.success) {
+        ElMessage.success(result.message)
+        // 密码重置成功，2秒后跳转到登录页
         setTimeout(() => {
           router.push('/login')
-        }, 1500)
+        }, 2000)
+      } else {
+        ElMessage.error(result.message)
       }
+    } catch (error) {
+      console.error('密码重置失败:', error)
+      ElMessage.error(error.response?.data?.detail || '密码重置失败，请稍后重试')
     } finally {
       loading.value = false
     }
@@ -273,7 +266,7 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.register-container {
+.forgot-password-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -286,7 +279,7 @@ const handleRegister = async () => {
   position: relative;
 }
 
-.register-container::before {
+.forgot-password-container::before {
   content: '';
   position: absolute;
   top: 0;
@@ -297,7 +290,7 @@ const handleRegister = async () => {
   z-index: 0;
 }
 
-.register-box {
+.forgot-password-box {
   width: 100%;
   max-width: 450px;
   background: white;
@@ -308,7 +301,7 @@ const handleRegister = async () => {
   z-index: 1;
 }
 
-.register-header {
+.forgot-password-header {
   text-align: center;
   margin-bottom: 40px;
 }
@@ -332,7 +325,7 @@ const handleRegister = async () => {
   color: #7f8c8d;
 }
 
-.register-form {
+.forgot-password-form {
   margin-top: 30px;
 }
 
@@ -350,7 +343,7 @@ const handleRegister = async () => {
   white-space: nowrap;
 }
 
-.register-button {
+.reset-button {
   width: 100%;
   height: 48px;
   font-size: 16px;
@@ -377,7 +370,7 @@ const handleRegister = async () => {
 }
 
 @media (max-width: 576px) {
-  .register-box {
+  .forgot-password-box {
     padding: 40px 30px;
   }
 

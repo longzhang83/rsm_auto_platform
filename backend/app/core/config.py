@@ -72,8 +72,11 @@ class Settings(BaseSettings):
     default_credit_account: str = "224104"
 
     class Config:
-        # 使用绝对路径指向项目根目录的.env文件
-        env_file = Path("D:/360MoveData/Users/long/Desktop/accounting-voucher-generation/.env")
+        # 从当前文件位置计算项目根目录的.env文件路径
+        # backend/app/core/config.py -> 项目根目录
+        _config_file_path = Path(__file__).resolve()
+        _project_root = _config_file_path.parent.parent.parent.parent
+        env_file = _project_root / ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 
