@@ -239,6 +239,10 @@
                 <span class="font-semibold">{{ (stats.timeSavedWeek / 60).toFixed(1) }}小时</span>
               </div>
               <div class="flex justify-between">
+                <span>本月:</span>
+                <span class="font-semibold">{{ (stats.timeSavedMonth / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
                 <span>本年:</span>
                 <span class="font-semibold">{{ (stats.timeSavedYear / 60).toFixed(1) }}小时</span>
               </div>
@@ -328,6 +332,7 @@ const stats = ref({
   avgProcessTime: 0,
   timeSavedToday: 0,
   timeSavedWeek: 0,
+  timeSavedMonth: 0,
   timeSavedYear: 0,
   timeSavedTotal: 0
 })
@@ -354,6 +359,7 @@ const loadDashboardData = async () => {
     stats.value.avgProcessTime = data.stats.avg_process_time
     stats.value.timeSavedToday = data.stats.time_saved_today
     stats.value.timeSavedWeek = data.stats.time_saved_week
+    stats.value.timeSavedMonth = data.stats.time_saved_month
     stats.value.timeSavedYear = data.stats.time_saved_year
     stats.value.timeSavedTotal = data.stats.time_saved_total
 

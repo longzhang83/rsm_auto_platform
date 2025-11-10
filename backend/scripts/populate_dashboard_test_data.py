@@ -82,6 +82,7 @@ def generate_test_data():
     print(f"\n时间节约统计:")
     print(f"  今日节约: {stats.time_saved_today:.1f}分钟 ({stats.time_saved_today/60:.1f}小时)")
     print(f"  本周节约: {stats.time_saved_week:.1f}分钟 ({stats.time_saved_week/60:.1f}小时)")
+    print(f"  本月节约: {stats.time_saved_month:.1f}分钟 ({stats.time_saved_month/60:.1f}小时)")
     print(f"  本年节约: {stats.time_saved_year:.1f}分钟 ({stats.time_saved_year/60:.1f}小时)")
     print(f"  总计节约: {stats.time_saved_total:.1f}分钟 ({stats.time_saved_total/60:.1f}小时)")
 

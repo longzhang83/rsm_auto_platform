@@ -129,11 +129,13 @@ class DashboardService:
         now = datetime.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today_start - timedelta(days=now.weekday())
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
         time_saved = {
             "today": 0.0,
             "week": 0.0,
+            "month": 0.0,
             "year": 0.0,
             "total": 0.0,
         }
@@ -164,6 +166,10 @@ class DashboardService:
                 if record_time >= week_start:
                     time_saved["week"] += saved_minutes
 
+                # 本月
+                if record_time >= month_start:
+                    time_saved["month"] += saved_minutes
+
                 # 本年
                 if record_time >= year_start:
                     time_saved["year"] += saved_minutes
@@ -176,6 +182,7 @@ class DashboardService:
                 avg_process_time=round(avg_time, 1),
                 time_saved_today=round(time_saved["today"], 1),
                 time_saved_week=round(time_saved["week"], 1),
+                time_saved_month=round(time_saved["month"], 1),
                 time_saved_year=round(time_saved["year"], 1),
                 time_saved_total=round(time_saved["total"], 1),
             )

@@ -15,6 +15,7 @@ class DashboardStats(BaseModel):
     # 时间节约统计（单位：分钟）
     time_saved_today: float = Field(description="今日节约时间(分钟)")
     time_saved_week: float = Field(description="本周节约时间(分钟)")
+    time_saved_month: float = Field(description="本月节约时间(分钟)")
     time_saved_year: float = Field(description="本年节约时间(分钟)")
     time_saved_total: float = Field(description="总计节约时间(分钟)")
 
