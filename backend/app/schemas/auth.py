@@ -15,6 +15,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """用户注册模型"""
     password: str = Field(..., min_length=6, max_length=100, description="密码")
+    verification_code: str = Field(..., description="邮箱验证码")
 
 
 class UserLogin(BaseModel):
@@ -42,3 +43,20 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Token数据模型"""
     username: Optional[str] = None
+
+
+class SendVerificationCodeRequest(BaseModel):
+    """发送验证码请求"""
+    email: EmailStr = Field(..., description="邮箱地址")
+
+
+class SendVerificationCodeResponse(BaseModel):
+    """发送验证码响应"""
+    success: bool
+    message: str
+
+
+class VerifyCodeRequest(BaseModel):
+    """验证验证码请求"""
+    email: EmailStr = Field(..., description="邮箱地址")
+    code: str = Field(..., description="验证码")

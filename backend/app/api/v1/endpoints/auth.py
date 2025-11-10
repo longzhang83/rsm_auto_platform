@@ -5,11 +5,33 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
+from app.schemas.auth import (
+    UserCreate, UserLogin, UserResponse, Token,
+    SendVerificationCodeRequest, SendVerificationCodeResponse
+)
 from app.services.auth_service import AuthService
+from app.services.verification_service import VerificationService
 from app.api.dependencies import get_current_user
 
 router = APIRouter()
+
+
+@router.post("/send-verification-code", response_model=SendVerificationCodeResponse, summary="发送邮箱验证码")
+async def send_verification_code(
+    request: SendVerificationCodeRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    发送邮箱验证码
+
+    - **email**: 邮箱地址（必须是rsmchina.com.cn域名）
+
+    返回：
+    - **success**: 是否发送成功
+    - **message**: 提示消息
+    """
+    success, message = VerificationService.send_code(db, request.email)
+    return SendVerificationCodeResponse(success=success, message=message)
 
 
 @router.post("/register", response_model=UserResponse, summary="用户注册")
@@ -21,8 +43,9 @@ async def register(
     用户注册
 
     - **username**: 用户名（3-50字符）
-    - **email**: 邮箱地址
+    - **email**: 邮箱地址（rsmchina.com.cn域名）
     - **password**: 密码（6-100字符）
+    - **verification_code**: 邮箱验证码（需要先发送验证码）
     """
     return AuthService.register_user(db, user_data)
 

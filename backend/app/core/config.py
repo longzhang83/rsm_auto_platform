@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     max_file_size: int = 50 * 1024 * 1024  # 50MB
     allowed_extensions: list[str] = [".xlsx", ".xls", ".csv"]
 
+    # 邮件配置（用于注册验证码）
+    smtp_server: str = "smtp.qq.com"  # SMTP服务器地址
+    smtp_port: int = 587  # SMTP端口
+    smtp_username: Optional[str] = None  # 发件人邮箱
+    smtp_password: Optional[str] = None  # 邮箱授权码
+    email_from_name: str = "容诚税务师事务所"  # 发件人名称
+
+    # 邮箱注册配置
+    allowed_email_domains: str = "rsmchina.com.cn"  # 允许的邮箱域名（多个用逗号分隔）
+    verification_code_expiry: int = 300  # 验证码有效期（秒），默认5分钟
+    verification_code_length: int = 6  # 验证码长度
+
     # 默认凭证配置
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"

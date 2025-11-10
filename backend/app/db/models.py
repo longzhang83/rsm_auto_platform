@@ -1,7 +1,7 @@
 """
 数据库模型
 """
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -19,3 +19,19 @@ class User(Base):
 
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username}, email={self.email})>"
+
+
+class VerificationCode(Base):
+    """邮箱验证码模型"""
+    __tablename__ = "verification_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(100), index=True, nullable=False)
+    code = Column(String(10), nullable=False)
+    is_verified = Column(Boolean, default=False)
+    attempts = Column(Integer, default=0)  # 验证尝试次数
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    def __repr__(self):
+        return f"<VerificationCode(email={self.email}, verified={self.is_verified})>"

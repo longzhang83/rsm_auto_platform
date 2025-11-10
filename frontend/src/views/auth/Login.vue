@@ -2,6 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
+        <img src="/images/logo.png" alt="Logo" class="logo" />
         <h1 class="title">容诚税务师事务所</h1>
         <p class="subtitle">智能化自动化工具平台</p>
       </div>
@@ -112,8 +113,23 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-image: url('/images/login_background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 20px;
+  position: relative;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 0;
 }
 
 .login-box {
@@ -123,11 +139,20 @@ const handleLogin = async () => {
   border-radius: 20px;
   padding: 50px 40px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
 .login-header {
   text-align: center;
   margin-bottom: 40px;
+}
+
+.logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 20px;
+  object-fit: contain;
 }
 
 .title {

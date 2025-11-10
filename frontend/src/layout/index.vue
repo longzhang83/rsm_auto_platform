@@ -173,7 +173,9 @@ const authStore = useAuthStore()
 
 // 菜单路由
 const menuRoutes = computed(() => {
-  return router.options.routes[0].children.filter(route => !route.meta?.hidden)
+  // 找到 Layout 路由（path 为 '/'）
+  const layoutRoute = router.options.routes.find(route => route.path === '/')
+  return layoutRoute?.children?.filter(route => !route.meta?.hidden) || []
 })
 
 // 面包屑导航

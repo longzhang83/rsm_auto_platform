@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from app.db.models import User
 from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
 from app.utils.auth import get_password_hash, verify_password, create_access_token
+from app.services.verification_service import VerificationService
 
 
 class AuthService:
@@ -24,8 +25,18 @@ class AuthService:
             创建的用户信息
 
         Raises:
-            HTTPException: 用户名或邮箱已存在
+            HTTPException: 用户名或邮箱已存在，或验证码错误
         """
+        # 验证邮箱验证码
+        success, message = VerificationService.verify_code(
+            db, user_data.email, user_data.verification_code
+        )
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+
         # 检查用户名是否存在
         existing_user = db.query(User).filter(User.username == user_data.username).first()
         if existing_user:

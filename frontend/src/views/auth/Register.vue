@@ -2,6 +2,7 @@
   <div class="register-container">
     <div class="register-box">
       <div class="register-header">
+        <img src="/images/logo.png" alt="Logo" class="logo" />
         <h1 class="title">用户注册</h1>
         <p class="subtitle">容诚税务师事务所 - 智能化自动化工具平台</p>
       </div>
@@ -23,11 +24,32 @@
         </el-form-item>
 
         <el-form-item prop="email">
+          <div class="email-input-group">
+            <el-input
+              v-model="registerForm.email"
+              placeholder="邮箱地址（@rsmchina.com.cn）"
+              size="large"
+              prefix-icon="Message"
+              clearable
+            />
+            <el-button
+              type="primary"
+              :disabled="!registerForm.email || codeLoading || codeCountdown > 0"
+              :loading="codeLoading"
+              @click="sendVerificationCode"
+              class="send-code-btn"
+            >
+              {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
+            </el-button>
+          </div>
+        </el-form-item>
+
+        <el-form-item prop="verification_code">
           <el-input
-            v-model="registerForm.email"
-            placeholder="邮箱地址"
+            v-model="registerForm.verification_code"
+            placeholder="邮箱验证码"
             size="large"
-            prefix-icon="Message"
+            prefix-icon="Key"
             clearable
           />
         </el-form-item>
@@ -82,17 +104,22 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { ElMessage } from 'element-plus'
+import request from '@/api/request'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const registerFormRef = ref(null)
 const loading = ref(false)
+const codeLoading = ref(false)
+const codeCountdown = ref(0)
 
 const registerForm = reactive({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  verification_code: ''
 })
 
 // 验证确认密码
@@ -113,7 +140,16 @@ const registerRules = {
   ],
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: ['blur', 'change'] }
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: ['blur', 'change'] },
+    {
+      pattern: /@rsmchina\.com\.cn$/,
+      message: '邮箱必须为 rsmchina.com.cn 域名',
+      trigger: ['blur', 'change']
+    }
+  ],
+  verification_code: [
+    { required: true, message: '请输入邮箱验证码', trigger: 'blur' },
+    { len: 6, message: '验证码为 6 位数字', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -122,6 +158,49 @@ const registerRules = {
   confirmPassword: [
     { required: true, validator: validateConfirmPassword, trigger: 'blur' }
   ]
+}
+
+// 发送验证码
+const sendVerificationCode = async () => {
+  // 验证邮箱格式
+  if (!registerForm.email) {
+    ElMessage.warning('请输入邮箱地址')
+    return
+  }
+
+  if (!/^[^\s@]+@rsmchina\.com\.cn$/.test(registerForm.email)) {
+    ElMessage.error('邮箱必须为 rsmchina.com.cn 域名')
+    return
+  }
+
+  codeLoading.value = true
+  try {
+    const response = await request({
+      url: '/auth/send-verification-code',
+      method: 'post',
+      data: {
+        email: registerForm.email
+      }
+    })
+
+    if (response.success) {
+      ElMessage.success(response.message)
+      // 启动倒计时
+      codeCountdown.value = 60
+      const timer = setInterval(() => {
+        codeCountdown.value--
+        if (codeCountdown.value <= 0) {
+          clearInterval(timer)
+        }
+      }, 1000)
+    } else {
+      ElMessage.error(response.message)
+    }
+  } catch (error) {
+    ElMessage.error('发送验证码失败，请稍后重试')
+  } finally {
+    codeLoading.value = false
+  }
 }
 
 const handleRegister = async () => {
@@ -135,7 +214,8 @@ const handleRegister = async () => {
       const success = await authStore.register({
         username: registerForm.username,
         email: registerForm.email,
-        password: registerForm.password
+        password: registerForm.password,
+        verification_code: registerForm.verification_code
       })
 
       if (success) {
@@ -157,8 +237,23 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-image: url('/images/login_background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 20px;
+  position: relative;
+}
+
+.register-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 0;
 }
 
 .register-box {
@@ -168,11 +263,20 @@ const handleRegister = async () => {
   border-radius: 20px;
   padding: 50px 40px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
 .register-header {
   text-align: center;
   margin-bottom: 40px;
+}
+
+.logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 20px;
+  object-fit: contain;
 }
 
 .title {
@@ -189,6 +293,20 @@ const handleRegister = async () => {
 
 .register-form {
   margin-top: 30px;
+}
+
+.email-input-group {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.email-input-group :deep(.el-input) {
+  flex: 1;
+}
+
+.send-code-btn {
+  white-space: nowrap;
 }
 
 .register-button {

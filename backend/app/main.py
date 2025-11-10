@@ -11,6 +11,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.utils.logger import setup_logging, get_logger, get_translation_logger, get_summary_logger
 from app.db.database import engine, Base
+from app.db import models  # 导入models以确保表被创建
 
 # 设置日志系统
 setup_logging(

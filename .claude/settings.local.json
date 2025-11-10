@@ -14,7 +14,16 @@
       "Bash(nul)",
       "Bash(findstr:*)",
       "Bash(tree:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(netstat:*)",
+      "Bash(set http_proxy=)",
+      "Bash(set https_proxy=)",
+      "Bash(taskkill:*)",
+      "Bash(start cmd /k \"uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8888\")",
+      "Bash(timeout /t 5)",
+      "Bash(timeout /t 8)",
+      "Bash(scriptsstart-backend.bat)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []
