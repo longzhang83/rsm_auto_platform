@@ -48,6 +48,7 @@ async def start_translation(
     translation_file: Optional[UploadFile] = File(None),
     force: bool = Form(False),
     target_language: str = Form("en"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     开始翻译任务（异步）
@@ -77,6 +78,9 @@ async def start_translation(
         translation_file_obj = None
         if translation_bytes:
             translation_file_obj = UploadFile(filename=translation_file.filename, file=io.BytesIO(translation_bytes))
+
+        # 保存user_id用于后台任务
+        user_id = current_user.id
 
         # 在后台启动翻译任务
         async def run_translation_task(current_task_id: str):
@@ -119,7 +123,7 @@ async def start_translation(
                         status="成功",
                         duration=duration,
                         record_count=translated_count,  # 使用实际翻译的记录条数
-                        user_id=None,  # 后台任务中无法获取用户信息，设为None
+                        user_id=user_id,  # 使用保存的用户ID
                     )
                 finally:
                     db.close()
@@ -144,7 +148,7 @@ async def start_translation(
                         status="失败",
                         duration=duration,
                         record_count=0,  # 失败时记录数为0
-                        user_id=None,  # 后台任务中无法获取用户信息，设为None
+                        user_id=user_id,  # 使用保存的用户ID
                     )
                 finally:
                     db.close()

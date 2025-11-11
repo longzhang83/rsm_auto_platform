@@ -28,6 +28,8 @@ from app.core.config import settings
 from app.core.progress_manager import progress_manager
 from app.services.dashboard_service import DashboardService
 from app.db.database import get_db
+from app.api.dependencies import get_current_user
+from app.db.models import User
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -45,6 +47,7 @@ async def start_bank_statement_vouchers_generation(
     customer_name: str = Form(..., description="客户名称"),
     bank_name: str = Form(default="", description="银行名称"),
     enable_translation: str = Form(default="true", description="是否启用翻译 (true/false)"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     开始生成银行流水凭证（异步，支持进度显示）
@@ -77,6 +80,9 @@ async def start_bank_statement_vouchers_generation(
             filename=bank_statement_file.filename,
             file=io.BytesIO(file_bytes)
         )
+
+        # 保存user_id用于后台任务
+        user_id = current_user.id
 
         # 在后台启动生成任务
         async def run_generation_task(current_task_id: str):
@@ -125,7 +131,7 @@ async def start_bank_statement_vouchers_generation(
                             status="成功",
                             duration=duration,
                             record_count=processed_records,
-                            user_id=None,  # 后台任务中无法获取用户信息，设为None
+                            user_id=user_id,  # 使用保存的用户ID
                         )
                     finally:
                         db.close()
@@ -153,7 +159,7 @@ async def start_bank_statement_vouchers_generation(
                             status="失败",
                             duration=duration,
                             record_count=0,  # 失败时记录数为0
-                            user_id=None,  # 后台任务中无法获取用户信息，设为None
+                            user_id=user_id,  # 使用保存的用户ID
                         )
                     finally:
                         db.close()
@@ -176,7 +182,7 @@ async def start_bank_statement_vouchers_generation(
                         status="失败",
                         duration=duration,
                         record_count=0,  # 失败时记录数为0
-                        user_id=None,  # 后台任务中无法获取用户信息，设为None
+                        user_id=user_id,  # 使用保存的用户ID
                     )
                 finally:
                     db.close()

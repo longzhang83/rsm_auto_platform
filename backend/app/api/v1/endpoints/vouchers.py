@@ -11,6 +11,8 @@ from app.schemas.voucher import VoucherGenerateRequest, VoucherGenerateResponse
 from app.services.voucher_service import VoucherService
 from app.services.dashboard_service import DashboardService
 from app.db.database import get_db
+from app.api.dependencies import get_current_user
+from app.db.models import User
 
 router = APIRouter()
 voucher_service = VoucherService()
@@ -28,6 +30,7 @@ async def generate_vouchers(
     start_seq: int = Form(0),
     expense_period: Optional[str] = Form(None),
     expense_sheet: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """
@@ -74,7 +77,7 @@ async def generate_vouchers(
             status="成功",
             duration=duration,
             record_count=1,  # 暂时记录为1个文件，后续可优化为实际凭证条数
-            user_id=None,  # 当前未实现用户认证，设为None
+            user_id=current_user.id,
         )
 
         headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
@@ -94,7 +97,7 @@ async def generate_vouchers(
             status="失败",
             duration=duration,
             record_count=0,  # 失败时记录数为0
-            user_id=None,  # 当前未实现用户认证，设为None
+            user_id=current_user.id,
         )
         print(f"HTTP异常: {e.detail}")
         raise
@@ -108,7 +111,7 @@ async def generate_vouchers(
             status="失败",
             duration=duration,
             record_count=0,  # 失败时记录数为0
-            user_id=None,  # 当前未实现用户认证，设为None
+            user_id=current_user.id,
         )
         print(f"未知异常: {exc}")
         import traceback
