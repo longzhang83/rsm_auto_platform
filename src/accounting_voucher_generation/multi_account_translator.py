@@ -183,16 +183,34 @@ class MultiAccountTranslationService:
         }
 
     def _load_cache(self):
-        """加载翻译缓存"""
+        """加载翻译缓存 - 兼容多种格式"""
         try:
             if self.cache_path.exists():
                 with self.cache_path.open("r", newline="", encoding="utf-8-sig") as f:
                     reader = csv.reader(f)
                     for row in reader:
                         if len(row) >= 2 and row[0] != "source":
-                            source, target = row[0].strip(), row[1].strip()
-                            if source and target:
-                                self.cache[source] = target
+                            source_raw, target = row[0].strip(), row[1].strip()
+                            if source_raw and target:
+                                # 提取实际的源文本（兼容不同格式）
+                                # 格式1: "source" (简单格式)
+                                # 格式2: "zh:source->en" (带方向标记)
+                                # 格式3: "en:source->zh" (带方向标记)
+                                source = source_raw
+
+                                # 移除语言方向标记，提取纯文本
+                                if source.startswith('zh:') and '->en' in source:
+                                    source = source[3:].replace('->en', '').strip()
+                                elif source.startswith('en:') and '->zh' in source:
+                                    source = source[3:].replace('->zh', '').strip()
+                                elif '->en' in source:
+                                    source = source.replace('->en', '').strip()
+                                elif '->zh' in source:
+                                    source = source.replace('->zh', '').strip()
+
+                                # 使用简单格式存储（源文本 -> 译文）
+                                if source:
+                                    self.cache[source] = target
                 logger.info(f"加载了 {len(self.cache)} 条翻译缓存")
         except Exception as e:
             logger.error(f"加载翻译缓存失败: {e}")

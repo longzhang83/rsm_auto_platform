@@ -98,21 +98,28 @@ class AsyncTranslationService:
 
                             # 处理不同格式的缓存条目
                             # 格式1: "中文,英文" (标准中译英)
-                            # 格式2: "中文->en,英文" (带方向标记的中译英)
-                            # 格式3: "英文->zh,中文" (英译中)
+                            # 格式2: "zh:中文->en,英文" (带方向标记的中译英)
+                            # 格式3: "en:英文->zh,中文" (英译中)
 
                             cache_key = None
 
-                            if '->en' in source:
-                                # 中译英：移除 ->en 标记，构建明确方向键
+                            # 检查是否已经是完整的缓存键格式 (en:xxx->zh 或 zh:xxx->en)
+                            if source.startswith('en:') and '->zh' in source:
+                                # 已经是完整格式，直接使用
+                                cache_key = source
+                            elif source.startswith('zh:') and '->en' in source:
+                                # 已经是完整格式，直接使用
+                                cache_key = source
+                            elif '->en' in source and not source.startswith('zh:'):
+                                # 旧格式：中译英，移除 ->en 标记，构建明确方向键
                                 clean_source = source.replace('->en', '').strip()
                                 cache_key = f"zh:{clean_source}->en"
-                            elif '->zh' in source:
-                                # 英译中：移除 ->zh 标记，构建明确方向键
+                            elif '->zh' in source and not source.startswith('en:'):
+                                # 旧格式：英译中，移除 ->zh 标记，构建明确方向键
                                 clean_source = source.replace('->zh', '').strip()
                                 cache_key = f"en:{clean_source}->zh"
                             else:
-                                # 自动检测语言方向
+                                # 简单格式，自动检测语言方向
                                 if self._is_chinese(source):
                                     cache_key = f"zh:{source}->en"
                                 else:
