@@ -491,7 +491,7 @@ class BankStatementService:
                 )
 
                 df = load_bank_statement_data_from_bytes(
-                    content, bank_statement_file.filename, config
+                    content, bank_statement_file.filename, config, mapping
                 )
 
                 # 应用列名映射
