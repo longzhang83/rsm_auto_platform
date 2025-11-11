@@ -88,8 +88,13 @@ class TranslateService:
         force: bool = False,
         target_language: str = "en",
         task_id: Optional[str] = None,
-    ) -> tuple[BinaryIO, str]:
-        """翻译摘要文本"""
+    ) -> tuple[BinaryIO, str, int]:
+        """
+        翻译摘要文本
+
+        Returns:
+            tuple[BinaryIO, str, int]: (zip_buffer, task_id, translated_count)
+        """
 
         # 验证文件
         validate_file_upload(excel_file)
@@ -202,15 +207,18 @@ class TranslateService:
                             progress_manager.fail_task(task_id, "翻译结果为空，请检查上传数据是否正确")
                             raise HTTPException(status_code=400, detail="翻译结果为空，请检查上传数据是否正确。")
 
+                        # 统计翻译的记录数
+                        translated_count = len(df_out)
+
                         # 读取输出文件内容
                         output_bytes = output_path.read_bytes()
 
-                        print(f"翻译任务 [{task_id}] 完成")
+                        print(f"翻译任务 [{task_id}] 完成，共翻译 {translated_count} 条记录")
                         progress_manager.complete_task(task_id, "翻译完成")
 
                         # 创建结果ZIP
                         zip_file = self._create_translation_zip(output_path, mapping_path, excel_file.filename, output_bytes)
-                        return zip_file, task_id
+                        return zip_file, task_id, translated_count
 
                     except Exception as e:
                         progress_manager.fail_task(task_id, str(e))

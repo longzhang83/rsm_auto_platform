@@ -124,7 +124,8 @@ async def start_bank_statement_vouchers_generation(
                             file_name=bank_statement_file.filename,
                             status="成功",
                             duration=duration,
-                            record_count=processed_records
+                            record_count=processed_records,
+                            user_id=None,  # 后台任务中无法获取用户信息，设为None
                         )
                     finally:
                         db.close()
@@ -151,7 +152,8 @@ async def start_bank_statement_vouchers_generation(
                             file_name=bank_statement_file.filename,
                             status="失败",
                             duration=duration,
-                            record_count=0  # 失败时记录数为0
+                            record_count=0,  # 失败时记录数为0
+                            user_id=None,  # 后台任务中无法获取用户信息，设为None
                         )
                     finally:
                         db.close()
@@ -173,7 +175,8 @@ async def start_bank_statement_vouchers_generation(
                         file_name=bank_statement_file.filename,
                         status="失败",
                         duration=duration,
-                        record_count=0  # 失败时记录数为0
+                        record_count=0,  # 失败时记录数为0
+                        user_id=None,  # 后台任务中无法获取用户信息，设为None
                     )
                 finally:
                     db.close()

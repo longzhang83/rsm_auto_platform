@@ -16,6 +16,8 @@ from app.services.translate_service import TranslateService
 from app.core.progress_manager import progress_manager
 from app.services.dashboard_service import DashboardService
 from app.db.database import get_db
+from app.api.dependencies import get_current_user
+from app.db.models import User
 
 router = APIRouter()
 translate_service = TranslateService()
@@ -79,13 +81,14 @@ async def start_translation(
         # 在后台启动翻译任务
         async def run_translation_task(current_task_id: str):
             start_time = time.time()
+            translated_count = 0
             try:
                 print(f"[DEBUG] 开始后台翻译任务: {current_task_id}")
                 progress_manager.update_progress(current_task_id, 0.1, "准备翻译文件...")
 
                 # 执行翻译
                 print(f"[DEBUG] 调用翻译服务，任务ID: {current_task_id}")
-                zip_buffer, _ = await translate_service.translate_summaries(
+                zip_buffer, _, translated_count = await translate_service.translate_summaries(
                     excel_file=excel_file_obj,
                     summary_column=summary_column,
                     sheet_name=sheet_name,
@@ -95,7 +98,7 @@ async def start_translation(
                     target_language=target_language,
                     task_id=current_task_id,
                 )
-                print(f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}")
+                print(f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}，翻译记录数: {translated_count}")
 
                 # 计算处理时长
                 duration = time.time() - start_time
@@ -106,7 +109,6 @@ async def start_translation(
                 print(f"[DEBUG] 任务完成并存储结果: {current_task_id}")
 
                 # 记录成功的处理到Dashboard
-                # TODO: 优化为统计实际翻译的记录条数
                 # 创建新的数据库会话用于后台任务
                 db = next(get_db())
                 try:
@@ -116,7 +118,8 @@ async def start_translation(
                         file_name=excel_filename,
                         status="成功",
                         duration=duration,
-                        record_count=1,  # 暂时记录为1个文件，后续可优化为实际翻译条数
+                        record_count=translated_count,  # 使用实际翻译的记录条数
+                        user_id=None,  # 后台任务中无法获取用户信息，设为None
                     )
                 finally:
                     db.close()
@@ -141,6 +144,7 @@ async def start_translation(
                         status="失败",
                         duration=duration,
                         record_count=0,  # 失败时记录数为0
+                        user_id=None,  # 后台任务中无法获取用户信息，设为None
                     )
                 finally:
                     db.close()

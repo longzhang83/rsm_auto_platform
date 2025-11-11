@@ -74,6 +74,7 @@ async def generate_vouchers(
             status="成功",
             duration=duration,
             record_count=1,  # 暂时记录为1个文件，后续可优化为实际凭证条数
+            user_id=None,  # 当前未实现用户认证，设为None
         )
 
         headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
@@ -93,6 +94,7 @@ async def generate_vouchers(
             status="失败",
             duration=duration,
             record_count=0,  # 失败时记录数为0
+            user_id=None,  # 当前未实现用户认证，设为None
         )
         print(f"HTTP异常: {e.detail}")
         raise
@@ -106,6 +108,7 @@ async def generate_vouchers(
             status="失败",
             duration=duration,
             record_count=0,  # 失败时记录数为0
+            user_id=None,  # 当前未实现用户认证，设为None
         )
         print(f"未知异常: {exc}")
         import traceback
