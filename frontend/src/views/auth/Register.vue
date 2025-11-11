@@ -257,8 +257,9 @@ const sendVerificationCode = async () => {
 const handleRegister = async () => {
   if (!registerFormRef.value) return
 
-  await registerFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    // 验证表单
+    await registerFormRef.value.validate()
 
     loading.value = true
     try {
@@ -278,7 +279,10 @@ const handleRegister = async () => {
     } finally {
       loading.value = false
     }
-  })
+  } catch (error) {
+    // 表单验证失败，不做任何操作（Element Plus 会自动显示错误信息）
+    console.log('表单验证失败:', error)
+  }
 }
 </script>
 

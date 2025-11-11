@@ -80,8 +80,9 @@ const loginRules = {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
 
-  await loginFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    // 验证表单
+    await loginFormRef.value.validate()
 
     loading.value = true
     try {
@@ -96,7 +97,10 @@ const handleLogin = async () => {
     } finally {
       loading.value = false
     }
-  })
+  } catch (error) {
+    // 表单验证失败，不做任何操作（Element Plus 会自动显示错误信息）
+    console.log('表单验证失败:', error)
+  }
 }
 </script>
 

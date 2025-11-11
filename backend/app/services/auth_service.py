@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from app.db.models import User
 from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, PasswordResetRequest, PasswordResetResponse, PasswordResetConfirm
 from app.utils.auth import get_password_hash, verify_password, create_access_token, create_password_reset_token, verify_password_reset_token
+from app.services.verification_service import VerificationService
 
 
 class AuthService:

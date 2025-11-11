@@ -163,8 +163,9 @@ onMounted(() => {
 const handleSubmit = async () => {
   if (!resetFormRef.value) return
 
-  await resetFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    // 验证表单
+    await resetFormRef.value.validate()
 
     loading.value = true
     try {
@@ -185,7 +186,10 @@ const handleSubmit = async () => {
     } finally {
       loading.value = false
     }
-  })
+  } catch (error) {
+    // 表单验证失败，不做任何操作（Element Plus 会自动显示错误信息）
+    console.log('表单验证失败:', error)
+  }
 }
 
 const goToLogin = () => {
