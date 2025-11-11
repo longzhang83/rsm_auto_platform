@@ -45,31 +45,18 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 
-class SendVerificationCodeRequest(BaseModel):
-    """发送验证码请求"""
-    email: EmailStr = Field(..., description="邮箱地址")
+class PasswordResetRequest(BaseModel):
+    """请求重置密码模型"""
+    email: EmailStr = Field(..., description="注册邮箱地址")
 
 
-class SendVerificationCodeResponse(BaseModel):
-    """发送验证码响应"""
-    success: bool
-    message: str
-
-
-class VerifyCodeRequest(BaseModel):
-    """验证验证码请求"""
-    email: EmailStr = Field(..., description="邮箱地址")
-    code: str = Field(..., description="验证码")
-
-
-class ResetPasswordRequest(BaseModel):
-    """重置密码请求"""
-    email: EmailStr = Field(..., description="邮箱地址")
-    verification_code: str = Field(..., min_length=6, max_length=6, description="验证码")
+class PasswordResetConfirm(BaseModel):
+    """确认重置密码模型"""
+    token: str = Field(..., description="重置密码token")
     new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
 
 
-class ResetPasswordResponse(BaseModel):
-    """重置密码响应"""
-    success: bool
+class PasswordResetResponse(BaseModel):
+    """重置密码响应模型"""
     message: str
+    reset_token: Optional[str] = None  # 仅用于开发环境，生产环境应通过邮件发送

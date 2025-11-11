@@ -18,6 +18,7 @@ pwd_context = CryptContext(
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-2025")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 默认7天
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "60"))  # 默认1小时
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -82,5 +83,53 @@ def decode_access_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
+    except JWTError:
+        return None
+
+
+def create_password_reset_token(email: str) -> str:
+    """
+    创建密码重置令牌
+
+    Args:
+        email: 用户邮箱
+
+    Returns:
+        密码重置token
+    """
+    expires_delta = timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + expires_delta
+    to_encode = {
+        "sub": email,
+        "type": "password_reset",
+        "exp": expire
+    }
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def verify_password_reset_token(token: str) -> Optional[str]:
+    """
+    验证密码重置令牌
+
+    Args:
+        token: 密码重置token
+
+    Returns:
+        如果token有效则返回邮箱，否则返回None
+    """
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+
+        # 验证token类型
+        if token_type != "password_reset":
+            return None
+
+        if email is None:
+            return None
+
+        return email
     except JWTError:
         return None

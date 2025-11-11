@@ -5,11 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
-from app.schemas.auth import (
-    UserCreate, UserLogin, UserResponse, Token,
-    SendVerificationCodeRequest, SendVerificationCodeResponse,
-    ResetPasswordRequest, ResetPasswordResponse
-)
+from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, PasswordResetRequest, PasswordResetResponse, PasswordResetConfirm
 from app.services.auth_service import AuthService
 from app.services.verification_service import VerificationService
 from app.api.dependencies import get_current_user
@@ -80,55 +76,34 @@ async def get_current_user_info(
     return UserResponse.model_validate(current_user)
 
 
-@router.post("/send-reset-password-code", response_model=SendVerificationCodeResponse, summary="发送密码重置验证码")
-async def send_reset_password_code(
-    request: SendVerificationCodeRequest,
+@router.post("/forgot-password", response_model=PasswordResetResponse, summary="请求重置密码")
+async def forgot_password(
+    request_data: PasswordResetRequest,
     db: Session = Depends(get_db)
 ):
     """
-    发送密码重置验证码
+    请求重置密码
 
-    - **email**: 注册的邮箱地址
+    - **email**: 注册邮箱地址
 
-    返回：
-    - **success**: 是否发送成功
-    - **message**: 提示消息
+    Returns:
+        重置密码响应（开发环境包含token）
     """
-    success, message = VerificationService.send_code(db, request.email, code_type="reset_password")
-    return SendVerificationCodeResponse(success=success, message=message)
+    return AuthService.request_password_reset(db, request_data)
 
 
-@router.post("/reset-password", response_model=ResetPasswordResponse, summary="重置密码")
+@router.post("/reset-password", summary="重置密码")
 async def reset_password(
-    request: ResetPasswordRequest,
+    reset_data: PasswordResetConfirm,
     db: Session = Depends(get_db)
 ):
     """
     重置密码
 
-    - **email**: 邮箱地址
-    - **verification_code**: 邮箱验证码
+    - **token**: 重置密码token
     - **new_password**: 新密码（6-100字符）
 
-    返回：
-    - **success**: 是否重置成功
-    - **message**: 提示消息
+    Returns:
+        成功消息
     """
-    # 验证验证码
-    success, message = VerificationService.verify_code(
-        db, request.email, request.verification_code, code_type="reset_password"
-    )
-    if not success:
-        return ResetPasswordResponse(success=False, message=message)
-
-    # 查找用户
-    user = db.query(User).filter(User.email == request.email).first()
-    if not user:
-        return ResetPasswordResponse(success=False, message="用户不存在")
-
-    # 更新密码
-    from app.utils.auth import get_password_hash
-    user.hashed_password = get_password_hash(request.new_password)
-    db.commit()
-
-    return ResetPasswordResponse(success=True, message="密码重置成功，请使用新密码登录")
+    return AuthService.reset_password(db, reset_data)
