@@ -326,8 +326,8 @@ export const translationService = new TranslationService()
 export async function translateSummary(formData, options = {}) {
   return translationService.executeWithProgress({
     formData,
-    startUrl: '/api/v1/translate/start',
-    downloadUrl: '/api/v1/translate/download/{taskId}',
+    startUrl: '/translate/start',
+    downloadUrl: '/translate/download/{taskId}',
     ...options
   })
 }
@@ -336,8 +336,8 @@ export async function translateSummary(formData, options = {}) {
 export async function generateBankVouchers(formData, options = {}) {
   return translationService.executeWithProgress({
     formData,
-    startUrl: '/api/v1/bank-statements/generate/start',
-    downloadUrl: '/api/v1/bank-statements/download/{taskId}',
+    startUrl: '/bank-statements/generate/start',
+    downloadUrl: '/bank-statements/download/{taskId}',
     ...options
   })
 }
