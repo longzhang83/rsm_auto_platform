@@ -153,3 +153,6 @@ test*
 /.ipynb_checkpoints
 *.ipynb
 
+
+/backend/data/
+
