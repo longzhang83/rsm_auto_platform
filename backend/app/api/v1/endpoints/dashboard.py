@@ -10,6 +10,7 @@ from app.schemas.dashboard import (
     DashboardData,
     RecentRecordsResponse,
     ProcessRecord,
+    ProcessRecordsListResponse,
 )
 from app.services.dashboard_service import DashboardService
 
@@ -51,6 +52,51 @@ async def get_recent_records(limit: int = 10, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="limit必须在1-100之间")
 
     return DashboardService.get_recent_records(db, limit)
+
+
+@router.get(
+    "/records",
+    response_model=ProcessRecordsListResponse,
+    summary="获取处理记录列表（分页+过滤）",
+)
+async def get_records_list(
+    page: int = 1,
+    page_size: int = 20,
+    tool: str | None = None,
+    status: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """
+    获取处理记录列表，支持分页和过滤
+
+    Args:
+        page: 页码（从1开始）
+        page_size: 每页数量（1-100）
+        tool: 工具类型过滤（可选）
+        status: 状态过滤（可选）
+        start_date: 开始日期（可选，格式：YYYY-MM-DD）
+        end_date: 结束日期（可选，格式：YYYY-MM-DD）
+
+    Returns:
+        分页的处理记录列表（包含用户信息）
+    """
+    if page < 1:
+        raise HTTPException(status_code=400, detail="页码必须大于0")
+
+    if page_size < 1 or page_size > 100:
+        raise HTTPException(status_code=400, detail="每页数量必须在1-100之间")
+
+    return DashboardService.get_records_list(
+        db=db,
+        page=page,
+        page_size=page_size,
+        tool=tool,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 @router.get("/data", response_model=DashboardData, summary="获取完整Dashboard数据")

@@ -48,3 +48,27 @@ class DashboardData(BaseModel):
     stats: DashboardStats = Field(description="统计数据")
     recent_records: List[ProcessRecord] = Field(description="最近处理记录")
     last_update_time: str = Field(description="最后更新时间")
+
+
+class ProcessRecordWithUser(BaseModel):
+    """处理记录（包含用户信息）"""
+
+    id: str = Field(description="记录ID")
+    time: str = Field(description="处理时间")
+    tool: Literal["费用清单转凭证", "摘要翻译", "银行流水转凭证"] = Field(
+        description="使用工具"
+    )
+    file_name: str = Field(description="文件名称")
+    status: Literal["成功", "失败", "处理中"] = Field(description="处理状态")
+    duration: str = Field(description="处理时长")
+    record_count: int = Field(default=0, description="处理记录条数")
+    user: str | None = Field(default=None, description="操作用户")
+
+
+class ProcessRecordsListResponse(BaseModel):
+    """处理记录列表响应（分页）"""
+
+    records: List[ProcessRecordWithUser] = Field(description="记录列表")
+    total: int = Field(description="总记录数")
+    page: int = Field(description="当前页码")
+    page_size: int = Field(description="每页数量")

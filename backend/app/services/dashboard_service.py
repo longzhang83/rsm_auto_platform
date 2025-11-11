@@ -8,12 +8,14 @@ from typing import Literal, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from app.db.models import ProcessRecord as ProcessRecordModel
+from app.db.models import ProcessRecord as ProcessRecordModel, User
 from app.schemas.dashboard import (
     DashboardStats,
     ProcessRecord,
     RecentRecordsResponse,
     DashboardData,
+    ProcessRecordWithUser,
+    ProcessRecordsListResponse,
 )
 
 # 时间节约估算（单位：分钟/条记录）
@@ -294,6 +296,108 @@ class DashboardService:
             )
 
         return None
+
+    @staticmethod
+    def get_records_list(
+        db: Session,
+        page: int = 1,
+        page_size: int = 20,
+        tool: Optional[str] = None,
+        status: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+    ) -> ProcessRecordsListResponse:
+        """
+        获取处理记录列表（支持分页和过滤）
+
+        Args:
+            db: 数据库会话
+            page: 页码（从1开始）
+            page_size: 每页数量
+            tool: 工具类型过滤（可选）
+            status: 状态过滤（可选）
+            start_date: 开始日期过滤（可选，格式：YYYY-MM-DD）
+            end_date: 结束日期过滤（可选，格式：YYYY-MM-DD）
+
+        Returns:
+            分页的处理记录列表（包含用户信息）
+        """
+        from datetime import datetime, timezone
+
+        # 构建查询
+        query = db.query(ProcessRecordModel, User).outerjoin(
+            User, ProcessRecordModel.user_id == User.id
+        )
+
+        # 应用过滤条件
+        if tool:
+            query = query.filter(ProcessRecordModel.tool == tool)
+
+        if status:
+            query = query.filter(ProcessRecordModel.status == status)
+
+        if start_date:
+            try:
+                start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                query = query.filter(ProcessRecordModel.created_at >= start_dt)
+            except ValueError:
+                pass  # 忽略无效日期格式
+
+        if end_date:
+            try:
+                # 结束日期包含当天，所以加1天
+                end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                query = query.filter(ProcessRecordModel.created_at <= end_dt)
+            except ValueError:
+                pass  # 忽略无效日期格式
+
+        # 获取总数
+        total = query.count()
+
+        # 分页查询，按创建时间降序
+        offset = (page - 1) * page_size
+        results = (
+            query.order_by(ProcessRecordModel.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+            .all()
+        )
+
+        # 转换为schema对象
+        records = []
+        for db_record, user in results:
+            # 获取用户名（优先使用企业微信名称，其次使用用户名）
+            user_name = None
+            if user:
+                user_name = user.wework_name or user.username
+
+            # 确保时间包含时区信息（UTC）
+            created_at = db_record.created_at
+            if created_at and created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+
+            time_str = created_at.strftime("%Y-%m-%d %H:%M:%S") if created_at else ""
+
+            records.append(
+                ProcessRecordWithUser(
+                    id=db_record.id,
+                    time=time_str,
+                    tool=db_record.tool,
+                    file_name=db_record.file_name,
+                    status=db_record.status,
+                    duration=f"{db_record.duration:.1f}s",
+                    record_count=db_record.record_count,
+                    user=user_name,
+                )
+            )
+
+        return ProcessRecordsListResponse(
+            records=records,
+            total=total,
+            page=page,
+            page_size=page_size,
+        )
 
     @staticmethod
     def clear_stats(db: Session):
