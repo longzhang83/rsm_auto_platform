@@ -1,7 +1,7 @@
 /**
  * 认证相关API
  */
-import request from './request'
+import request from '@/utils/request'
 
 /**
  * 发送邮箱验证码
