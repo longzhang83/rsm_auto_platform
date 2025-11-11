@@ -27,8 +27,8 @@ export const useAuthStore = defineStore('auth', {
      */
     async login(credentials) {
       try {
-        const response = await loginApi(credentials)
-        const { access_token, user } = response.data
+        const data = await loginApi(credentials)
+        const { access_token, user } = data
 
         // 保存token和用户信息
         this.token = access_token
@@ -64,8 +64,8 @@ export const useAuthStore = defineStore('auth', {
      */
     async fetchUserInfo() {
       try {
-        const response = await getCurrentUser()
-        this.user = response.data
+        const data = await getCurrentUser()
+        this.user = data
         return true
       } catch (error) {
         console.error('获取用户信息失败:', error)

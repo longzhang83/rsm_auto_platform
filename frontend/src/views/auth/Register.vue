@@ -1,6 +1,16 @@
 <template>
-  <div class="register-container">
-    <div class="register-box">
+  <div id="userLayout" class="w-full h-full relative">
+    <!-- 背景图片 -->
+    <div class="fixed inset-0 w-full h-full" style="background-color: rgb(255, 255, 255);">
+      <img src="/images/login_background.jpg" draggable="false" class="absolute inset-0 w-full h-full" style="width: 100%; height: 100vh;" alt="Background" />
+    </div>
+
+    <!-- 半透明遮罩 -->
+    <div class="fixed inset-0 bg-black bg-opacity-30"></div>
+
+    <!-- 注册表单容器 -->
+    <div class="register-container">
+      <div class="register-box">
       <div class="register-header">
         <img src="/images/logo.png" alt="Logo" class="logo" />
         <h1 class="title">用户注册</h1>
@@ -96,6 +106,7 @@
           <router-link to="/login" class="link">立即登录</router-link>
         </div>
       </el-form>
+      </div>
     </div>
   </div>
 </template>
@@ -213,7 +224,7 @@ const sendVerificationCode = async () => {
 
   codeLoading.value = true
   try {
-    const response = await request({
+    const result = await request({
       url: '/auth/send-verification-code',
       method: 'post',
       data: {
@@ -221,8 +232,7 @@ const sendVerificationCode = async () => {
       }
     })
 
-    // 响应数据在 response.data 中
-    const result = response.data
+    // request 函数直接返回响应数据
     if (result.success) {
       ElMessage.success(result.message)
       // 启动倒计时
@@ -278,23 +288,9 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: url('/images/login_background.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   padding: 20px;
   position: relative;
-}
-
-.register-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 0;
+  z-index: 1;
 }
 
 .register-box {

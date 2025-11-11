@@ -1,128 +1,149 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-      <!-- 标题 -->
-      <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">忘记密码</h1>
-        <p class="text-gray-600">输入您的注册邮箱，我们将发送重置密码链接</p>
+  <div id="userLayout" class="w-full h-full relative">
+    <!-- 背景图片 -->
+    <div class="fixed inset-0 w-full h-full" style="background-color: rgb(255, 255, 255);">
+      <img src="/images/login_background.jpg" draggable="false" class="absolute inset-0 w-full h-full" style="width: 100%; height: 100vh;" alt="Background" />
+    </div>
+
+    <!-- 半透明遮罩 -->
+    <div class="fixed inset-0 bg-black bg-opacity-30"></div>
+
+    <!-- 忘记密码表单容器 -->
+    <div class="login-container">
+      <div class="login-box">
+      <div class="login-header">
+        <img src="/images/logo.png" alt="Logo" class="logo" />
+        <h1 class="title">忘记密码</h1>
+        <p class="subtitle">输入您的注册邮箱，我们将发送重置密码链接</p>
       </div>
 
       <!-- 成功提示 -->
-      <div v-if="resetSent" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <div class="flex items-start">
-          <svg class="w-5 h-5 text-green-500 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          <div class="flex-1">
-            <p class="text-green-800 font-medium">重置链接已生成</p>
-            <p class="text-green-700 text-sm mt-1">{{ successMessage }}</p>
+      <el-alert
+        v-if="resetSent"
+        type="success"
+        :closable="false"
+        class="success-alert"
+      >
+        <template #title>
+          <div class="alert-content">
+            <p class="alert-title">重置链接已生成</p>
+            <p class="alert-message">{{ successMessage }}</p>
+
             <!-- 开发环境显示token -->
-            <div v-if="resetToken" class="mt-3 p-3 bg-white rounded border border-green-300">
-              <p class="text-xs text-gray-600 mb-1">开发环境 - 重置Token:</p>
-              <p class="text-xs font-mono break-all text-gray-800">{{ resetToken }}</p>
-              <button
+            <div v-if="resetToken" class="token-box">
+              <p class="token-label">开发环境 - 重置Token:</p>
+              <p class="token-value">{{ resetToken }}</p>
+              <el-button
+                size="small"
+                type="success"
+                text
                 @click="copyToken"
-                class="mt-2 text-xs text-green-600 hover:text-green-700 font-medium"
               >
                 复制Token
-              </button>
+              </el-button>
             </div>
-            <button
+
+            <el-button
+              type="success"
+              text
+              class="reset-link"
               @click="goToResetPassword"
-              class="mt-3 text-sm text-green-600 hover:text-green-700 font-medium"
             >
               前往重置密码页面 →
-            </button>
+            </el-button>
           </div>
-        </div>
-      </div>
+        </template>
+      </el-alert>
 
       <!-- 表单 -->
-      <form v-else @submit.prevent="handleSubmit" class="space-y-6">
-        <!-- 错误提示 -->
-        <div v-if="errorMessage" class="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-red-700 text-sm">{{ errorMessage }}</p>
-        </div>
-
-        <!-- 邮箱输入 -->
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-            邮箱地址
-          </label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
+      <el-form
+        v-else
+        ref="forgotFormRef"
+        :model="forgotForm"
+        :rules="forgotRules"
+        class="login-form"
+        @keyup.enter="handleSubmit"
+      >
+        <el-form-item prop="email">
+          <el-input
+            v-model="forgotForm.email"
             placeholder="请输入注册邮箱"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-            :disabled="loading"
-          >
-        </div>
+            size="large"
+            prefix-icon="Message"
+            clearable
+          />
+        </el-form-item>
 
-        <!-- 提交按钮 -->
-        <button
-          type="submit"
-          :disabled="loading"
-          class="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span v-if="loading" class="flex items-center justify-center">
-            <svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            发送中...
-          </span>
-          <span v-else>发送重置链接</span>
-        </button>
-      </form>
+        <el-form-item>
+          <el-button
+            type="primary"
+            size="large"
+            class="login-button"
+            :loading="loading"
+            @click="handleSubmit"
+          >
+            {{ loading ? '发送中...' : '发送重置链接' }}
+          </el-button>
+        </el-form-item>
+      </el-form>
 
       <!-- 返回登录 -->
-      <div class="mt-6 text-center">
-        <router-link
-          to="/login"
-          class="text-purple-600 hover:text-purple-700 font-medium text-sm"
-        >
-          ← 返回登录
-        </router-link>
+      <div class="register-link">
+        <router-link to="/login" class="link">← 返回登录</router-link>
+      </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { forgotPassword } from '@/api/auth'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
-
-const email = ref('')
+const forgotFormRef = ref(null)
 const loading = ref(false)
-const errorMessage = ref('')
 const resetSent = ref(false)
 const successMessage = ref('')
 const resetToken = ref('')
 
-const handleSubmit = async () => {
-  errorMessage.value = ''
-  loading.value = true
+const forgotForm = reactive({
+  email: ''
+})
 
-  try {
-    const response = await forgotPassword({ email: email.value })
-    resetSent.value = true
-    successMessage.value = response.message || '重置链接已发送到您的邮箱'
-    resetToken.value = response.reset_token || ''
-  } catch (error) {
-    errorMessage.value = error.response?.data?.detail || '发送失败，请稍后重试'
-  } finally {
-    loading.value = false
-  }
+const forgotRules = {
+  email: [
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+  ]
+}
+
+const handleSubmit = async () => {
+  if (!forgotFormRef.value) return
+
+  await forgotFormRef.value.validate(async (valid) => {
+    if (!valid) return
+
+    loading.value = true
+    try {
+      const response = await forgotPassword({ email: forgotForm.email })
+      resetSent.value = true
+      successMessage.value = response.message || '重置链接已发送到您的邮箱'
+      resetToken.value = response.reset_token || ''
+    } catch (error) {
+      console.error('发送重置链接失败:', error)
+      ElMessage.error(error.response?.data?.detail || '发送失败，请稍后重试')
+    } finally {
+      loading.value = false
+    }
+  })
 }
 
 const copyToken = () => {
   navigator.clipboard.writeText(resetToken.value)
-  alert('Token已复制到剪贴板')
+  ElMessage.success('Token已复制到剪贴板')
 }
 
 const goToResetPassword = () => {
@@ -133,3 +154,140 @@ const goToResetPassword = () => {
   }
 }
 </script>
+
+<style scoped>
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 450px;
+  background: white;
+  border-radius: 20px;
+  padding: 50px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 20px;
+  object-fit: contain;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #7f8c8d;
+  line-height: 1.6;
+}
+
+.login-form {
+  margin-top: 30px;
+}
+
+.login-button {
+  width: 100%;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+.register-link {
+  text-align: center;
+  margin-top: 20px;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.link:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+.success-alert {
+  margin-bottom: 20px;
+}
+
+.alert-content {
+  width: 100%;
+}
+
+.alert-title {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.alert-message {
+  font-size: 14px;
+  color: #67c23a;
+  margin-bottom: 12px;
+}
+
+.token-box {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f0f9ff;
+  border: 1px solid #67c23a;
+  border-radius: 8px;
+}
+
+.token-label {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.token-value {
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.reset-link {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 576px) {
+  .login-box {
+    padding: 40px 30px;
+  }
+
+  .title {
+    font-size: 24px;
+  }
+}
+</style>

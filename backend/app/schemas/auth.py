@@ -60,3 +60,14 @@ class PasswordResetResponse(BaseModel):
     """重置密码响应模型"""
     message: str
     reset_token: Optional[str] = None  # 仅用于开发环境，生产环境应通过邮件发送
+
+
+class SendVerificationCodeRequest(BaseModel):
+    """发送验证码请求模型"""
+    email: EmailStr = Field(..., description="邮箱地址")
+
+
+class SendVerificationCodeResponse(BaseModel):
+    """发送验证码响应模型"""
+    success: bool = Field(..., description="是否发送成功")
+    message: str = Field(..., description="提示消息")

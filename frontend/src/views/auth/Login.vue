@@ -1,62 +1,51 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="login-header">
-        <img src="/images/logo.png" alt="Logo" class="logo" />
-        <h1 class="title">容诚税务师事务所</h1>
-        <p class="subtitle">智能化自动化工具平台</p>
+  <div id="userLayout" class="w-full h-full relative">
+    <!-- 背景图片 -->
+    <div class="fixed inset-0 w-full h-full" style="background-color: rgb(255, 255, 255);">
+      <img src="/images/login_background.jpg" draggable="false" class="absolute inset-0 w-full h-full"
+        style="width: 100%; height: 100vh;" alt="Background" />
+    </div>
+
+    <!-- 半透明遮罩 -->
+    <div class="fixed inset-0 bg-black bg-opacity-30"></div>
+
+    <!-- 登录表单容器 -->
+    <div class="login-container">
+      <div class="login-box">
+        <div class="login-header">
+          <img src="/images/logo.png" alt="Logo" class="logo" />
+          <h1 class="title">容诚税务师事务所</h1>
+          <p class="subtitle">智能化自动化工具平台</p>
+        </div>
+
+        <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form"
+          @keyup.enter="handleLogin">
+          <el-form-item prop="username">
+            <el-input v-model="loginForm.username" placeholder="用户名" size="large" prefix-icon="User" clearable />
+          </el-form-item>
+
+          <el-form-item prop="password">
+            <el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" prefix-icon="Lock"
+              show-password clearable />
+          </el-form-item>
+
+          <el-form-item>
+            <el-button type="primary" size="large" class="login-button" :loading="loading" @click="handleLogin">
+              {{ loading ? '登录中...' : '登录' }}
+            </el-button>
+          </el-form-item>
+
+          <div class="footer-links">
+            <div class="register-link">
+              还没有账号？
+              <router-link to="/register" class="link">立即注册</router-link>
+            </div>
+            <div class="forgot-password-link">
+              <router-link to="/forgot-password" class="link">忘记密码？</router-link>
+            </div>
+          </div>
+        </el-form>
       </div>
-
-      <el-form
-        ref="loginFormRef"
-        :model="loginForm"
-        :rules="loginRules"
-        class="login-form"
-        @keyup.enter="handleLogin"
-      >
-        <el-form-item prop="username">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="用户名"
-            size="large"
-            prefix-icon="User"
-            clearable
-          />
-        </el-form-item>
-
-        <el-form-item prop="password">
-          <el-input
-            v-model="loginForm.password"
-            type="password"
-            placeholder="密码"
-            size="large"
-            prefix-icon="Lock"
-            show-password
-            clearable
-          />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button
-            type="primary"
-            size="large"
-            class="login-button"
-            :loading="loading"
-            @click="handleLogin"
-          >
-            {{ loading ? '登录中...' : '登录' }}
-          </el-button>
-        </el-form-item>
-
-        <div class="register-link">
-          还没有账号？
-          <router-link to="/register" class="link">立即注册</router-link>
-        </div>
-
-        <div class="forgot-password-link">
-          <router-link to="/forgot-password" class="link">忘记密码？</router-link>
-        </div>
-      </el-form>
     </div>
   </div>
 </template>
@@ -117,23 +106,9 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: url('/images/login_background.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   padding: 20px;
   position: relative;
-}
-
-.login-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 0;
+  z-index: 1;
 }
 
 .login-box {
@@ -183,17 +158,20 @@ const handleLogin = async () => {
   border-radius: 8px;
 }
 
-.register-link {
-  text-align: center;
+.footer-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 20px;
-  color: #7f8c8d;
   font-size: 14px;
 }
 
+.register-link {
+  color: #7f8c8d;
+}
+
 .forgot-password-link {
-  text-align: center;
-  margin-top: 12px;
-  font-size: 14px;
+  /* 右侧链接 */
 }
 
 .link {
@@ -214,6 +192,12 @@ const handleLogin = async () => {
 
   .title {
     font-size: 24px;
+  }
+
+  .footer-links {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
   }
 }
 </style>

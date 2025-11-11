@@ -350,8 +350,7 @@ const updateTime = () => {
 const loadDashboardData = async () => {
   loading.value = true
   try {
-    const response = await getDashboardData()
-    const data = response.data
+    const data = await getDashboardData()
 
     // 更新统计数据
     stats.value.voucherCount = data.stats.voucher_count
