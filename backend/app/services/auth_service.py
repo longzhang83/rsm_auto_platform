@@ -144,16 +144,16 @@ class AuthService:
         Raises:
             HTTPException: 邮箱不存在
         """
-        # 查找用户
+        # 查找用户，在生成验证码前先检验邮箱是否已注册
         user = db.query(User).filter(User.email == request_data.email).first()
         if not user:
-            # 为了安全，不透露邮箱是否存在，返回相同的消息
+            # 明确告知用户该邮箱未注册
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="如果该邮箱已注册，您将收到重置密码的链接"
+                detail="该邮箱未注册，请先注册账号"
             )
 
-        # 生成重置token
+        # 生成重置token（验证码）
         reset_token = create_password_reset_token(user.email)
 
         # 在生产环境中，应该通过邮件发送reset_token
