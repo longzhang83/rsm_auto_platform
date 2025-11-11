@@ -220,6 +220,12 @@ import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+// 启用 dayjs 时区插件
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const authStore = useAuthStore()
 const loading = ref(false)
@@ -233,9 +239,16 @@ const totalUsers = ref(0)
 // 检查是否为管理员
 const isAdmin = computed(() => authStore.user?.is_admin || false)
 
-// 格式化时间
+// 格式化时间（处理 UTC 时间转东八区）
 const formatTime = (timeStr) => {
   if (!timeStr) return '-'
+  // 数据库存储的是 UTC 时间，需要转换为本地时区显示
+  // 方式1: 如果后端返回的时间字符串已包含 'Z' 或时区信息，dayjs 会自动处理
+  // 方式2: 如果没有时区信息，明确指定为 UTC 然后转为本地时区
+  if (!timeStr.endsWith('Z') && !timeStr.includes('+')) {
+    // 没有时区标记，视为 UTC 时间
+    return dayjs.utc(timeStr).local().format('YYYY-MM-DD HH:mm')
+  }
   return dayjs(timeStr).format('YYYY-MM-DD HH:mm')
 }
 

@@ -8,9 +8,9 @@ from sqlalchemy import func
 from app.db.database import get_db
 from app.db.models import User
 from app.api.dependencies import get_current_admin
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -121,13 +121,26 @@ async def get_user_stats(
         db.query(User).order_by(User.created_at.desc()).limit(10).all()
     )
 
+    # 确保时间包含时区信息（UTC）
+    recent_users_data = []
+    for user in recent_users:
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "login_type": user.login_type,
+            "is_admin": user.is_admin,
+            "created_at": user.created_at.replace(tzinfo=timezone.utc) if user.created_at and user.created_at.tzinfo is None else user.created_at,
+        }
+        recent_users_data.append(RecentUser(**user_dict))
+
     return UserStats(
         total_users=total_users,
         admin_users=admin_users,
         password_users=password_users,
         wework_users=wework_users,
         login_type_distribution=login_type_distribution,
-        recent_users=[RecentUser.model_validate(user) for user in recent_users],
+        recent_users=recent_users_data,
     )
 
 
@@ -159,6 +172,21 @@ async def get_user_list(
         .all()
     )
 
+    # 确保时间包含时区信息（UTC）
+    users_data = []
+    for user in users:
+        user_dict = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "login_type": user.login_type,
+            "is_admin": user.is_admin,
+            "wework_userid": user.wework_userid,
+            "wework_name": user.wework_name,
+            "created_at": user.created_at.replace(tzinfo=timezone.utc) if user.created_at and user.created_at.tzinfo is None else user.created_at,
+        }
+        users_data.append(UserListItem(**user_dict))
+
     return UserListResponse(
-        total=total, users=[UserListItem.model_validate(user) for user in users]
+        total=total, users=users_data
     )
