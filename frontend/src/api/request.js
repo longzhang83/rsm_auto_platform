@@ -71,11 +71,7 @@ async function request(options) {
       }
     }
 
-    return {
-      data: responseData,
-      status: response.status,
-      headers: response.headers
-    }
+    return responseData
   } catch (error) {
     console.error('Request error:', error)
     throw error
