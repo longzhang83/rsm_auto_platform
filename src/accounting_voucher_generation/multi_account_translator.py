@@ -419,7 +419,7 @@ class MultiAccountTranslationService:
         progress_description: str = "翻译摘要",
         **kwargs
     ) -> Dict[str, str]:
-        """批量翻译文本 - 智能并发方案"""
+        """批量翻译文本 - 智能并发方案，支持缓存"""
         # 去重和清理
         unique_texts = []
         seen = set()
@@ -433,9 +433,35 @@ class MultiAccountTranslationService:
             return {}
 
         results = {}
-        completed_count = 0
+        texts_to_translate = []
+        cache_hits = 0
 
-        logger.info(f"开始智能并发翻译 {len(unique_texts)} 个文本，使用 {len(self.accounts)} 个账户")
+        # 首先检查缓存，分离出需要翻译的文本
+        with self.cache_lock:
+            for text in unique_texts:
+                if text in self.cache:
+                    results[text] = self.cache[text]
+                    cache_hits += 1
+                    self.stats["cache_hits"] += 1
+                else:
+                    texts_to_translate.append(text)
+
+        logger.info(f"批量翻译: 总计 {len(unique_texts)} 条，缓存命中 {cache_hits} 条，需要翻译 {len(texts_to_translate)} 条")
+
+        # 如果所有文本都在缓存中，直接返回
+        if not texts_to_translate:
+            logger.info(f"所有文本都已缓存，跳过翻译")
+            return results
+
+        # 更新进度（缓存命中的部分）
+        completed_count = cache_hits
+        if progress_callback and cache_hits > 0:
+            try:
+                progress_callback(completed_count, len(unique_texts), f"缓存命中: {cache_hits} 条")
+            except Exception as e:
+                logger.error(f"进度回调失败: {e}")
+
+        logger.info(f"开始智能并发翻译 {len(texts_to_translate)} 个文本，使用 {len(self.accounts)} 个账户")
 
         def worker_with_account(account: GLMAccount, text: str) -> Tuple[str, str]:
             """使用指定账户翻译文本"""
@@ -448,14 +474,14 @@ class MultiAccountTranslationService:
             else:
                 return text, result or text
 
-        # 按账户数量分配任务
+        # 按账户数量分配任务（只翻译未缓存的文本）
         account_queues = []
-        texts_per_account = len(unique_texts) // len(self.accounts)
+        texts_per_account = len(texts_to_translate) // len(self.accounts)
 
         for i, account in enumerate(self.accounts):
             start_idx = i * texts_per_account
-            end_idx = start_idx + texts_per_account if i < len(self.accounts) - 1 else len(unique_texts)
-            account_texts = unique_texts[start_idx:end_idx]
+            end_idx = start_idx + texts_per_account if i < len(self.accounts) - 1 else len(texts_to_translate)
+            account_texts = texts_to_translate[start_idx:end_idx]
             account_queues.append((account, account_texts))
 
         # 使用线程池，每个账户一个线程
@@ -545,11 +571,25 @@ class MultiAccountTranslationService:
                 except Exception as e:
                     logger.error(f"账户 {account.name} 处理失败: {e}")
 
+        # 将新翻译的结果保存到缓存
+        new_translations = 0
+        with self.cache_lock:
+            for text in texts_to_translate:
+                if text in results and results[text] != text:
+                    # 只缓存成功的翻译（译文与原文不同）
+                    self.cache[text] = results[text]
+                    new_translations += 1
+
+        # 如果有新的翻译结果，异步保存缓存文件
+        if new_translations > 0:
+            logger.info(f"新增 {new_translations} 条翻译到缓存")
+            threading.Thread(target=self._save_cache, daemon=True).start()
+
         # 检查是否是因为取消而提前结束
         if cancel_check and cancel_check():
             logger.info(f"[multi_account_translator] 翻译已取消，提前结束: 处理了 {len(results)} 条，总计 {len(unique_texts)} 条")
         else:
-            logger.info(f"智能并发翻译完成: 总计 {len(unique_texts)} 条，成功 {len([r for r in results.values() if r != results.get(r, r)])} 条")
+            logger.info(f"智能并发翻译完成: 总计 {len(unique_texts)} 条，缓存命中 {cache_hits} 条，新翻译 {new_translations} 条")
         return results
 
     def get_stats(self) -> Dict[str, Any]:
