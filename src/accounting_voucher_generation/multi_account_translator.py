@@ -598,7 +598,8 @@ def init_translation_service(
     max_workers: Optional[int] = None,
     model: Optional[str] = None,
     system_prompt: Optional[str] = None,
-    rps: Optional[float] = None
+    rps: Optional[float] = None,
+    cache_path: Optional[Union[str, Path]] = None
 ) -> MultiAccountTranslationService:
     """初始化翻译服务"""
     global _translation_service
@@ -633,7 +634,8 @@ def init_translation_service(
         accounts=accounts,
         model=model,
         max_workers=max_workers,
-        system_prompt=system_prompt
+        system_prompt=system_prompt,
+        cache_path=cache_path
     )
 
     # 更新系统提示（如果有自定义）
@@ -693,7 +695,8 @@ def configure_translation_service(
         max_workers=max_workers,
         model=model,
         system_prompt=system_prompt,
-        rps=rps
+        rps=rps,
+        cache_path=cache_path
     )
 
 
