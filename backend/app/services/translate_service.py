@@ -11,17 +11,9 @@ import csv
 from fastapi import HTTPException, UploadFile
 
 from accounting_voucher_generation.summary_translator import SummaryTranslator, SummaryTranslatorConfig
-try:
-    # 直接使用多账户翻译器作为首选方案
-    from accounting_voucher_generation.multi_account_translator import get_translation_service, configure_translation_service
-    MULTI_ACCOUNT_SUPPORT = True
-    LANGCHAIN_AVAILABLE = False  # 不再使用LangChain
-    print("OK: Using multi_account_translator (recommended)")
-except ImportError:
-    from accounting_voucher_generation.chatglm_v2 import get_translation_service, configure_translation_service
-    MULTI_ACCOUNT_SUPPORT = True
-    LANGCHAIN_AVAILABLE = False
-    print("WARNING: Fallback to chatglm_v2")
+from accounting_voucher_generation.multi_account_translator import get_translation_service, configure_translation_service
+
+print("✅ Using multi_account_translator")
 
 
 from app.core.config import settings
@@ -40,43 +32,40 @@ class TranslateService:
 
     def _init_multi_account_service(self):
         """初始化多账户翻译服务"""
-        if MULTI_ACCOUNT_SUPPORT:
-            # 从settings或环境变量获取多个API密钥
-            api_keys_env = settings.zhipuai_api_keys or os.getenv("ZHIPUAI_API_KEYS", "")
-            if api_keys_env:
-                api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
-                if api_keys:
-                    try:
-                        # 使用配置的参数
-                        max_workers = settings.translation_max_workers
-                        model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
-                        rps = settings.zhipuai_rps
+        # 从settings或环境变量获取多个API密钥
+        api_keys_env = settings.zhipuai_api_keys or os.getenv("ZHIPUAI_API_KEYS", "")
+        if api_keys_env:
+            api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
+            if api_keys:
+                try:
+                    # 使用配置的参数
+                    max_workers = settings.translation_max_workers
+                    model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+                    rps = settings.zhipuai_rps
 
-                        configure_translation_service(
-                            api_keys=api_keys,
-                            cache_path=settings.translation_mapping_path,
-                            max_workers=max_workers,
-                            **{"model": model, "rps": rps}  # 通过**kwargs传递model和rps参数
-                        )
-                        self.logger.info(f"多账户翻译服务已初始化 - 模型: {model}, API密钥数: {len(api_keys)}, 最大工作线程: {max_workers}, RPS: {rps}")
-                    except Exception as e:
-                        self.logger.error(f"初始化多账户翻译服务失败: {e}")
-            else:
-                # 使用单个API密钥
-                if settings.zhipuai_api_key:
-                    try:
-                        model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
-                        configure_translation_service(
-                            api_keys=[settings.zhipuai_api_key],
-                            cache_path=settings.translation_mapping_path,
-                            max_workers=settings.translation_max_workers,
-                            **{"model": model}
-                        )
-                        self.logger.info(f"单账户翻译服务已初始化 - 模型: {model}, RPS: {settings.zhipuai_rps}")
-                    except Exception as e:
-                        self.logger.error(f"初始化单账户翻译服务失败: {e}")
+                    configure_translation_service(
+                        api_keys=api_keys,
+                        cache_path=settings.translation_mapping_path,
+                        max_workers=max_workers,
+                        **{"model": model, "rps": rps}  # 通过**kwargs传递model和rps参数
+                    )
+                    self.logger.info(f"多账户翻译服务已初始化 - 模型: {model}, API密钥数: {len(api_keys)}, 最大工作线程: {max_workers}, RPS: {rps}")
+                except Exception as e:
+                    self.logger.error(f"初始化多账户翻译服务失败: {e}")
         else:
-            self.logger.warning("多账户翻译服务不可用")
+            # 使用单个API密钥
+            if settings.zhipuai_api_key:
+                try:
+                    model = settings.zhipuai_model or os.getenv("ZHIPUAI_MODEL", "glm-4.5-flash")
+                    configure_translation_service(
+                        api_keys=[settings.zhipuai_api_key],
+                        cache_path=settings.translation_mapping_path,
+                        max_workers=settings.translation_max_workers,
+                        **{"model": model}
+                    )
+                    self.logger.info(f"单账户翻译服务已初始化 - 模型: {model}, RPS: {settings.zhipuai_rps}")
+                except Exception as e:
+                    self.logger.error(f"初始化单账户翻译服务失败: {e}")
 
     async def translate_summaries(
         self,

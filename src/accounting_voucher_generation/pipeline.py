@@ -12,8 +12,8 @@ try:
 except ImportError:  # pragma: no cover
 	tqdm = None
 
-# 使用新的多账户翻译服务
-from .chatglm_v2 import batch_translate_texts, translate_text, configure_translation_service
+# 直接使用多账户翻译服务
+from .multi_account_translator import batch_translate_texts, configure_translation_service
 MULTI_ACCOUNT_AVAILABLE = True
 
 DEFAULT_EXPENSE_FILE = "Expense.xlsx"

@@ -13,7 +13,7 @@ try:
 except ImportError:  # pragma: no cover
     tqdm = None
 
-from .translation_interface import batch_translate_texts, configure_translation_service
+from .multi_account_translator import batch_translate_texts, configure_translation_service
 
 logger = logging.getLogger(__name__)
 
