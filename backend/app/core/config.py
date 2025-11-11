@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     verification_code_expiry: int = 300  # 验证码有效期（秒），默认5分钟
     verification_code_length: int = 6  # 验证码长度
 
+    # 企业微信配置
+    wework_corp_id: Optional[str] = None  # 企业ID
+    wework_agent_id: Optional[str] = None  # 应用ID
+    wework_secret: Optional[str] = None  # 应用密钥
+    wework_callback_url: Optional[str] = None  # 回调URL
+    wework_enabled: bool = False  # 是否启用企业微信登录
+
     # 默认凭证配置
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"

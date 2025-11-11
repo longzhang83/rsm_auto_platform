@@ -33,6 +33,11 @@ class UserResponse(UserBase):
 
     id: int
     created_at: datetime
+    wework_userid: Optional[str] = None
+    wework_name: Optional[str] = None
+    wework_avatar: Optional[str] = None
+    wework_department: Optional[str] = None
+    login_type: str = "password"
 
     class Config:
         from_attributes = True
@@ -82,4 +87,45 @@ class SendVerificationCodeResponse(BaseModel):
     """发送验证码响应模型"""
 
     success: bool = Field(..., description="是否发送成功")
+    message: str = Field(..., description="提示消息")
+
+
+# 企业微信相关模型
+
+
+class WeWorkConfigResponse(BaseModel):
+    """企业微信配置响应模型"""
+
+    corp_id: str = Field(..., description="企业ID")
+    agent_id: str = Field(..., description="应用ID")
+    redirect_uri: str = Field(..., description="回调URL")
+    state: str = Field(..., description="随机state字符串")
+    enabled: bool = Field(..., description="是否启用企业微信登录")
+
+
+class WeWorkCallbackRequest(BaseModel):
+    """企业微信回调请求模型"""
+
+    code: str = Field(..., description="授权码")
+    state: str = Field(..., description="State字符串")
+
+
+class WeWorkBindRequest(BaseModel):
+    """绑定企业微信账号请求模型"""
+
+    code: str = Field(..., description="授权码")
+
+
+class WeWorkBindResponse(BaseModel):
+    """绑定企业微信账号响应模型"""
+
+    success: bool = Field(..., description="是否绑定成功")
+    message: str = Field(..., description="提示消息")
+    user: Optional[UserResponse] = Field(None, description="用户信息")
+
+
+class WeWorkUnbindResponse(BaseModel):
+    """解绑企业微信账号响应模型"""
+
+    success: bool = Field(..., description="是否解绑成功")
     message: str = Field(..., description="提示消息")

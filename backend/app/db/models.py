@@ -15,12 +15,20 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=True)  # 企业微信登录时可为空
+
+    # 企业微信相关字段
+    wework_userid = Column(String(100), unique=True, index=True, nullable=True)
+    wework_name = Column(String(100), nullable=True)
+    wework_avatar = Column(String(500), nullable=True)
+    wework_department = Column(String(200), nullable=True)
+    login_type = Column(String(20), default="password", nullable=False)  # password/wework
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     def __repr__(self):
-        return f"<User(id={self.id}, username={self.username}, email={self.email})>"
+        return f"<User(id={self.id}, username={self.username}, email={self.email}, login_type={self.login_type})>"
 
 
 class VerificationCode(Base):

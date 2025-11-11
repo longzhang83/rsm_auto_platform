@@ -45,6 +45,9 @@
             </div>
           </div>
         </el-form>
+
+        <!-- 企业微信登录 -->
+        <WeWorkLogin />
       </div>
     </div>
   </div>
@@ -55,6 +58,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import WeWorkLogin from '@/components/WeWorkLogin.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

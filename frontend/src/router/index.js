@@ -29,6 +29,12 @@ const router = createRouter({
       meta: { title: '重置密码', requiresAuth: false }
     },
     {
+      path: '/auth/wework/callback',
+      name: 'WeWorkCallback',
+      component: () => import('@/views/auth/WeWorkCallback.vue'),
+      meta: { title: '企业微信登录', requiresAuth: false }
+    },
+    {
       path: '/',
       name: 'Layout',
       component: () => import('@/layout/index.vue'),

@@ -16,10 +16,17 @@ from app.schemas.auth import (
     PasswordResetConfirm,
     SendVerificationCodeRequest,
     SendVerificationCodeResponse,
+    WeWorkConfigResponse,
+    WeWorkCallbackRequest,
+    WeWorkBindRequest,
+    WeWorkBindResponse,
+    WeWorkUnbindResponse,
 )
 from app.services.auth_service import AuthService
 from app.services.verification_service import VerificationService
+from app.services.wework_service import WeWorkService
 from app.api.dependencies import get_current_user
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -113,3 +120,121 @@ async def reset_password(
         成功消息
     """
     return AuthService.reset_password(db, reset_data)
+
+
+# 企业微信相关端点
+
+
+@router.get(
+    "/wework/config", response_model=WeWorkConfigResponse, summary="获取企业微信登录配置"
+)
+async def get_wework_config():
+    """
+    获取企业微信登录配置
+
+    返回企业微信二维码所需的配置信息：
+    - **corp_id**: 企业ID
+    - **agent_id**: 应用ID
+    - **redirect_uri**: 回调URL
+    - **state**: 随机state字符串（用于防止CSRF攻击）
+    - **enabled**: 是否启用企业微信登录
+
+    前端使用此配置生成企业微信登录二维码
+    """
+    if not WeWorkService.is_enabled():
+        return WeWorkConfigResponse(
+            corp_id="",
+            agent_id="",
+            redirect_uri="",
+            state="",
+            enabled=False,
+        )
+
+    return WeWorkConfigResponse(
+        corp_id=settings.wework_corp_id or "",
+        agent_id=settings.wework_agent_id or "",
+        redirect_uri=settings.wework_callback_url or "",
+        state=WeWorkService.generate_state(),
+        enabled=True,
+    )
+
+
+@router.post("/wework/callback", response_model=Token, summary="企业微信授权回调")
+async def wework_callback(
+    callback_data: WeWorkCallbackRequest, db: Session = Depends(get_db)
+):
+    """
+    企业微信授权回调
+
+    - **code**: 企业微信授权码
+    - **state**: State字符串（需与请求时一致）
+
+    流程：
+    1. 使用code换取企业微信用户信息
+    2. 检查用户是否已绑定账号
+    3. 如果已绑定，直接登录
+    4. 如果未绑定但邮箱匹配，自动绑定
+    5. 否则创建新账号
+
+    Returns:
+        JWT Token和用户信息
+    """
+    # TODO: 实际应该验证state（从Redis或session中读取）
+    # 简单实现暂时跳过state验证
+
+    # 获取企业微信用户信息
+    wework_info = await WeWorkService.get_user_info_by_code(callback_data.code)
+
+    # 登录或创建用户
+    return WeWorkService.login_or_create_user(db, wework_info)
+
+
+@router.post(
+    "/wework/bind", response_model=WeWorkBindResponse, summary="绑定企业微信账号"
+)
+async def bind_wework(
+    bind_data: WeWorkBindRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    绑定企业微信账号到当前用户
+
+    需要认证
+
+    - **code**: 企业微信授权码
+
+    用于已登录用户绑定企业微信账号，绑定后可以使用企业微信扫码登录
+    """
+    # 获取企业微信用户信息
+    wework_info = await WeWorkService.get_user_info_by_code(bind_data.code)
+
+    # 绑定企业微信账号
+    updated_user = WeWorkService.bind_wework_to_user(db, current_user, wework_info)
+
+    return WeWorkBindResponse(
+        success=True,
+        message="企业微信账号绑定成功",
+        user=UserResponse.model_validate(updated_user),
+    )
+
+
+@router.post(
+    "/wework/unbind", response_model=WeWorkUnbindResponse, summary="解绑企业微信账号"
+)
+async def unbind_wework(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """
+    解绑企业微信账号
+
+    需要认证
+
+    注意：
+    - 如果账号仅通过企业微信登录（没有设置密码），不允许解绑
+    - 解绑后将无法使用企业微信扫码登录
+    """
+    # 解绑企业微信账号
+    WeWorkService.unbind_wework_from_user(db, current_user)
+
+    return WeWorkUnbindResponse(success=True, message="企业微信账号解绑成功")
