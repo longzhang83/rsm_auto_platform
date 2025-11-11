@@ -149,5 +149,63 @@ export async function downloadFile(url) {
   return response.blob()
 }
 
+// 添加便捷方法到 request 函数
+request.get = function(url, options = {}) {
+  // 处理查询参数
+  let finalUrl = url
+  if (options.params) {
+    const queryString = new URLSearchParams(options.params).toString()
+    finalUrl = queryString ? `${url}?${queryString}` : url
+    // 移除 params，避免传递给 request 函数
+    const { params, ...restOptions } = options
+    return request({
+      url: finalUrl,
+      method: 'GET',
+      ...restOptions
+    })
+  }
+
+  return request({
+    url: finalUrl,
+    method: 'GET',
+    ...options
+  })
+}
+
+request.post = function(url, data, options = {}) {
+  return request({
+    url,
+    method: 'POST',
+    data,
+    ...options
+  })
+}
+
+request.put = function(url, data, options = {}) {
+  return request({
+    url,
+    method: 'PUT',
+    data,
+    ...options
+  })
+}
+
+request.delete = function(url, options = {}) {
+  return request({
+    url,
+    method: 'DELETE',
+    ...options
+  })
+}
+
+request.patch = function(url, data, options = {}) {
+  return request({
+    url,
+    method: 'PATCH',
+    data,
+    ...options
+  })
+}
+
 export default request
 export { fetchWithAuth }
