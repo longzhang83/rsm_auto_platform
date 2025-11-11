@@ -13,6 +13,8 @@ from app.schemas.auth import (
     PasswordResetRequest,
     PasswordResetResponse,
     PasswordResetConfirm,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
 )
 from app.utils.auth import (
     get_password_hash,
@@ -208,3 +210,40 @@ class AuthService:
         db.commit()
 
         return {"message": "密码重置成功，请使用新密码登录"}
+
+    @staticmethod
+    def change_password(
+        db: Session, user: User, change_data: ChangePasswordRequest
+    ) -> ChangePasswordResponse:
+        """
+        修改密码
+
+        Args:
+            db: 数据库会话
+            user: 当前用户
+            change_data: 修改密码数据
+
+        Returns:
+            修改结果
+
+        Raises:
+            HTTPException: 当前密码错误
+        """
+        # 如果用户已有密码，需要验证当前密码
+        if user.hashed_password:
+            if not change_data.old_password:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="请输入当前密码"
+                )
+
+            # 验证当前密码
+            if not verify_password(change_data.old_password, user.hashed_password):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="当前密码错误"
+                )
+
+        # 更新密码
+        user.hashed_password = get_password_hash(change_data.new_password)
+        db.commit()
+
+        return ChangePasswordResponse(success=True, message="密码修改成功")

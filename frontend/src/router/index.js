@@ -76,6 +76,18 @@ const router = createRouter({
           name: 'Settings',
           component: () => import('@/views/settings/index.vue'),
           meta: { title: '系统设置', icon: 'Setting', requiresAuth: true }
+        },
+        {
+          path: 'profile',
+          name: 'Profile',
+          component: () => import('@/views/profile/index.vue'),
+          meta: { title: '个人资料', icon: 'User', requiresAuth: true }
+        },
+        {
+          path: 'admin',
+          name: 'Admin',
+          component: () => import('@/views/admin/index.vue'),
+          meta: { title: '管理后台', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
         }
       ]
     },

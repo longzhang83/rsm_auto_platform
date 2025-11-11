@@ -38,6 +38,7 @@ class UserResponse(UserBase):
     wework_avatar: Optional[str] = None
     wework_department: Optional[str] = None
     login_type: str = "password"
+    is_admin: bool = False
 
     class Config:
         from_attributes = True
@@ -75,6 +76,20 @@ class PasswordResetResponse(BaseModel):
 
     message: str
     reset_token: Optional[str] = None  # 仅用于开发环境，生产环境应通过邮件发送
+
+
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求模型"""
+
+    old_password: Optional[str] = Field(None, description="当前密码（如果有）")
+    new_password: str = Field(..., min_length=6, max_length=100, description="新密码")
+
+
+class ChangePasswordResponse(BaseModel):
+    """修改密码响应模型"""
+
+    success: bool = Field(..., description="是否修改成功")
+    message: str = Field(..., description="提示消息")
 
 
 class SendVerificationCodeRequest(BaseModel):

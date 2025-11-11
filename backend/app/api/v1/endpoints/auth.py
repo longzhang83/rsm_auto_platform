@@ -16,6 +16,8 @@ from app.schemas.auth import (
     PasswordResetConfirm,
     SendVerificationCodeRequest,
     SendVerificationCodeResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     WeWorkConfigResponse,
     WeWorkCallbackRequest,
     WeWorkBindRequest,
@@ -120,6 +122,30 @@ async def reset_password(
         成功消息
     """
     return AuthService.reset_password(db, reset_data)
+
+
+@router.post(
+    "/change-password", response_model=ChangePasswordResponse, summary="修改密码"
+)
+async def change_password(
+    change_data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    修改密码（需要认证）
+
+    - **old_password**: 当前密码（如果账号有密码）
+    - **new_password**: 新密码（6-100字符）
+
+    场景：
+    1. 已有密码的账号修改密码：需要验证旧密码
+    2. 纯企业微信账号设置密码：不需要旧密码
+
+    Returns:
+        修改结果
+    """
+    return AuthService.change_password(db, current_user, change_data)
 
 
 # 企业微信相关端点

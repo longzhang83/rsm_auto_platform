@@ -24,6 +24,9 @@ class User(Base):
     wework_department = Column(String(200), nullable=True)
     login_type = Column(String(20), default="password", nullable=False)  # password/wework
 
+    # 权限相关字段
+    is_admin = Column(Boolean, default=False, nullable=False)  # 是否为管理员
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
