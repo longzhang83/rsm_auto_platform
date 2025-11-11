@@ -516,8 +516,15 @@ const handleSubmit = async () => {
     }
 
     // 发送请求
+    const token = localStorage.getItem('rsm_access_token')
+    const headers = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
     const response = await fetch('/api/v1/vouchers/generate', {
       method: 'POST',
+      headers: headers,
       body: formData
     })
 
