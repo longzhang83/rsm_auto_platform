@@ -22,3 +22,10 @@ class VoucherGenerateResponse(BaseModel):
     message: str = Field(..., description="响应消息")
     file_count: int = Field(..., description="生成的文件数量")
     download_url: Optional[str] = Field(None, description="下载链接")
+
+
+class VoucherGenerateStartResponse(BaseModel):
+    """凭证生成启动响应模型（异步）"""
+
+    task_id: str = Field(..., description="任务ID")
+    message: str = Field(..., description="响应消息")

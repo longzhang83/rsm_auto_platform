@@ -341,3 +341,13 @@ export async function generateBankVouchers(formData, options = {}) {
     ...options
   })
 }
+
+// 便捷方法：费用清单转凭证
+export async function generateVouchers(formData, options = {}) {
+  return translationService.executeWithProgress({
+    formData,
+    startUrl: '/vouchers/generate/start',
+    downloadUrl: '/vouchers/download/{taskId}',
+    ...options
+  })
+}
