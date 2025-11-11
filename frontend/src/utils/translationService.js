@@ -3,14 +3,7 @@
  * 统一处理翻译相关的API调用和进度管理
  */
 
-const TOKEN_KEY = 'rsm_access_token'
-
-/**
- * 获取存储的token
- */
-function getToken() {
-  return localStorage.getItem(TOKEN_KEY)
-}
+import { fetchWithAuth, downloadFile } from '@/api/request'
 
 export class TranslationService {
   constructor() {
@@ -46,16 +39,9 @@ export class TranslationService {
     try {
       console.log('启动翻译任务:', startUrl)
 
-      // 1. 启动翻译任务
-      const headers = {}
-      const token = getToken()
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const startResponse = await fetch(startUrl, {
+      // 1. 启动翻译任务（使用统一的请求拦截器，自动添加认证）
+      const startResponse = await fetchWithAuth(startUrl, {
         method: 'POST',
-        headers: headers,
         body: formData
       })
 
@@ -266,18 +252,8 @@ export class TranslationService {
     try {
       console.log('开始下载:', downloadUrl)
 
-      const headers = {}
-      const token = getToken()
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const response = await fetch(downloadUrl, { headers })
-      if (!response.ok) {
-        throw new Error('下载失败，请重试')
-      }
-
-      const blob = await response.blob()
+      // 使用统一的下载工具（自动添加认证）
+      const blob = await downloadFile(downloadUrl)
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -308,19 +284,13 @@ export class TranslationService {
 
     if (this.currentTaskId) {
       try {
-        // 调用后端取消API
-        const cancelUrl = `/api/v1/translate/cancel/${this.currentTaskId}`
-        const headers = {
-          'Content-Type': 'application/json'
-        }
-        const token = getToken()
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`
-        }
-
-        const response = await fetch(cancelUrl, {
+        // 调用后端取消API（使用统一的请求拦截器）
+        const cancelUrl = `/translate/cancel/${this.currentTaskId}`
+        const response = await fetchWithAuth(cancelUrl, {
           method: 'POST',
-          headers: headers
+          headers: {
+            'Content-Type': 'application/json'
+          }
         })
 
         if (response.ok) {

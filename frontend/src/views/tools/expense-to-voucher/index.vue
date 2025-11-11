@@ -375,6 +375,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { uploadFile } from '@/api/request'
 
 // 表单数据
 const form = reactive({
@@ -515,18 +516,8 @@ const handleSubmit = async () => {
       formData.append('expense_sheet', form.sheetName)
     }
 
-    // 发送请求
-    const token = localStorage.getItem('rsm_access_token')
-    const headers = {}
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
-    }
-
-    const response = await fetch('/api/v1/vouchers/generate', {
-      method: 'POST',
-      headers: headers,
-      body: formData
-    })
+    // 发送请求（使用统一的上传工具，自动添加认证）
+    const response = await uploadFile('/vouchers/generate', formData)
 
     if (!response.ok) {
       throw new Error('生成失败')
