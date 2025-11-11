@@ -157,3 +157,6 @@ test*
 
 /backend/data/
 
+
+# UV configuration (environment-specific)
+.uv.toml
