@@ -1,12 +1,13 @@
 """
-Dashboard服务 - 管理统计数据和处理记录
+Dashboard服务 - 管理统计数据和处理记录（数据库持久化）
 """
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Literal, Optional
-from collections import deque
-import threading
+from sqlalchemy.orm import Session
+from sqlalchemy import func, and_
 
+from app.db.models import ProcessRecord as ProcessRecordModel
 from app.schemas.dashboard import (
     DashboardStats,
     ProcessRecord,
@@ -23,183 +24,186 @@ TIME_SAVING_RATES = {
 
 
 class DashboardService:
-    """Dashboard服务 - 单例模式"""
+    """Dashboard服务 - 使用数据库持久化存储"""
 
-    _instance = None
-    _lock = threading.Lock()
-
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-
-    def __init__(self):
-        if self._initialized:
-            return
-
-        # 处理记录 - 使用deque实现固定大小的队列
-        self._records = deque(maxlen=100)  # 最多保存100条记录
-
-        # 统计数据（不再统计金额，改为统计记录条数）
-        self._stats = {
-            "voucher_count": 0,
-            "translate_count": 0,
-            "bank_statement_count": 0,
-            "total_process_time": 0.0,
-            "process_count": 0,
-        }
-
-        # 线程锁
-        self._stats_lock = threading.Lock()
-        self._records_lock = threading.Lock()
-
-        self._initialized = True
-
+    @staticmethod
     def add_record(
-        self,
+        db: Session,
         tool: Literal["费用清单转凭证", "摘要翻译", "银行流水转凭证"],
         file_name: str,
         status: Literal["成功", "失败", "处理中"],
         duration: float,
         record_count: int = 0,
+        user_id: Optional[int] = None,
     ) -> str:
         """
-        添加处理记录
+        添加处理记录到数据库
 
         Args:
+            db: 数据库会话
             tool: 使用的工具
             file_name: 文件名
             status: 处理状态
             duration: 处理时长(秒)
             record_count: 处理记录条数
+            user_id: 用户ID（可选）
 
         Returns:
             记录ID
         """
         record_id = str(uuid.uuid4())
-        now = datetime.now()
-        record = ProcessRecord(
+
+        db_record = ProcessRecordModel(
             id=record_id,
-            time=now.strftime("%Y-%m-%d %H:%M:%S"),
             tool=tool,
             file_name=file_name,
             status=status,
-            duration=f"{duration:.1f}s",
+            duration=duration,
             record_count=record_count,
+            user_id=user_id,
         )
 
-        with self._records_lock:
-            self._records.appendleft(record)  # 新记录放在最前面
-
-        # 如果成功，更新统计数据
-        if status == "成功":
-            self._update_stats(tool, record_count, duration)
+        db.add(db_record)
+        db.commit()
+        db.refresh(db_record)
 
         return record_id
 
-    def _update_stats(
-        self, tool: str, record_count: int, duration: float
-    ):
-        """更新统计数据"""
-        with self._stats_lock:
-            if tool == "费用清单转凭证":
-                self._stats["voucher_count"] += record_count
-            elif tool == "摘要翻译":
-                self._stats["translate_count"] += record_count
-            elif tool == "银行流水转凭证":
-                self._stats["bank_statement_count"] += record_count
+    @staticmethod
+    def get_stats(db: Session) -> DashboardStats:
+        """
+        获取统计数据，包含时间节约计算（从数据库查询）
 
-            self._stats["total_process_time"] += duration
-            self._stats["process_count"] += 1
+        Args:
+            db: 数据库会话
 
-    def get_stats(self) -> DashboardStats:
-        """获取统计数据，包含时间节约计算"""
-        with self._stats_lock:
-            avg_time = 0.0
-            if self._stats["process_count"] > 0:
-                avg_time = (
-                    self._stats["total_process_time"]
-                    / self._stats["process_count"]
-                )
+        Returns:
+            统计数据
+        """
+        # 查询所有成功的记录数量（按工具分类）
+        voucher_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
+            and_(
+                ProcessRecordModel.tool == "费用清单转凭证",
+                ProcessRecordModel.status == "成功"
+            )
+        ).scalar() or 0
+
+        translate_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
+            and_(
+                ProcessRecordModel.tool == "摘要翻译",
+                ProcessRecordModel.status == "成功"
+            )
+        ).scalar() or 0
+
+        bank_statement_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
+            and_(
+                ProcessRecordModel.tool == "银行流水转凭证",
+                ProcessRecordModel.status == "成功"
+            )
+        ).scalar() or 0
+
+        # 计算平均处理时间（所有成功的记录）
+        avg_time_result = db.query(func.avg(ProcessRecordModel.duration)).filter(
+            ProcessRecordModel.status == "成功"
+        ).scalar()
+        avg_time = float(avg_time_result) if avg_time_result else 0.0
 
         # 计算不同时间范围的时间节约
-        now = datetime.now()
+        now = datetime.utcnow()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today_start - timedelta(days=now.weekday())
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
-        time_saved = {
-            "today": 0.0,
-            "week": 0.0,
-            "month": 0.0,
-            "year": 0.0,
-            "total": 0.0,
-        }
+        # 查询各个时间范围的记录
+        def calculate_time_saved(start_time: Optional[datetime] = None) -> float:
+            """计算时间节约（分钟）"""
+            query = db.query(
+                ProcessRecordModel.tool,
+                func.sum(ProcessRecordModel.record_count).label('count')
+            ).filter(ProcessRecordModel.status == "成功")
 
-        with self._records_lock:
-            for record in self._records:
-                # 只统计成功的记录
-                if record.status != "成功":
-                    continue
+            if start_time:
+                query = query.filter(ProcessRecordModel.created_at >= start_time)
 
-                # 解析记录时间
-                try:
-                    record_time = datetime.strptime(record.time, "%Y-%m-%d %H:%M:%S")
-                except ValueError:
-                    continue
+            results = query.group_by(ProcessRecordModel.tool).all()
 
-                # 计算该记录节约的时间
-                saved_minutes = TIME_SAVING_RATES.get(record.tool, 0) * record.record_count
+            total_saved = 0.0
+            for tool, count in results:
+                rate = TIME_SAVING_RATES.get(tool, 0)
+                total_saved += rate * (count or 0)
 
-                # 累加到总计
-                time_saved["total"] += saved_minutes
+            return total_saved
 
-                # 今日
-                if record_time >= today_start:
-                    time_saved["today"] += saved_minutes
+        time_saved_today = calculate_time_saved(today_start)
+        time_saved_week = calculate_time_saved(week_start)
+        time_saved_month = calculate_time_saved(month_start)
+        time_saved_year = calculate_time_saved(year_start)
+        time_saved_total = calculate_time_saved()
 
-                # 本周
-                if record_time >= week_start:
-                    time_saved["week"] += saved_minutes
+        return DashboardStats(
+            voucher_count=int(voucher_count),
+            translate_count=int(translate_count),
+            bank_statement_count=int(bank_statement_count),
+            avg_process_time=round(avg_time, 1),
+            time_saved_today=round(time_saved_today, 1),
+            time_saved_week=round(time_saved_week, 1),
+            time_saved_month=round(time_saved_month, 1),
+            time_saved_year=round(time_saved_year, 1),
+            time_saved_total=round(time_saved_total, 1),
+        )
 
-                # 本月
-                if record_time >= month_start:
-                    time_saved["month"] += saved_minutes
+    @staticmethod
+    def get_recent_records(db: Session, limit: int = 10) -> RecentRecordsResponse:
+        """
+        获取最近的处理记录（从数据库查询）
 
-                # 本年
-                if record_time >= year_start:
-                    time_saved["year"] += saved_minutes
+        Args:
+            db: 数据库会话
+            limit: 返回记录数量
 
-        with self._stats_lock:
-            return DashboardStats(
-                voucher_count=self._stats["voucher_count"],
-                translate_count=self._stats["translate_count"],
-                bank_statement_count=self._stats["bank_statement_count"],
-                avg_process_time=round(avg_time, 1),
-                time_saved_today=round(time_saved["today"], 1),
-                time_saved_week=round(time_saved["week"], 1),
-                time_saved_month=round(time_saved["month"], 1),
-                time_saved_year=round(time_saved["year"], 1),
-                time_saved_total=round(time_saved["total"], 1),
-            )
+        Returns:
+            最近的记录列表
+        """
+        # 查询最近的记录，按创建时间降序
+        db_records = db.query(ProcessRecordModel).order_by(
+            ProcessRecordModel.created_at.desc()
+        ).limit(limit).all()
 
-    def get_recent_records(self, limit: int = 10) -> RecentRecordsResponse:
-        """获取最近的处理记录"""
-        with self._records_lock:
-            records = list(self._records)[:limit]
-            return RecentRecordsResponse(
-                records=records,
-                total=len(self._records),
-            )
+        # 获取总记录数
+        total = db.query(func.count(ProcessRecordModel.id)).scalar() or 0
 
-    def get_dashboard_data(self) -> DashboardData:
-        """获取完整的dashboard数据"""
-        stats = self.get_stats()
-        recent = self.get_recent_records()
+        # 转换为schema对象
+        records = []
+        for db_record in db_records:
+            records.append(ProcessRecord(
+                id=db_record.id,
+                time=db_record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                tool=db_record.tool,
+                file_name=db_record.file_name,
+                status=db_record.status,
+                duration=f"{db_record.duration:.1f}s",
+                record_count=db_record.record_count,
+            ))
+
+        return RecentRecordsResponse(
+            records=records,
+            total=total,
+        )
+
+    @staticmethod
+    def get_dashboard_data(db: Session) -> DashboardData:
+        """
+        获取完整的dashboard数据
+
+        Args:
+            db: 数据库会话
+
+        Returns:
+            Dashboard完整数据
+        """
+        stats = DashboardService.get_stats(db)
+        recent = DashboardService.get_recent_records(db)
 
         return DashboardData(
             stats=stats,
@@ -207,50 +211,98 @@ class DashboardService:
             last_update_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         )
 
+    @staticmethod
     def update_record_status(
-        self, record_id: str, status: Literal["成功", "失败", "处理中"]
+        db: Session,
+        record_id: str,
+        status: Literal["成功", "失败", "处理中"]
     ) -> bool:
         """
         更新记录状态
 
         Args:
+            db: 数据库会话
             record_id: 记录ID
             status: 新状态
 
         Returns:
             是否更新成功
         """
-        with self._records_lock:
-            for record in self._records:
-                if record.id == record_id:
-                    record.status = status
-                    return True
+        db_record = db.query(ProcessRecordModel).filter(
+            ProcessRecordModel.id == record_id
+        ).first()
+
+        if db_record:
+            db_record.status = status
+            db.commit()
+            return True
+
         return False
 
-    def get_record(self, record_id: str) -> Optional[ProcessRecord]:
-        """获取指定记录"""
-        with self._records_lock:
-            for record in self._records:
-                if record.id == record_id:
-                    return record
+    @staticmethod
+    def get_record(db: Session, record_id: str) -> Optional[ProcessRecord]:
+        """
+        获取指定记录
+
+        Args:
+            db: 数据库会话
+            record_id: 记录ID
+
+        Returns:
+            记录对象，如果不存在则返回None
+        """
+        db_record = db.query(ProcessRecordModel).filter(
+            ProcessRecordModel.id == record_id
+        ).first()
+
+        if db_record:
+            return ProcessRecord(
+                id=db_record.id,
+                time=db_record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                tool=db_record.tool,
+                file_name=db_record.file_name,
+                status=db_record.status,
+                duration=f"{db_record.duration:.1f}s",
+                record_count=db_record.record_count,
+            )
+
         return None
 
-    def clear_stats(self):
-        """清空统计数据(仅用于测试)"""
-        with self._stats_lock:
-            self._stats = {
-                "voucher_count": 0,
-                "translate_count": 0,
-                "bank_statement_count": 0,
-                "total_process_time": 0.0,
-                "process_count": 0,
-            }
+    @staticmethod
+    def clear_stats(db: Session):
+        """清空所有统计数据(仅用于测试)"""
+        db.query(ProcessRecordModel).delete()
+        db.commit()
 
-    def clear_records(self):
-        """清空记录(仅用于测试)"""
-        with self._records_lock:
-            self._records.clear()
+    @staticmethod
+    def clear_records(db: Session):
+        """清空所有记录(仅用于测试)"""
+        db.query(ProcessRecordModel).delete()
+        db.commit()
 
 
-# 创建全局单例
-dashboard_service = DashboardService()
+# 向后兼容：创建单例包装器
+class _DashboardServiceSingleton:
+    """Dashboard服务单例包装器 - 保持向后兼容"""
+
+    def add_record(self, *args, **kwargs):
+        """需要注入db参数"""
+        raise NotImplementedError(
+            "请使用 DashboardService.add_record(db, ...) 并传入数据库会话"
+        )
+
+    def get_stats(self, *args, **kwargs):
+        """需要注入db参数"""
+        raise NotImplementedError(
+            "请使用 DashboardService.get_stats(db) 并传入数据库会话"
+        )
+
+    def get_recent_records(self, *args, **kwargs):
+        """需要注入db参数"""
+        raise NotImplementedError(
+            "请使用 DashboardService.get_recent_records(db) 并传入数据库会话"
+        )
+
+
+# 保持向后兼容的全局单例（但提示需要迁移）
+dashboard_service = _DashboardServiceSingleton()

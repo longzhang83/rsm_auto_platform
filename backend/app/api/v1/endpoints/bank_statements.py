@@ -26,7 +26,8 @@ from app.schemas.bank_statement import (
 from app.utils.logger import get_logger
 from app.core.config import settings
 from app.core.progress_manager import progress_manager
-from app.services.dashboard_service import dashboard_service
+from app.services.dashboard_service import DashboardService
+from app.db.database import get_db
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -114,13 +115,19 @@ async def start_bank_statement_vouchers_generation(
 
                     # 添加dashboard统计
                     duration = time.time() - start_time
-                    dashboard_service.add_record(
-                        tool="银行流水转凭证",
-                        file_name=bank_statement_file.filename,
-                        status="成功",
-                        duration=duration,
-                        record_count=processed_records
-                    )
+                    # 创建新的数据库会话用于后台任务
+                    db = next(get_db())
+                    try:
+                        DashboardService.add_record(
+                            db=db,
+                            tool="银行流水转凭证",
+                            file_name=bank_statement_file.filename,
+                            status="成功",
+                            duration=duration,
+                            record_count=processed_records
+                        )
+                    finally:
+                        db.close()
                 except Exception as file_error:
                     logger.error(f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}")
                     # 如果Excel处理失败，存储错误信息
@@ -135,13 +142,19 @@ async def start_bank_statement_vouchers_generation(
 
                     # 添加dashboard统计（失败）
                     duration = time.time() - start_time
-                    dashboard_service.add_record(
-                        tool="银行流水转凭证",
-                        file_name=bank_statement_file.filename,
-                        status="失败",
-                        duration=duration,
-                        record_count=0  # 失败时记录数为0
-                    )
+                    # 创建新的数据库会话用于后台任务
+                    db = next(get_db())
+                    try:
+                        DashboardService.add_record(
+                            db=db,
+                            tool="银行流水转凭证",
+                            file_name=bank_statement_file.filename,
+                            status="失败",
+                            duration=duration,
+                            record_count=0  # 失败时记录数为0
+                        )
+                    finally:
+                        db.close()
 
             except Exception as e:
                 logger.error(f"[DEBUG] 银行流水转凭证任务失败: {current_task_id}, 错误: {e}")
@@ -151,13 +164,19 @@ async def start_bank_statement_vouchers_generation(
 
                 # 添加dashboard统计（失败）
                 duration = time.time() - start_time
-                dashboard_service.add_record(
-                    tool="银行流水转凭证",
-                    file_name=bank_statement_file.filename,
-                    status="失败",
-                    duration=duration,
-                    record_count=0  # 失败时记录数为0
-                )
+                # 创建新的数据库会话用于后台任务
+                db = next(get_db())
+                try:
+                    DashboardService.add_record(
+                        db=db,
+                        tool="银行流水转凭证",
+                        file_name=bank_statement_file.filename,
+                        status="失败",
+                        duration=duration,
+                        record_count=0  # 失败时记录数为0
+                    )
+                finally:
+                    db.close()
 
         # 启动后台任务
         logger.info(f"[DEBUG] 创建后台银行流水转凭证任务，任务ID: {task_id}")

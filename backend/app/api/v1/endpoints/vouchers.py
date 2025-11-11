@@ -5,10 +5,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 from app.schemas.voucher import VoucherGenerateRequest, VoucherGenerateResponse
 from app.services.voucher_service import VoucherService
-from app.services.dashboard_service import dashboard_service
+from app.services.dashboard_service import DashboardService
+from app.db.database import get_db
 
 router = APIRouter()
 voucher_service = VoucherService()
@@ -26,6 +28,7 @@ async def generate_vouchers(
     start_seq: int = Form(0),
     expense_period: Optional[str] = Form(None),
     expense_sheet: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """
     生成会计凭证
@@ -64,7 +67,8 @@ async def generate_vouchers(
 
         # 记录成功的处理
         # TODO: 优化为统计实际生成的凭证条数
-        dashboard_service.add_record(
+        DashboardService.add_record(
+            db=db,
             tool="费用清单转凭证",
             file_name=expense_file.filename,
             status="成功",
@@ -82,7 +86,8 @@ async def generate_vouchers(
     except HTTPException as e:
         # 记录失败的处理
         duration = time.time() - start_time
-        dashboard_service.add_record(
+        DashboardService.add_record(
+            db=db,
             tool="费用清单转凭证",
             file_name=expense_file.filename,
             status="失败",
@@ -94,7 +99,8 @@ async def generate_vouchers(
     except Exception as exc:
         # 记录失败的处理
         duration = time.time() - start_time
-        dashboard_service.add_record(
+        DashboardService.add_record(
+            db=db,
             tool="费用清单转凭证",
             file_name=expense_file.filename,
             status="失败",

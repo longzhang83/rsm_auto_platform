@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from app.schemas.translate import TranslateRequest, CacheItem, CacheUpdateRequest
 from app.services.translate_service import TranslateService
 from app.core.progress_manager import progress_manager
-from app.services.dashboard_service import dashboard_service
+from app.services.dashboard_service import DashboardService
+from app.db.database import get_db
 
 router = APIRouter()
 translate_service = TranslateService()
@@ -106,13 +107,19 @@ async def start_translation(
 
                 # 记录成功的处理到Dashboard
                 # TODO: 优化为统计实际翻译的记录条数
-                dashboard_service.add_record(
-                    tool="摘要翻译",
-                    file_name=excel_filename,
-                    status="成功",
-                    duration=duration,
-                    record_count=1,  # 暂时记录为1个文件，后续可优化为实际翻译条数
-                )
+                # 创建新的数据库会话用于后台任务
+                db = next(get_db())
+                try:
+                    DashboardService.add_record(
+                        db=db,
+                        tool="摘要翻译",
+                        file_name=excel_filename,
+                        status="成功",
+                        duration=duration,
+                        record_count=1,  # 暂时记录为1个文件，后续可优化为实际翻译条数
+                    )
+                finally:
+                    db.close()
 
             except Exception as e:
                 # 计算处理时长
@@ -124,13 +131,19 @@ async def start_translation(
                 progress_manager.fail_task(current_task_id, str(e))
 
                 # 记录失败的处理到Dashboard
-                dashboard_service.add_record(
-                    tool="摘要翻译",
-                    file_name=excel_filename,
-                    status="失败",
-                    duration=duration,
-                    record_count=0,  # 失败时记录数为0
-                )
+                # 创建新的数据库会话用于后台任务
+                db = next(get_db())
+                try:
+                    DashboardService.add_record(
+                        db=db,
+                        tool="摘要翻译",
+                        file_name=excel_filename,
+                        status="失败",
+                        duration=duration,
+                        record_count=0,  # 失败时记录数为0
+                    )
+                finally:
+                    db.close()
 
         # 启动后台任务
         print(f"[DEBUG] 创建后台任务，任务ID: {task_id}")

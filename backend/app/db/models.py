@@ -1,7 +1,7 @@
 """
 数据库模型
 """
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -36,3 +36,22 @@ class VerificationCode(Base):
 
     def __repr__(self):
         return f"<VerificationCode(email={self.email}, type={self.code_type}, verified={self.is_verified})>"
+
+
+class ProcessRecord(Base):
+    """处理记录模型 - 存储Dashboard处理记录"""
+    __tablename__ = "process_records"
+
+    id = Column(String(36), primary_key=True)  # UUID
+    tool = Column(String(50), nullable=False, index=True)  # 工具名称：费用清单转凭证/摘要翻译/银行流水转凭证
+    file_name = Column(String(255), nullable=False)  # 文件名
+    status = Column(String(20), nullable=False, index=True)  # 状态：成功/失败/处理中
+    duration = Column(Float, nullable=False)  # 处理时长（秒）
+    record_count = Column(Integer, default=0)  # 处理记录条数
+    user_id = Column(Integer, index=True, nullable=True)  # 关联用户ID（可选）
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<ProcessRecord(id={self.id}, tool={self.tool}, status={self.status})>"
+
