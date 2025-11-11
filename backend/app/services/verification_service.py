@@ -76,9 +76,16 @@ class VerificationService:
             allowed_domains = settings.allowed_email_domains
             return False, f"邮箱域名必须为: {allowed_domains}"
 
+        from app.db.models import User
+
+        # 如果是注册，需要检查邮箱是否已被使用
+        if code_type == "register":
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                return False, "该邮箱已被注册，请使用其他邮箱或直接登录"
+
         # 如果是密码重置，需要检查邮箱是否已注册
         if code_type == "reset_password":
-            from app.db.models import User
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 return False, "该邮箱未注册"
