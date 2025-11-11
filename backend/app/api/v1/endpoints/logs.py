@@ -5,11 +5,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.utils.logger import log_manager, get_logger
@@ -32,14 +31,14 @@ async def get_log_info():
                     "path": str(path),
                     "exists": True,
                     "size": path.stat().st_size,
-                    "modified": path.stat().st_mtime
+                    "modified": path.stat().st_mtime,
                 }
             else:
                 file_info[name] = {
                     "path": str(path),
                     "exists": False,
                     "size": 0,
-                    "modified": 0
+                    "modified": 0,
                 }
 
         return {
@@ -51,7 +50,7 @@ async def get_log_info():
             "max_file_size": settings.log_max_file_size,
             "backup_count": settings.log_backup_count,
             "retention_days": settings.log_retention_days,
-            "files": file_info
+            "files": file_info,
         }
     except Exception as e:
         logger.error(f"获取日志信息失败: {e}")
@@ -70,22 +69,20 @@ async def get_log_files():
         files = []
         for file_path in log_dir.glob("*.log*"):
             stat = file_path.stat()
-            files.append({
-                "name": file_path.name,
-                "path": str(file_path),
-                "size": stat.st_size,
-                "modified": stat.st_mtime,
-                "is_readable": os.access(file_path, os.R_OK)
-            })
+            files.append(
+                {
+                    "name": file_path.name,
+                    "path": str(file_path),
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime,
+                    "is_readable": os.access(file_path, os.R_OK),
+                }
+            )
 
         # 按修改时间排序
         files.sort(key=lambda x: x["modified"], reverse=True)
 
-        return {
-            "directory": str(log_dir),
-            "exists": True,
-            "files": files
-        }
+        return {"directory": str(log_dir), "exists": True, "files": files}
     except Exception as e:
         logger.error(f"获取日志文件列表失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取日志文件列表失败: {e}")
@@ -109,14 +106,12 @@ async def download_log_file(filename: str):
             raise HTTPException(status_code=400, detail="指定的路径不是文件")
 
         # 检查文件是否为日志文件
-        if not filename.endswith((".log", ".log.gz", ".log.1", ".log.2", ".log.3", ".log.4", ".log.5")):
+        if not filename.endswith(
+            (".log", ".log.gz", ".log.1", ".log.2", ".log.3", ".log.4", ".log.5")
+        ):
             raise HTTPException(status_code=400, detail="只能下载日志文件")
 
-        return FileResponse(
-            path=file_path,
-            filename=filename,
-            media_type="text/plain"
-        )
+        return FileResponse(path=file_path, filename=filename, media_type="text/plain")
     except HTTPException:
         raise
     except Exception as e:
@@ -129,7 +124,7 @@ async def view_log_file(
     filename: str,
     lines: int = Query(default=100, ge=1, le=10000, description="显示的行数"),
     offset: int = Query(default=0, ge=0, description="跳过的行数"),
-    search: Optional[str] = Query(default=None, description="搜索关键词")
+    search: Optional[str] = Query(default=None, description="搜索关键词"),
 ):
     """查看日志文件内容"""
     try:
@@ -148,19 +143,18 @@ async def view_log_file(
 
         # 读取文件内容
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 all_lines = f.readlines()
         except UnicodeDecodeError:
             # 如果UTF-8解码失败，尝试其他编码
-            with open(file_path, 'r', encoding='gbk', errors='ignore') as f:
+            with open(file_path, "r", encoding="gbk", errors="ignore") as f:
                 all_lines = f.readlines()
 
         # 应用搜索过滤
         if search:
             search_lower = search.lower()
             filtered_lines = [
-                line for line in all_lines
-                if search_lower in line.lower()
+                line for line in all_lines if search_lower in line.lower()
             ]
         else:
             filtered_lines = all_lines
@@ -180,7 +174,7 @@ async def view_log_file(
             "lines_returned": len(page_lines),
             "has_more": end_idx < total_lines,
             "search_term": search,
-            "content": "".join(page_lines)
+            "content": "".join(page_lines),
         }
     except HTTPException:
         raise
@@ -192,7 +186,7 @@ async def view_log_file(
 @router.delete("/cleanup", summary="清理旧日志文件")
 async def cleanup_old_logs(
     background_tasks: BackgroundTasks,
-    days: int = Query(default=30, ge=1, le=365, description="保留天数")
+    days: int = Query(default=30, ge=1, le=365, description="保留天数"),
 ):
     """清理指定天数之前的日志文件"""
     try:
@@ -202,9 +196,9 @@ async def cleanup_old_logs(
         logger.info(f"已启动日志清理任务，保留 {days} 天内的日志")
 
         return {
-            "message": f"日志清理任务已启动",
+            "message": "日志清理任务已启动",
             "retention_days": days,
-            "status": "running"
+            "status": "running",
         }
     except Exception as e:
         logger.error(f"启动日志清理任务失败: {e}")
@@ -214,8 +208,10 @@ async def cleanup_old_logs(
 @router.get("/search", summary="搜索日志内容")
 async def search_logs(
     query: str = Query(..., min_length=1, description="搜索关键词"),
-    filename: Optional[str] = Query(default=None, description="指定文件名，不指定则搜索所有文件"),
-    max_results: int = Query(default=100, ge=1, le=1000, description="最大结果数")
+    filename: Optional[str] = Query(
+        default=None, description="指定文件名，不指定则搜索所有文件"
+    ),
+    max_results: int = Query(default=100, ge=1, le=1000, description="最大结果数"),
 ):
     """在日志文件中搜索关键词"""
     try:
@@ -241,22 +237,24 @@ async def search_logs(
                 continue
 
             try:
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                     lines = f.readlines()
 
                 file_results = []
                 for line_num, line in enumerate(lines, 1):
                     if query_lower in line.lower():
-                        file_results.append({
-                            "line_number": line_num,
-                            "content": line.strip(),
-                            "filename": file_path.name
-                        })
+                        file_results.append(
+                            {
+                                "line_number": line_num,
+                                "content": line.strip(),
+                                "filename": file_path.name,
+                            }
+                        )
 
                         if len(results) + len(file_results) >= max_results:
                             break
 
-                results.extend(file_results[-(max_results - len(results)):])
+                results.extend(file_results[-(max_results - len(results)) :])
 
                 if len(results) >= max_results:
                     break
@@ -270,7 +268,7 @@ async def search_logs(
             "total_files_searched": total_files,
             "total_results": len(results),
             "max_results": max_results,
-            "results": results
+            "results": results,
         }
     except HTTPException:
         raise
@@ -282,7 +280,7 @@ async def search_logs(
 @router.get("/tail/{filename}", summary="获取日志文件尾部内容")
 async def tail_log_file(
     filename: str,
-    lines: int = Query(default=50, ge=1, le=1000, description="显示的行数")
+    lines: int = Query(default=50, ge=1, le=1000, description="显示的行数"),
 ):
     """获取日志文件的最后N行内容"""
     try:
@@ -298,7 +296,7 @@ async def tail_log_file(
 
         # 读取文件最后几行
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 all_lines = f.readlines()
                 tail_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
         except Exception as e:
@@ -308,7 +306,7 @@ async def tail_log_file(
             "filename": filename,
             "total_lines": len(all_lines),
             "tail_lines": len(tail_lines),
-            "content": "".join(tail_lines)
+            "content": "".join(tail_lines),
         }
     except HTTPException:
         raise

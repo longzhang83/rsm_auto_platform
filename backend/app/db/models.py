@@ -1,6 +1,7 @@
 """
 数据库模型
 """
+
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float
 from sqlalchemy.sql import func
 from app.db.database import Base
@@ -8,6 +9,7 @@ from app.db.database import Base
 
 class User(Base):
     """用户模型"""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -23,12 +25,15 @@ class User(Base):
 
 class VerificationCode(Base):
     """邮箱验证码模型"""
+
     __tablename__ = "verification_codes"
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(100), index=True, nullable=False)
     code = Column(String(10), nullable=False)
-    code_type = Column(String(20), default="register", nullable=False)  # register 或 reset_password
+    code_type = Column(
+        String(20), default="register", nullable=False
+    )  # register 或 reset_password
     is_verified = Column(Boolean, default=False)
     attempts = Column(Integer, default=0)  # 验证尝试次数
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -40,10 +45,13 @@ class VerificationCode(Base):
 
 class ProcessRecord(Base):
     """处理记录模型 - 存储Dashboard处理记录"""
+
     __tablename__ = "process_records"
 
     id = Column(String(36), primary_key=True)  # UUID
-    tool = Column(String(50), nullable=False, index=True)  # 工具名称：费用清单转凭证/摘要翻译/银行流水转凭证
+    tool = Column(
+        String(50), nullable=False, index=True
+    )  # 工具名称：费用清单转凭证/摘要翻译/银行流水转凭证
     file_name = Column(String(255), nullable=False)  # 文件名
     status = Column(String(20), nullable=False, index=True)  # 状态：成功/失败/处理中
     duration = Column(Float, nullable=False)  # 处理时长（秒）
@@ -54,4 +62,3 @@ class ProcessRecord(Base):
 
     def __repr__(self):
         return f"<ProcessRecord(id={self.id}, tool={self.tool}, status={self.status})>"
-

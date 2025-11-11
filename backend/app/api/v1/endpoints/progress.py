@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from app.core.progress_manager import progress_manager
 
@@ -16,6 +16,7 @@ async def get_progress_stream(task_id: str):
 
     使用Server-Sent Events实时推送进度更新，避免复杂队列机制
     """
+
     async def generate():
         """生成SSE数据流"""
         # 强制立即发送一个测试信号，确保连接活跃
@@ -35,12 +36,12 @@ async def get_progress_stream(task_id: str):
 
             # 发送初始状态
             progress_data = {
-                'percentage': initial_progress.percentage,
-                'message': initial_progress.message,
-                'completed': initial_progress.completed,
-                'total': initial_progress.total,
-                'current_item': initial_progress.current_item,
-                'cancelled': initial_progress.cancelled
+                "percentage": initial_progress.percentage,
+                "message": initial_progress.message,
+                "completed": initial_progress.completed,
+                "total": initial_progress.total,
+                "current_item": initial_progress.current_item,
+                "cancelled": initial_progress.cancelled,
             }
             yield f"data: {json.dumps(progress_data)}\n\n"
 
@@ -64,12 +65,12 @@ async def get_progress_stream(task_id: str):
                 # 只有在进度有变化时才发送更新
                 if current_progress.percentage != last_percentage:
                     progress_data = {
-                        'percentage': current_progress.percentage,
-                        'message': current_progress.message,
-                        'completed': current_progress.completed,
-                        'total': current_progress.total,
-                        'current_item': current_progress.current_item,
-                        'cancelled': current_progress.cancelled
+                        "percentage": current_progress.percentage,
+                        "message": current_progress.message,
+                        "completed": current_progress.completed,
+                        "total": current_progress.total,
+                        "current_item": current_progress.current_item,
+                        "cancelled": current_progress.cancelled,
                     }
                     yield f"data: {json.dumps(progress_data)}\n\n"
                     last_percentage = current_progress.percentage
@@ -97,7 +98,7 @@ async def get_progress_stream(task_id: str):
                 "message": f"监听错误: {str(e)}",
                 "completed": 0,
                 "total": 0,
-                "current_item": ""
+                "current_item": "",
             }
             yield f"data: {json.dumps(error_data)}\n\n"
 
@@ -108,8 +109,8 @@ async def get_progress_stream(task_id: str):
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Expose-Headers": "*",
-            "X-Accel-Buffering": "no"  # 禁用代理缓冲
-        }
+            "X-Accel-Buffering": "no",  # 禁用代理缓冲
+        },
     )
 
 
@@ -127,5 +128,5 @@ async def get_progress_status(task_id: str):
         "message": progress.message,
         "completed": progress.completed,
         "total": progress.total,
-        "current_item": progress.current_item
+        "current_item": progress.current_item,
     }

@@ -1,6 +1,7 @@
 """
 Dashboard API端点
 """
+
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -47,16 +48,12 @@ async def get_recent_records(limit: int = 10, db: Session = Depends(get_db)):
         最近处理记录列表
     """
     if limit < 1 or limit > 100:
-        raise HTTPException(
-            status_code=400, detail="limit必须在1-100之间"
-        )
+        raise HTTPException(status_code=400, detail="limit必须在1-100之间")
 
     return DashboardService.get_recent_records(db, limit)
 
 
-@router.get(
-    "/data", response_model=DashboardData, summary="获取完整Dashboard数据"
-)
+@router.get("/data", response_model=DashboardData, summary="获取完整Dashboard数据")
 async def get_dashboard_data(db: Session = Depends(get_db)):
     """
     获取完整的Dashboard数据

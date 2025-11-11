@@ -1,6 +1,7 @@
 """
 邮件服务
 """
+
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -33,10 +34,10 @@ class EmailService:
 
         try:
             # 创建邮件
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = Header('账户注册验证码', 'utf-8')
-            msg['From'] = f"{settings.email_from_name} <{settings.smtp_username}>"
-            msg['To'] = email
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = Header("账户注册验证码", "utf-8")
+            msg["From"] = f"{settings.email_from_name} <{settings.smtp_username}>"
+            msg["To"] = email
 
             # HTML邮件内容
             html_content = f"""
@@ -71,14 +72,16 @@ class EmailService:
             """
 
             # 添加HTML内容
-            part = MIMEText(html_content, 'html', 'utf-8')
+            part = MIMEText(html_content, "html", "utf-8")
             msg.attach(part)
 
             # 发送邮件
             # 根据端口选择SSL或STARTTLS连接方式
             if settings.smtp_port == 465:
                 # 使用SSL加密连接（端口465）
-                with smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port) as server:
+                with smtplib.SMTP_SSL(
+                    settings.smtp_server, settings.smtp_port
+                ) as server:
                     server.login(settings.smtp_username, settings.smtp_password)
                     server.send_message(msg)
             else:
@@ -92,7 +95,7 @@ class EmailService:
             return True
 
         except smtplib.SMTPAuthenticationError:
-            logger.error(f"SMTP认证失败: 用户名或密码不正确")
+            logger.error("SMTP认证失败: 用户名或密码不正确")
             return False
         except smtplib.SMTPException as e:
             logger.error(f"邮件发送失败: {str(e)}")
@@ -120,10 +123,10 @@ class EmailService:
 
         try:
             # 创建邮件
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = Header('密码重置验证码', 'utf-8')
-            msg['From'] = f"{settings.email_from_name} <{settings.smtp_username}>"
-            msg['To'] = email
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = Header("密码重置验证码", "utf-8")
+            msg["From"] = f"{settings.email_from_name} <{settings.smtp_username}>"
+            msg["To"] = email
 
             # HTML邮件内容
             html_content = f"""
@@ -158,14 +161,16 @@ class EmailService:
             """
 
             # 添加HTML内容
-            part = MIMEText(html_content, 'html', 'utf-8')
+            part = MIMEText(html_content, "html", "utf-8")
             msg.attach(part)
 
             # 发送邮件
             # 根据端口选择SSL或STARTTLS连接方式
             if settings.smtp_port == 465:
                 # 使用SSL加密连接（端口465）
-                with smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port) as server:
+                with smtplib.SMTP_SSL(
+                    settings.smtp_server, settings.smtp_port
+                ) as server:
                     server.login(settings.smtp_username, settings.smtp_password)
                     server.send_message(msg)
             else:
@@ -179,7 +184,7 @@ class EmailService:
             return True
 
         except smtplib.SMTPAuthenticationError:
-            logger.error(f"SMTP认证失败: 用户名或密码不正确")
+            logger.error("SMTP认证失败: 用户名或密码不正确")
             return False
         except smtplib.SMTPException as e:
             logger.error(f"邮件发送失败: {str(e)}")

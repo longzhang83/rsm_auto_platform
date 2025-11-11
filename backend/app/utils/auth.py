@@ -1,6 +1,7 @@
 """
 认证工具 - JWT和密码加密
 """
+
 from datetime import datetime, timedelta
 from typing import Optional
 from passlib.context import CryptContext
@@ -9,16 +10,18 @@ import os
 
 # 密码加密上下文 - 使用pbkdf2_sha256替代bcrypt避免兼容性问题
 pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto",
-    pbkdf2_sha256__default_rounds=30000
+    schemes=["pbkdf2_sha256"], deprecated="auto", pbkdf2_sha256__default_rounds=30000
 )
 
 # JWT配置
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-2025")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080"))  # 默认7天
-PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "60"))  # 默认1小时
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "10080")
+)  # 默认7天
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "60")
+)  # 默认1小时
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -99,11 +102,7 @@ def create_password_reset_token(email: str) -> str:
     """
     expires_delta = timedelta(minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
     expire = datetime.utcnow() + expires_delta
-    to_encode = {
-        "sub": email,
-        "type": "password_reset",
-        "exp": expire
-    }
+    to_encode = {"sub": email, "type": "password_reset", "exp": expire}
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 

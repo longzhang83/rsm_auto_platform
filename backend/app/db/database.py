@@ -1,6 +1,7 @@
 """
 数据库配置和会话管理
 """
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./rsm_auto_platform.db")
 # 创建数据库引擎
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+    connect_args={"check_same_thread": False}
+    if DATABASE_URL.startswith("sqlite")
+    else {},
 )
 
 # 创建SessionLocal类

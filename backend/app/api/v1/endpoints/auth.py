@@ -1,7 +1,8 @@
 """
 认证相关API端点
 """
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import User
@@ -14,7 +15,7 @@ from app.schemas.auth import (
     PasswordResetResponse,
     PasswordResetConfirm,
     SendVerificationCodeRequest,
-    SendVerificationCodeResponse
+    SendVerificationCodeResponse,
 )
 from app.services.auth_service import AuthService
 from app.services.verification_service import VerificationService
@@ -23,10 +24,13 @@ from app.api.dependencies import get_current_user
 router = APIRouter()
 
 
-@router.post("/send-verification-code", response_model=SendVerificationCodeResponse, summary="发送邮箱验证码")
+@router.post(
+    "/send-verification-code",
+    response_model=SendVerificationCodeResponse,
+    summary="发送邮箱验证码",
+)
 async def send_verification_code(
-    request: SendVerificationCodeRequest,
-    db: Session = Depends(get_db)
+    request: SendVerificationCodeRequest, db: Session = Depends(get_db)
 ):
     """
     发送邮箱验证码
@@ -42,10 +46,7 @@ async def send_verification_code(
 
 
 @router.post("/register", response_model=UserResponse, summary="用户注册")
-async def register(
-    user_data: UserCreate,
-    db: Session = Depends(get_db)
-):
+async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """
     用户注册
 
@@ -58,10 +59,7 @@ async def register(
 
 
 @router.post("/login", response_model=Token, summary="用户登录")
-async def login(
-    login_data: UserLogin,
-    db: Session = Depends(get_db)
-):
+async def login(login_data: UserLogin, db: Session = Depends(get_db)):
     """
     用户登录
 
@@ -75,9 +73,7 @@ async def login(
 
 
 @router.get("/me", response_model=UserResponse, summary="获取当前用户信息")
-async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
-):
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """
     获取当前登录用户的信息
 
@@ -86,10 +82,11 @@ async def get_current_user_info(
     return UserResponse.model_validate(current_user)
 
 
-@router.post("/forgot-password", response_model=PasswordResetResponse, summary="请求重置密码")
+@router.post(
+    "/forgot-password", response_model=PasswordResetResponse, summary="请求重置密码"
+)
 async def forgot_password(
-    request_data: PasswordResetRequest,
-    db: Session = Depends(get_db)
+    request_data: PasswordResetRequest, db: Session = Depends(get_db)
 ):
     """
     请求重置密码
@@ -104,8 +101,7 @@ async def forgot_password(
 
 @router.post("/reset-password", summary="重置密码")
 async def reset_password(
-    reset_data: PasswordResetConfirm,
-    db: Session = Depends(get_db)
+    reset_data: PasswordResetConfirm, db: Session = Depends(get_db)
 ):
     """
     重置密码

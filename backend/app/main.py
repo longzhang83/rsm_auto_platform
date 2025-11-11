@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.utils.logger import setup_logging, get_logger, get_translation_logger, get_summary_logger
+from app.utils.logger import (
+    setup_logging,
+    get_logger,
+    get_translation_logger,
+    get_summary_logger,
+)
 from app.db.database import engine, Base
-from app.db import models  # 导入models以确保表被创建
 
 # 设置日志系统
 setup_logging(
@@ -78,7 +81,7 @@ if settings.environment == "development":
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3001"
+        "http://127.0.0.1:3001",
     ]
 else:
     # 生产环境：允许来自nginx的请求
@@ -106,7 +109,7 @@ async def root():
         "docs": "/docs",
         "api": "/api/v1",
         "health": "/health",
-        "mode": "api-only"
+        "mode": "api-only",
     }
 
 
@@ -119,5 +122,5 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment,
         "mode": "api-only",
-        "service": "accounting-voucher-generation-api"
+        "service": "accounting-voucher-generation-api",
     }

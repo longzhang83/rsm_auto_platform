@@ -1,11 +1,26 @@
 """
 认证服务
 """
+
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.db.models import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token, PasswordResetRequest, PasswordResetResponse, PasswordResetConfirm
-from app.utils.auth import get_password_hash, verify_password, create_access_token, create_password_reset_token, verify_password_reset_token
+from app.schemas.auth import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    Token,
+    PasswordResetRequest,
+    PasswordResetResponse,
+    PasswordResetConfirm,
+)
+from app.utils.auth import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    create_password_reset_token,
+    verify_password_reset_token,
+)
 from app.services.verification_service import VerificationService
 
 
@@ -32,25 +47,22 @@ class AuthService:
             db, user_data.email, user_data.verification_code
         )
         if not success:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=message
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
         # 检查用户名是否存在
-        existing_user = db.query(User).filter(User.username == user_data.username).first()
+        existing_user = (
+            db.query(User).filter(User.username == user_data.username).first()
+        )
         if existing_user:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="用户名已存在"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="用户名已存在"
             )
 
         # 检查邮箱是否存在
         existing_email = db.query(User).filter(User.email == user_data.email).first()
         if existing_email:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="邮箱已被注册"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="邮箱已被注册"
             )
 
         # 创建新用户
@@ -58,7 +70,7 @@ class AuthService:
         db_user = User(
             username=user_data.username,
             email=user_data.email,
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
         )
         db.add(db_user)
         db.commit()
@@ -101,10 +113,7 @@ class AuthService:
         # 创建访问令牌
         access_token = create_access_token(data={"sub": user.username})
 
-        return Token(
-            access_token=access_token,
-            user=UserResponse.model_validate(user)
-        )
+        return Token(access_token=access_token, user=UserResponse.model_validate(user))
 
     @staticmethod
     def get_user_by_username(db: Session, username: str) -> User:
@@ -124,13 +133,14 @@ class AuthService:
         user = db.query(User).filter(User.username == username).first()
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
+                status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在"
             )
         return user
 
     @staticmethod
-    def request_password_reset(db: Session, request_data: PasswordResetRequest) -> PasswordResetResponse:
+    def request_password_reset(
+        db: Session, request_data: PasswordResetRequest
+    ) -> PasswordResetResponse:
         """
         请求重置密码
 
@@ -150,7 +160,7 @@ class AuthService:
             # 明确告知用户该邮箱未注册
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="该邮箱未注册，请先注册账号"
+                detail="该邮箱未注册，请先注册账号",
             )
 
         # 生成重置token（验证码）
@@ -160,7 +170,7 @@ class AuthService:
         # 这里为了开发方便，直接返回token
         return PasswordResetResponse(
             message="密码重置链接已生成",
-            reset_token=reset_token  # 仅用于开发，生产环境应该通过邮件发送
+            reset_token=reset_token,  # 仅用于开发，生产环境应该通过邮件发送
         )
 
     @staticmethod
@@ -183,15 +193,14 @@ class AuthService:
         if not email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="重置密码链接无效或已过期"
+                detail="重置密码链接无效或已过期",
             )
 
         # 查找用户
         user = db.query(User).filter(User.email == email).first()
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在"
+                status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在"
             )
 
         # 更新密码

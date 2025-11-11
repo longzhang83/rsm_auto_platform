@@ -1,11 +1,11 @@
 """
 验证码服务
 """
+
 import secrets
 import string
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.db.models import VerificationCode
 from app.core.config import settings
@@ -34,7 +34,7 @@ class VerificationService:
             length = settings.verification_code_length
 
         # 生成纯数字验证码
-        return ''.join(secrets.choice(string.digits) for _ in range(length))
+        return "".join(secrets.choice(string.digits) for _ in range(length))
 
     @staticmethod
     def validate_email_domain(email: str) -> bool:
@@ -48,18 +48,19 @@ class VerificationService:
             是否允许
         """
         allowed_domains = [
-            d.strip().lower()
-            for d in settings.allowed_email_domains.split(',')
+            d.strip().lower() for d in settings.allowed_email_domains.split(",")
         ]
 
-        if '@' not in email:
+        if "@" not in email:
             return False
 
-        domain = email.split('@')[1].lower()
+        domain = email.split("@")[1].lower()
         return domain in allowed_domains
 
     @staticmethod
-    def send_code(db: Session, email: str, code_type: str = "register") -> tuple[bool, str]:
+    def send_code(
+        db: Session, email: str, code_type: str = "register"
+    ) -> tuple[bool, str]:
         """
         发送验证码到邮箱
 
@@ -91,11 +92,16 @@ class VerificationService:
                 return False, "该邮箱未注册"
 
         # 检查是否在1分钟内已发送过验证码
-        recent_code = db.query(VerificationCode).filter(
-            VerificationCode.email == email,
-            VerificationCode.code_type == code_type,
-            VerificationCode.created_at > datetime.utcnow() - timedelta(minutes=1)
-        ).order_by(VerificationCode.created_at.desc()).first()
+        recent_code = (
+            db.query(VerificationCode)
+            .filter(
+                VerificationCode.email == email,
+                VerificationCode.code_type == code_type,
+                VerificationCode.created_at > datetime.utcnow() - timedelta(minutes=1),
+            )
+            .order_by(VerificationCode.created_at.desc())
+            .first()
+        )
 
         if recent_code and not recent_code.is_verified:
             return False, "请勿频繁发送验证码，请1分钟后再试"
@@ -104,14 +110,13 @@ class VerificationService:
         code = VerificationService.generate_code()
 
         # 计算过期时间
-        expires_at = datetime.utcnow() + timedelta(seconds=settings.verification_code_expiry)
+        expires_at = datetime.utcnow() + timedelta(
+            seconds=settings.verification_code_expiry
+        )
 
         # 保存到数据库
         verification_code = VerificationCode(
-            email=email,
-            code=code,
-            code_type=code_type,
-            expires_at=expires_at
+            email=email, code=code, code_type=code_type, expires_at=expires_at
         )
         db.add(verification_code)
         db.commit()
@@ -134,7 +139,9 @@ class VerificationService:
             return False, "验证码发送失败，请稍后重试"
 
     @staticmethod
-    def verify_code(db: Session, email: str, code: str, code_type: str = "register") -> tuple[bool, str]:
+    def verify_code(
+        db: Session, email: str, code: str, code_type: str = "register"
+    ) -> tuple[bool, str]:
         """
         验证邮箱验证码
 
@@ -148,11 +155,16 @@ class VerificationService:
             (是否成功, 消息)
         """
         # 查询最新的未验证码
-        verification_code = db.query(VerificationCode).filter(
-            VerificationCode.email == email,
-            VerificationCode.code_type == code_type,
-            VerificationCode.is_verified == False
-        ).order_by(VerificationCode.created_at.desc()).first()
+        verification_code = (
+            db.query(VerificationCode)
+            .filter(
+                VerificationCode.email == email,
+                VerificationCode.code_type == code_type,
+                ~VerificationCode.is_verified,
+            )
+            .order_by(VerificationCode.created_at.desc())
+            .first()
+        )
 
         if not verification_code:
             return False, "请先发送验证码"
@@ -190,9 +202,11 @@ class VerificationService:
         Returns:
             删除的记录数
         """
-        result = db.query(VerificationCode).filter(
-            VerificationCode.expires_at < datetime.utcnow()
-        ).delete()
+        result = (
+            db.query(VerificationCode)
+            .filter(VerificationCode.expires_at < datetime.utcnow())
+            .delete()
+        )
         db.commit()
         logger.info(f"清理了{result}条过期的验证码")
         return result

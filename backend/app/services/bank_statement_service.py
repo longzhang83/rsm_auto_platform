@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
-from datetime import datetime
-import asyncio
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 from fastapi import UploadFile, HTTPException
 
 from accounting_voucher_generation.bank_statement_pipeline import (
     BankStatementConfig,
-    generate_bank_statement_vouchers,
     generate_bank_statement_vouchers_from_bytes,
     load_bank_statement_column_mapping,
     load_accounting_subject_mapping,
@@ -73,18 +69,20 @@ class BankStatementService:
 
             # 验证映射文件是否存在
             column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
-            subject_mapping_path = self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            subject_mapping_path = (
+                self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            )
 
             if not column_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}"
+                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}",
                 )
 
             if not subject_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
+                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}",
                 )
 
             # 创建配置（不需要设置bank_statement_file，因为我们直接使用字节数据）
@@ -96,8 +94,10 @@ class BankStatementService:
             )
 
             # 生成凭证（直接从字节数据处理，不保存临时文件）
-            df_out, processed_records, generated_vouchers, excel_bytes = generate_bank_statement_vouchers_from_bytes(
-                config, content, bank_statement_file.filename
+            df_out, processed_records, generated_vouchers, excel_bytes = (
+                generate_bank_statement_vouchers_from_bytes(
+                    config, content, bank_statement_file.filename
+                )
             )
 
             logger.info(
@@ -140,7 +140,9 @@ class BankStatementService:
 
             # 使用传入的task_id或创建新的
             current_task_id = task_id or progress_manager.create_task()
-            progress_manager.update_progress(current_task_id, 0, "正在提交银行流水转凭证任务...")
+            progress_manager.update_progress(
+                current_task_id, 0, "正在提交银行流水转凭证任务..."
+            )
 
             # 验证客户名称
             if not customer_name.strip():
@@ -160,18 +162,20 @@ class BankStatementService:
 
             # 验证映射文件是否存在
             column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
-            subject_mapping_path = self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            subject_mapping_path = (
+                self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            )
 
             if not column_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}"
+                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}",
                 )
 
             if not subject_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
+                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}",
                 )
 
             progress_manager.update_progress(current_task_id, 30, "准备生成配置...")
@@ -182,12 +186,16 @@ class BankStatementService:
                 try:
                     # 检查任务是否已取消
                     if progress_manager.is_cancelled(current_task_id):
-                        logger.info(f"[bank_statement_service] 任务已取消，停止更新进度: {current_task_id}")
+                        logger.info(
+                            f"[bank_statement_service] 任务已取消，停止更新进度: {current_task_id}"
+                        )
                         return
 
                     # 计算百分比（0-100范围）
                     percentage = (completed / total) * 100 if total > 0 else 0.0
-                    logger.info(f"[bank_statement_service] 收到进度回调: {percentage:.1f}% ({completed}/{total}) - {message}")
+                    logger.info(
+                        f"[bank_statement_service] 收到进度回调: {percentage:.1f}% ({completed}/{total}) - {message}"
+                    )
 
                     # 根据处理阶段计算总体进度（参考翻译模块，直接使用0-100范围）
                     if "翻译" in message:
@@ -200,15 +208,29 @@ class BankStatementService:
                     # 确保进度在合理范围内
                     overall_percentage = max(10, min(95, overall_percentage))
 
-                    logger.info(f"[bank_statement_service] 进度计算: {percentage:.1f}% -> 总体{overall_percentage:.1f}%")
+                    logger.info(
+                        f"[bank_statement_service] 进度计算: {percentage:.1f}% -> 总体{overall_percentage:.1f}%"
+                    )
 
                     # 直接调用ProgressManager，传递0-100范围的百分比值
-                    progress_manager.update_progress(current_task_id, overall_percentage, message, completed, total, message)
-                    logger.info(f"[bank_statement_service] 进度已发送到ProgressManager: {overall_percentage:.1f}%")
+                    progress_manager.update_progress(
+                        current_task_id,
+                        overall_percentage,
+                        message,
+                        completed,
+                        total,
+                        message,
+                    )
+                    logger.info(
+                        f"[bank_statement_service] 进度已发送到ProgressManager: {overall_percentage:.1f}%"
+                    )
                 except Exception as e:
                     logger.error(f"[bank_statement_service] 进度回调失败: {e}")
                     import traceback
-                    logger.error(f"[bank_statement_service] 错误详情: {traceback.format_exc()}")
+
+                    logger.error(
+                        f"[bank_statement_service] 错误详情: {traceback.format_exc()}"
+                    )
 
             def cancel_check() -> bool:
                 """取消检查函数"""
@@ -240,28 +262,49 @@ class BankStatementService:
                     try:
                         # 检查任务是否已取消
                         if progress_manager.is_cancelled(current_task_id):
-                            logger.info(f"[bank_statement_service] 任务已取消，停止银行流水处理: {current_task_id}")
+                            logger.info(
+                                f"[bank_statement_service] 任务已取消，停止银行流水处理: {current_task_id}"
+                            )
                             return pd.DataFrame(), 0, 0
 
                         # 生成凭证（直接从字节数据处理，不保存临时文件）
-                        df_out, processed_records, generated_vouchers, excel_bytes = generate_bank_statement_vouchers_from_bytes(
-                            config, content, bank_statement_file.filename
+                        df_out, processed_records, generated_vouchers, excel_bytes = (
+                            generate_bank_statement_vouchers_from_bytes(
+                                config, content, bank_statement_file.filename
+                            )
                         )
-                        return df_out, processed_records, generated_vouchers, excel_bytes
+                        return (
+                            df_out,
+                            processed_records,
+                            generated_vouchers,
+                            excel_bytes,
+                        )
                     except Exception as e:
-                        logger.error(f"[bank_statement_service] 同步银行流水处理失败: {e}")
+                        logger.error(
+                            f"[bank_statement_service] 同步银行流水处理失败: {e}"
+                        )
                         import traceback
-                        logger.error(f"[bank_statement_service] 错误详情: {traceback.format_exc()}")
+
+                        logger.error(
+                            f"[bank_statement_service] 错误详情: {traceback.format_exc()}"
+                        )
                         raise
 
                 # 使用线程池执行器运行同步银行流水处理
                 loop = asyncio.get_event_loop()
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    df_out, processed_records, generated_vouchers, excel_bytes = await loop.run_in_executor(executor, run_bank_statement_sync)
+                    (
+                        df_out,
+                        processed_records,
+                        generated_vouchers,
+                        excel_bytes,
+                    ) = await loop.run_in_executor(executor, run_bank_statement_sync)
 
                 # 检查是否取消
                 if progress_manager.is_cancelled(current_task_id):
-                    logger.info(f"[bank_statement_service] 任务已取消，跳过后续处理: {current_task_id}")
+                    logger.info(
+                        f"[bank_statement_service] 任务已取消，跳过后续处理: {current_task_id}"
+                    )
                     return pd.DataFrame(), 0, 0, b""
 
                 progress_manager.update_progress(current_task_id, 90, "准备输出文件...")
@@ -283,7 +326,7 @@ class BankStatementService:
             raise
         except Exception as e:
             logger.error(f"生成银行流水凭证失败: {e}")
-            if 'current_task_id' in locals():
+            if "current_task_id" in locals():
                 progress_manager.fail_task(current_task_id, str(e))
             raise HTTPException(status_code=500, detail=f"生成凭证失败: {str(e)}")
 
@@ -313,10 +356,13 @@ class BankStatementService:
         except Exception as e:
             logger.error(f"获取客户列表失败: {e}")
             import traceback
+
             logger.error(f"错误详情: {traceback.format_exc()}")
             return []
 
-    def get_customer_column_mapping(self, customer_name: str, bank_name: Optional[str] = None) -> Dict[str, str]:
+    def get_customer_column_mapping(
+        self, customer_name: str, bank_name: Optional[str] = None
+    ) -> Dict[str, str]:
         """获取客户的列名映射（支持银行名称）"""
         try:
             if not customer_name.strip():
@@ -326,13 +372,15 @@ class BankStatementService:
             if not column_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}"
+                    detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}",
                 )
 
             config = BankStatementConfig(data_dir=self.data_dir)
             column_mapping_df = load_bank_statement_column_mapping(config)
 
-            mapping = get_column_mapping_for_customer(column_mapping_df, customer_name, config, bank_name)
+            mapping = get_column_mapping_for_customer(
+                column_mapping_df, customer_name, config, bank_name
+            )
             return mapping
 
         except HTTPException:
@@ -365,11 +413,13 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            subject_mapping_path = self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            subject_mapping_path = (
+                self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            )
             if not subject_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
-                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
+                    detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}",
                 )
 
             config = BankStatementConfig(data_dir=self.data_dir)
@@ -390,26 +440,23 @@ class BankStatementService:
 
     def validate_bank_statement_file(self, file: UploadFile) -> bool:
         """验证银行流水文件格式"""
-        allowed_extensions = {'.xlsx', '.xls', '.csv'}
+        allowed_extensions = {".xlsx", ".xls", ".csv"}
         file_extension = Path(file.filename).suffix.lower()
 
         if file_extension not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"不支持的文件格式: {file_extension}，支持的格式: {', '.join(allowed_extensions)}"
+                detail=f"不支持的文件格式: {file_extension}，支持的格式: {', '.join(allowed_extensions)}",
             )
 
         # 文件大小检查 (10MB)
-        if hasattr(file, 'size') and file.size > 10 * 1024 * 1024:
+        if hasattr(file, "size") and file.size > 10 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="文件大小不能超过10MB")
 
         return True
 
     async def preview_bank_statement_data(
-        self,
-        bank_statement_file: UploadFile,
-        customer_name: str,
-        max_rows: int = 10
+        self, bank_statement_file: UploadFile, customer_name: str, max_rows: int = 10
     ) -> Dict:
         """预览银行流水数据"""
         try:
@@ -436,14 +483,21 @@ class BankStatementService:
                 config = BankStatementConfig(
                     data_dir=self.data_dir,
                     bank_statement_file="",
-                    customer_name=customer_name
+                    customer_name=customer_name,
                 )
 
-                from accounting_voucher_generation.bank_statement_pipeline import load_bank_statement_data_from_bytes
-                df = load_bank_statement_data_from_bytes(content, bank_statement_file.filename, config)
+                from accounting_voucher_generation.bank_statement_pipeline import (
+                    load_bank_statement_data_from_bytes,
+                )
+
+                df = load_bank_statement_data_from_bytes(
+                    content, bank_statement_file.filename, config
+                )
 
                 # 应用列名映射
-                available_columns = [col for col in mapping.values() if col in df.columns]
+                available_columns = [
+                    col for col in mapping.values() if col in df.columns
+                ]
                 preview_df = df[available_columns].head(max_rows)
 
                 # 转换为字典格式
@@ -451,7 +505,7 @@ class BankStatementService:
                     "columns": list(preview_df.columns),
                     "data": preview_df.fillna("").astype(str).values.tolist(),
                     "total_rows": len(df),
-                    "mapping": mapping
+                    "mapping": mapping,
                 }
 
                 return preview_data

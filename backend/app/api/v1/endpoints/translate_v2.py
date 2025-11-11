@@ -2,6 +2,7 @@
 翻译API v2 - 异步翻译 + 缓存管理
 整合了translate.py的所有功能
 """
+
 from typing import List, Optional
 import asyncio
 import io
@@ -11,7 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.schemas.translate import TranslateRequest, CacheItem, CacheUpdateRequest
+from app.schemas.translate import CacheItem, CacheUpdateRequest
 from app.services.translate_service import TranslateService
 from app.core.progress_manager import progress_manager
 from app.services.dashboard_service import DashboardService
@@ -25,6 +26,7 @@ translate_service = TranslateService()
 
 class TranslateStartRequest(BaseModel):
     """开始翻译请求模型"""
+
     summary_column: str = "费用摘要"
     sheet_name: Optional[str] = None
     output_column: str = "摘要翻译"
@@ -34,6 +36,7 @@ class TranslateStartRequest(BaseModel):
 
 class TranslateStartResponse(BaseModel):
     """开始翻译响应模型"""
+
     task_id: str
     message: str
     target_language: str
@@ -74,10 +77,14 @@ async def start_translation(
             translation_bytes = await translation_file.read()
 
         # 创建模拟UploadFile对象，使用预读取的字节数据
-        excel_file_obj = UploadFile(filename=excel_filename, file=io.BytesIO(excel_bytes))
+        excel_file_obj = UploadFile(
+            filename=excel_filename, file=io.BytesIO(excel_bytes)
+        )
         translation_file_obj = None
         if translation_bytes:
-            translation_file_obj = UploadFile(filename=translation_file.filename, file=io.BytesIO(translation_bytes))
+            translation_file_obj = UploadFile(
+                filename=translation_file.filename, file=io.BytesIO(translation_bytes)
+            )
 
         # 保存user_id用于后台任务
         user_id = current_user.id
@@ -88,11 +95,17 @@ async def start_translation(
             translated_count = 0
             try:
                 print(f"[DEBUG] 开始后台翻译任务: {current_task_id}")
-                progress_manager.update_progress(current_task_id, 0.1, "准备翻译文件...")
+                progress_manager.update_progress(
+                    current_task_id, 0.1, "准备翻译文件..."
+                )
 
                 # 执行翻译
                 print(f"[DEBUG] 调用翻译服务，任务ID: {current_task_id}")
-                zip_buffer, _, translated_count = await translate_service.translate_summaries(
+                (
+                    zip_buffer,
+                    _,
+                    translated_count,
+                ) = await translate_service.translate_summaries(
                     excel_file=excel_file_obj,
                     summary_column=summary_column,
                     sheet_name=sheet_name,
@@ -102,7 +115,9 @@ async def start_translation(
                     target_language=target_language,
                     task_id=current_task_id,
                 )
-                print(f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}，翻译记录数: {translated_count}")
+                print(
+                    f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}，翻译记录数: {translated_count}"
+                )
 
                 # 计算处理时长
                 duration = time.time() - start_time
@@ -134,6 +149,7 @@ async def start_translation(
 
                 print(f"[DEBUG] 翻译任务失败: {current_task_id}, 错误: {e}")
                 import traceback
+
                 traceback.print_exc()
                 progress_manager.fail_task(current_task_id, str(e))
 
@@ -159,9 +175,7 @@ async def start_translation(
         print(f"[DEBUG] 后台任务已启动: {task_id}")
 
         return TranslateStartResponse(
-            task_id=task_id,
-            message="翻译任务已开始",
-            target_language=target_language
+            task_id=task_id, message="翻译任务已开始", target_language=target_language
         )
 
     except HTTPException as e:
@@ -170,8 +184,11 @@ async def start_translation(
     except Exception as exc:
         print(f"翻译异常: {exc}")
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"启动翻译任务时发生错误：{exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"启动翻译任务时发生错误：{exc}"
+        ) from exc
 
 
 @router.post("/cancel/{task_id}")
@@ -216,13 +233,14 @@ async def download_translation_result(task_id: str):
         media_type="application/zip",
         headers={
             "Content-Disposition": f"attachment; filename=translated_summaries_{task_id}.zip"
-        }
+        },
     )
 
 
 # ============================================================================
 # 缓存管理端点（从translate.py迁移）
 # ============================================================================
+
 
 @router.get("/cache", response_model=List[CacheItem])
 async def get_translation_cache(
@@ -257,7 +275,9 @@ async def add_translation_cache_item(request: CacheUpdateRequest) -> CacheItem:
         if not request.source or not request.target:
             raise HTTPException(status_code=400, detail="原文和译文不能为空")
 
-        cache_item = await translate_service.add_translation_cache_item(request.source, request.target)
+        cache_item = await translate_service.add_translation_cache_item(
+            request.source, request.target
+        )
         return cache_item
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"添加翻译缓存失败：{exc}") from exc
@@ -275,7 +295,9 @@ async def update_translation_cache_item(request: CacheUpdateRequest) -> CacheIte
         if not request.source or not request.target:
             raise HTTPException(status_code=400, detail="原文和译文不能为空")
 
-        cache_item = await translate_service.update_translation_cache_item(request.source, request.target)
+        cache_item = await translate_service.update_translation_cache_item(
+            request.source, request.target
+        )
         return cache_item
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"更新翻译缓存失败：{exc}") from exc
@@ -308,7 +330,9 @@ async def download_translation_cache() -> StreamingResponse:
         csv_content = await translate_service.get_translation_cache_csv()
 
         # 创建响应
-        headers = {"Content-Disposition": "attachment; filename=translation_mapping.csv"}
+        headers = {
+            "Content-Disposition": "attachment; filename=translation_mapping.csv"
+        }
         return StreamingResponse(
             io.StringIO(csv_content),
             media_type="text/csv",
@@ -321,6 +345,7 @@ async def download_translation_cache() -> StreamingResponse:
 # ============================================================================
 # 统计信息端点（从translate.py迁移）
 # ============================================================================
+
 
 @router.get("/stats")
 async def get_translation_stats() -> dict:

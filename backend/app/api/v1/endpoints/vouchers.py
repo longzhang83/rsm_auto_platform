@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.schemas.voucher import VoucherGenerateRequest, VoucherGenerateResponse
+from app.schemas.voucher import VoucherGenerateResponse
 from app.services.voucher_service import VoucherService
 from app.services.dashboard_service import DashboardService
 from app.db.database import get_db
@@ -115,5 +115,8 @@ async def generate_vouchers(
         )
         print(f"未知异常: {exc}")
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"生成凭证时发生错误：{exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"生成凭证时发生错误：{exc}"
+        ) from exc

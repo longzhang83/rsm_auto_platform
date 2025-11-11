@@ -1,9 +1,10 @@
 """
 Dashboard服务 - 管理统计数据和处理记录（数据库持久化）
 """
+
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
@@ -18,7 +19,7 @@ from app.schemas.dashboard import (
 # 时间节约估算（单位：分钟/条记录）
 TIME_SAVING_RATES = {
     "费用清单转凭证": 2.5,  # 每条记录节约2.5分钟
-    "摘要翻译": 1.5,          # 每条翻译节约1.5分钟
+    "摘要翻译": 1.5,  # 每条翻译节约1.5分钟
     "银行流水转凭证": 4.0,  # 每条流水节约4分钟
 }
 
@@ -81,31 +82,48 @@ class DashboardService:
             统计数据
         """
         # 查询所有成功的记录数量（按工具分类）
-        voucher_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
-            and_(
-                ProcessRecordModel.tool == "费用清单转凭证",
-                ProcessRecordModel.status == "成功"
+        voucher_count = (
+            db.query(func.sum(ProcessRecordModel.record_count))
+            .filter(
+                and_(
+                    ProcessRecordModel.tool == "费用清单转凭证",
+                    ProcessRecordModel.status == "成功",
+                )
             )
-        ).scalar() or 0
+            .scalar()
+            or 0
+        )
 
-        translate_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
-            and_(
-                ProcessRecordModel.tool == "摘要翻译",
-                ProcessRecordModel.status == "成功"
+        translate_count = (
+            db.query(func.sum(ProcessRecordModel.record_count))
+            .filter(
+                and_(
+                    ProcessRecordModel.tool == "摘要翻译",
+                    ProcessRecordModel.status == "成功",
+                )
             )
-        ).scalar() or 0
+            .scalar()
+            or 0
+        )
 
-        bank_statement_count = db.query(func.sum(ProcessRecordModel.record_count)).filter(
-            and_(
-                ProcessRecordModel.tool == "银行流水转凭证",
-                ProcessRecordModel.status == "成功"
+        bank_statement_count = (
+            db.query(func.sum(ProcessRecordModel.record_count))
+            .filter(
+                and_(
+                    ProcessRecordModel.tool == "银行流水转凭证",
+                    ProcessRecordModel.status == "成功",
+                )
             )
-        ).scalar() or 0
+            .scalar()
+            or 0
+        )
 
         # 计算平均处理时间（所有成功的记录）
-        avg_time_result = db.query(func.avg(ProcessRecordModel.duration)).filter(
-            ProcessRecordModel.status == "成功"
-        ).scalar()
+        avg_time_result = (
+            db.query(func.avg(ProcessRecordModel.duration))
+            .filter(ProcessRecordModel.status == "成功")
+            .scalar()
+        )
         avg_time = float(avg_time_result) if avg_time_result else 0.0
 
         # 计算不同时间范围的时间节约
@@ -113,14 +131,16 @@ class DashboardService:
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today_start - timedelta(days=now.weekday())
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        year_start = now.replace(
+            month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+        )
 
         # 查询各个时间范围的记录
         def calculate_time_saved(start_time: Optional[datetime] = None) -> float:
             """计算时间节约（分钟）"""
             query = db.query(
                 ProcessRecordModel.tool,
-                func.sum(ProcessRecordModel.record_count).label('count')
+                func.sum(ProcessRecordModel.record_count).label("count"),
             ).filter(ProcessRecordModel.status == "成功")
 
             if start_time:
@@ -166,9 +186,12 @@ class DashboardService:
             最近的记录列表
         """
         # 查询最近的记录，按创建时间降序
-        db_records = db.query(ProcessRecordModel).order_by(
-            ProcessRecordModel.created_at.desc()
-        ).limit(limit).all()
+        db_records = (
+            db.query(ProcessRecordModel)
+            .order_by(ProcessRecordModel.created_at.desc())
+            .limit(limit)
+            .all()
+        )
 
         # 获取总记录数
         total = db.query(func.count(ProcessRecordModel.id)).scalar() or 0
@@ -176,15 +199,17 @@ class DashboardService:
         # 转换为schema对象
         records = []
         for db_record in db_records:
-            records.append(ProcessRecord(
-                id=db_record.id,
-                time=db_record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                tool=db_record.tool,
-                file_name=db_record.file_name,
-                status=db_record.status,
-                duration=f"{db_record.duration:.1f}s",
-                record_count=db_record.record_count,
-            ))
+            records.append(
+                ProcessRecord(
+                    id=db_record.id,
+                    time=db_record.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    tool=db_record.tool,
+                    file_name=db_record.file_name,
+                    status=db_record.status,
+                    duration=f"{db_record.duration:.1f}s",
+                    record_count=db_record.record_count,
+                )
+            )
 
         return RecentRecordsResponse(
             records=records,
@@ -213,9 +238,7 @@ class DashboardService:
 
     @staticmethod
     def update_record_status(
-        db: Session,
-        record_id: str,
-        status: Literal["成功", "失败", "处理中"]
+        db: Session, record_id: str, status: Literal["成功", "失败", "处理中"]
     ) -> bool:
         """
         更新记录状态
@@ -228,9 +251,11 @@ class DashboardService:
         Returns:
             是否更新成功
         """
-        db_record = db.query(ProcessRecordModel).filter(
-            ProcessRecordModel.id == record_id
-        ).first()
+        db_record = (
+            db.query(ProcessRecordModel)
+            .filter(ProcessRecordModel.id == record_id)
+            .first()
+        )
 
         if db_record:
             db_record.status = status
@@ -251,9 +276,11 @@ class DashboardService:
         Returns:
             记录对象，如果不存在则返回None
         """
-        db_record = db.query(ProcessRecordModel).filter(
-            ProcessRecordModel.id == record_id
-        ).first()
+        db_record = (
+            db.query(ProcessRecordModel)
+            .filter(ProcessRecordModel.id == record_id)
+            .first()
+        )
 
         if db_record:
             return ProcessRecord(

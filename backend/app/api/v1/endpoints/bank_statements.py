@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import logging
-from pathlib import Path
-from typing import List
-from datetime import datetime
 import asyncio
 import io
 import time
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -15,13 +14,9 @@ from pydantic import BaseModel
 
 from app.services.bank_statement_service import bank_statement_service
 from app.schemas.bank_statement import (
-    BankStatementGenerateRequest,
     BankStatementGenerateResponse,
-    BankStatementMappingRequest,
-    BankStatementMappingResponse,
     CustomersResponse,
     CustomerBanksResponse,
-    CustomerInfo,
 )
 from app.utils.logger import get_logger
 from app.core.config import settings
@@ -37,6 +32,7 @@ router = APIRouter()
 
 class BankStatementGenerateStartResponse(BaseModel):
     """银行流水转凭证开始响应模型"""
+
     task_id: str
     message: str
 
@@ -46,7 +42,9 @@ async def start_bank_statement_vouchers_generation(
     bank_statement_file: UploadFile = File(..., description="银行流水文件"),
     customer_name: str = Form(..., description="客户名称"),
     bank_name: str = Form(default="", description="银行名称"),
-    enable_translation: str = Form(default="true", description="是否启用翻译 (true/false)"),
+    enable_translation: str = Form(
+        default="true", description="是否启用翻译 (true/false)"
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -63,9 +61,13 @@ async def start_bank_statement_vouchers_generation(
     try:
         # 获取API密钥列表
         api_keys = []
-        if hasattr(settings, 'zhipuai_api_keys') and settings.zhipuai_api_keys:
-            api_keys = [key.strip() for key in settings.zhipuai_api_keys.split(',') if key.strip()]
-        elif hasattr(settings, 'zhipuai_api_key') and settings.zhipuai_api_key:
+        if hasattr(settings, "zhipuai_api_keys") and settings.zhipuai_api_keys:
+            api_keys = [
+                key.strip()
+                for key in settings.zhipuai_api_keys.split(",")
+                if key.strip()
+            ]
+        elif hasattr(settings, "zhipuai_api_key") and settings.zhipuai_api_key:
             api_keys = [settings.zhipuai_api_key]
 
         # 创建进度任务
@@ -77,8 +79,7 @@ async def start_bank_statement_vouchers_generation(
 
         # 创建模拟UploadFile对象，使用预读取的字节数据
         bank_statement_file_obj = UploadFile(
-            filename=bank_statement_file.filename,
-            file=io.BytesIO(file_bytes)
+            filename=bank_statement_file.filename, file=io.BytesIO(file_bytes)
         )
 
         # 保存user_id用于后台任务
@@ -91,13 +92,18 @@ async def start_bank_statement_vouchers_generation(
                 logger.info(f"[DEBUG] 开始后台银行流水转凭证任务: {current_task_id}")
 
                 # 执行银行流水转凭证
-                df_out, processed_records, generated_vouchers, excel_bytes = await bank_statement_service.generate_vouchers_from_bank_statement_with_progress(
+                (
+                    df_out,
+                    processed_records,
+                    generated_vouchers,
+                    excel_bytes,
+                ) = await bank_statement_service.generate_vouchers_from_bank_statement_with_progress(
                     bank_statement_file=bank_statement_file_obj,
                     customer_name=customer_name,
                     bank_name=bank_name,
                     zhipuai_api_keys=api_keys,
                     task_id=current_task_id,
-                    enable_translation=enable_translation.lower() == 'true',
+                    enable_translation=enable_translation.lower() == "true",
                 )
                 logger.info(f"[DEBUG] 银行流水转凭证完成，任务ID: {current_task_id}")
 
@@ -107,17 +113,25 @@ async def start_bank_statement_vouchers_generation(
                     # 将Excel二进制数据进行base64编码以便JSON序列化
                     import base64
                     import json
-                    excel_bytes_b64 = base64.b64encode(excel_bytes).decode('ascii')
+
+                    excel_bytes_b64 = base64.b64encode(excel_bytes).decode("ascii")
                     result_data = {
                         "processed_records": processed_records,
                         "generated_vouchers": generated_vouchers,
                         "excel_bytes_b64": excel_bytes_b64,
                         "filename": filename,
-                        "customer_name": customer_name
+                        "customer_name": customer_name,
                     }
-                    progress_manager.store_result(current_task_id, json.dumps(result_data, ensure_ascii=False).encode('utf-8'))
-                    progress_manager.complete_task(current_task_id, "银行流水转凭证完成")
-                    logger.info(f"[DEBUG] 任务完成，存储Excel文件内容: {current_task_id}")
+                    progress_manager.store_result(
+                        current_task_id,
+                        json.dumps(result_data, ensure_ascii=False).encode("utf-8"),
+                    )
+                    progress_manager.complete_task(
+                        current_task_id, "银行流水转凭证完成"
+                    )
+                    logger.info(
+                        f"[DEBUG] 任务完成，存储Excel文件内容: {current_task_id}"
+                    )
 
                     # 添加dashboard统计
                     duration = time.time() - start_time
@@ -136,16 +150,24 @@ async def start_bank_statement_vouchers_generation(
                     finally:
                         db.close()
                 except Exception as file_error:
-                    logger.error(f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}")
+                    logger.error(
+                        f"[DEBUG] 处理Excel文件失败: {current_task_id}, 错误: {file_error}"
+                    )
                     # 如果Excel处理失败，存储错误信息
                     import json
+
                     error_data = {
                         "processed_records": processed_records,
                         "generated_vouchers": generated_vouchers,
-                        "error": f"Excel处理失败: {file_error}"
+                        "error": f"Excel处理失败: {file_error}",
                     }
-                    progress_manager.store_result(current_task_id, json.dumps(error_data, ensure_ascii=False).encode('utf-8'))
-                    progress_manager.complete_task(current_task_id, "银行流水转凭证完成（文件读取失败）")
+                    progress_manager.store_result(
+                        current_task_id,
+                        json.dumps(error_data, ensure_ascii=False).encode("utf-8"),
+                    )
+                    progress_manager.complete_task(
+                        current_task_id, "银行流水转凭证完成（文件读取失败）"
+                    )
 
                     # 添加dashboard统计（失败）
                     duration = time.time() - start_time
@@ -165,8 +187,11 @@ async def start_bank_statement_vouchers_generation(
                         db.close()
 
             except Exception as e:
-                logger.error(f"[DEBUG] 银行流水转凭证任务失败: {current_task_id}, 错误: {e}")
+                logger.error(
+                    f"[DEBUG] 银行流水转凭证任务失败: {current_task_id}, 错误: {e}"
+                )
                 import traceback
+
                 traceback.print_exc()
                 progress_manager.fail_task(current_task_id, str(e))
 
@@ -193,8 +218,7 @@ async def start_bank_statement_vouchers_generation(
         logger.info(f"[DEBUG] 后台银行流水转凭证任务已启动: {task_id}")
 
         return BankStatementGenerateStartResponse(
-            task_id=task_id,
-            message="银行流水转凭证任务已开始"
+            task_id=task_id, message="银行流水转凭证任务已开始"
         )
 
     except HTTPException as e:
@@ -203,8 +227,11 @@ async def start_bank_statement_vouchers_generation(
     except Exception as exc:
         logger.error(f"银行流水转凭证异常: {exc}")
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"启动银行流水转凭证任务时发生错误：{exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"启动银行流水转凭证任务时发生错误：{exc}"
+        ) from exc
 
 
 @router.post("/generate/cancel/{task_id}")
@@ -233,8 +260,8 @@ async def get_bank_statement_generation_result(task_id: str):
     try:
         # 解析结果数据
         import json
-        import base64
-        result_dict = json.loads(result_data.decode('utf-8'))
+
+        result_dict = json.loads(result_data.decode("utf-8"))
 
         # 对于JSON API响应，保持base64格式，不解码为二进制
         # 下载API (/download/{task_id}) 会负责解码为二进制数据
@@ -242,6 +269,7 @@ async def get_bank_statement_generation_result(task_id: str):
     except Exception as e:
         logger.error(f"解析银行流水转凭证结果失败: {e}")
         import traceback
+
         logger.error(f"解析银行流水转凭证结果失败详细错误: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="结果解析失败")
 
@@ -264,13 +292,22 @@ async def generate_bank_statement_vouchers(
     try:
         # 获取API密钥列表
         api_keys = []
-        if hasattr(settings, 'zhipuai_api_keys') and settings.zhipuai_api_keys:
-            api_keys = [key.strip() for key in settings.zhipuai_api_keys.split(',') if key.strip()]
-        elif hasattr(settings, 'zhipuai_api_key') and settings.zhipuai_api_key:
+        if hasattr(settings, "zhipuai_api_keys") and settings.zhipuai_api_keys:
+            api_keys = [
+                key.strip()
+                for key in settings.zhipuai_api_keys.split(",")
+                if key.strip()
+            ]
+        elif hasattr(settings, "zhipuai_api_key") and settings.zhipuai_api_key:
             api_keys = [settings.zhipuai_api_key]
 
         # 生成凭证
-        df_out, processed_records, generated_vouchers, excel_bytes = await bank_statement_service.generate_vouchers_from_bank_statement(
+        (
+            df_out,
+            processed_records,
+            generated_vouchers,
+            excel_bytes,
+        ) = await bank_statement_service.generate_vouchers_from_bank_statement(
             bank_statement_file=bank_statement_file,
             customer_name=customer_name,
             zhipuai_api_keys=api_keys,
@@ -278,14 +315,19 @@ async def generate_bank_statement_vouchers(
 
         # 将Excel字节数据存储到progress manager中，使用task_id作为键
         import uuid
+
         temp_task_id = str(uuid.uuid4())
         from app.core.progress_manager import progress_manager
-        progress_manager.set_result(temp_task_id, {
-            "excel_bytes": excel_bytes,
-            "processed_records": processed_records,
-            "generated_vouchers": generated_vouchers,
-            "customer_name": customer_name,
-        })
+
+        progress_manager.set_result(
+            temp_task_id,
+            {
+                "excel_bytes": excel_bytes,
+                "processed_records": processed_records,
+                "generated_vouchers": generated_vouchers,
+                "customer_name": customer_name,
+            },
+        )
 
         return BankStatementGenerateResponse(
             message=f"成功生成银行流水凭证，处理 {processed_records} 条记录，生成 {generated_vouchers} 个凭证",
@@ -310,13 +352,11 @@ async def get_available_customers():
         logger.info("API: 开始调用银行流水服务获取客户列表")
         customers = bank_statement_service.get_available_customers()
         logger.info(f"API: 成功获取客户列表，数量: {len(customers)}")
-        return {
-            "customers": customers,
-            "count": len(customers)
-        }
+        return {"customers": customers, "count": len(customers)}
     except Exception as e:
         logger.error(f"API: 获取客户列表失败: {e}")
         import traceback
+
         logger.error(f"API: 错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取客户列表失败: {str(e)}")
 
@@ -328,16 +368,13 @@ async def get_customer_banks(customer_name: str):
         logger.info(f"API: 收到获取客户银行列表的请求，客户: {customer_name}")
         banks = bank_statement_service.get_customer_banks(customer_name)
         logger.info(f"API: 成功获取客户银行列表，银行数量: {len(banks)}")
-        return {
-            "customer_name": customer_name,
-            "banks": banks,
-            "count": len(banks)
-        }
+        return {"customer_name": customer_name, "banks": banks, "count": len(banks)}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"API: 获取客户银行列表失败: {e}")
         import traceback
+
         logger.error(f"API: 错误详情: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"获取银行列表失败: {str(e)}")
 
@@ -349,10 +386,14 @@ async def get_customer_mapping(customer_name: str, bank_name: Optional[str] = No
         logger.info(f"API: 获取客户映射配置，客户: {customer_name}, 银行: {bank_name}")
 
         # 获取列名映射（支持银行名称）
-        column_mapping = bank_statement_service.get_customer_column_mapping(customer_name, bank_name)
+        column_mapping = bank_statement_service.get_customer_column_mapping(
+            customer_name, bank_name
+        )
 
         # 获取科目映射
-        subject_mapping_df = bank_statement_service.get_customer_subject_mapping(customer_name)
+        subject_mapping_df = bank_statement_service.get_customer_subject_mapping(
+            customer_name
+        )
 
         # 转换科目映射为字典格式
         subject_mapping = []
@@ -369,7 +410,7 @@ async def get_customer_mapping(customer_name: str, bank_name: Optional[str] = No
             "bank_name": bank_name,
             "column_mapping": column_mapping,
             "subject_mapping": subject_mapping,
-            "subject_mapping_count": len(subject_mapping)
+            "subject_mapping_count": len(subject_mapping),
         }
 
     except HTTPException:
@@ -390,13 +431,10 @@ async def preview_bank_statement_data(
         preview_data = bank_statement_service.preview_bank_statement_data(
             bank_statement_file=bank_statement_file,
             customer_name=customer_name,
-            max_rows=max_rows
+            max_rows=max_rows,
         )
 
-        return {
-            "success": True,
-            "data": preview_data
-        }
+        return {"success": True, "data": preview_data}
 
     except HTTPException:
         raise
@@ -422,7 +460,8 @@ async def download_bank_statement_result(task_id: str):
         # 解析结果数据（与generate/result API保持一致）
         import json
         import base64
-        result_dict = json.loads(result_data.decode('utf-8'))
+
+        result_dict = json.loads(result_data.decode("utf-8"))
 
         if "error" in result_dict:
             # 如果是错误信息，返回错误
@@ -440,11 +479,14 @@ async def download_bank_statement_result(task_id: str):
             raise HTTPException(status_code=500, detail="Excel文件内容不存在")
 
         customer_name = result_dict.get("customer_name", "unknown")
-        filename = f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        filename = (
+            f"{customer_name}_银行流水转凭证_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        )
 
         # 对中文文件名进行URL编码，解决HTTP头编码问题
         from urllib.parse import quote
-        encoded_filename = quote(filename, safe='')
+
+        encoded_filename = quote(filename, safe="")
 
         # 流式传输Excel文件
         async def generate():
@@ -455,7 +497,7 @@ async def download_bank_statement_result(task_id: str):
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={
                 "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
-            }
+            },
         )
     except Exception as e:
         logger.error(f"解析银行流水转凭证结果失败: {e}")
@@ -482,12 +524,14 @@ async def download_bank_statement_file(filename: str):
             raise HTTPException(status_code=404, detail="文件不存在")
 
         # 确定媒体类型
-        if filename.endswith('.xlsx'):
-            media_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        elif filename.endswith('.csv'):
-            media_type = 'text/csv'
+        if filename.endswith(".xlsx"):
+            media_type = (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        elif filename.endswith(".csv"):
+            media_type = "text/csv"
         else:
-            media_type = 'application/octet-stream'
+            media_type = "application/octet-stream"
 
         return FileResponse(
             path=str(file_path),
@@ -516,12 +560,12 @@ async def get_bank_statement_info():
             "available_customers": customers,
             "required_mapping_files": [
                 "银行流水列名mapping.xlsx",
-                "会计科目mapping.xlsx"
+                "会计科目mapping.xlsx",
             ],
             "output_format": {
                 "type": "Excel",
-                "structure": "第一行为空行，第二行为列名，第三行开始为数据"
-            }
+                "structure": "第一行为空行，第二行为列名，第三行开始为数据",
+            },
         }
 
     except Exception as e:
@@ -535,11 +579,13 @@ async def validate_bank_statement_file(
 ):
     """验证银行流水文件格式"""
     try:
-        is_valid = bank_statement_service.validate_bank_statement_file(bank_statement_file)
+        is_valid = bank_statement_service.validate_bank_statement_file(
+            bank_statement_file
+        )
 
         return {
             "valid": is_valid,
-            "message": "文件格式验证通过" if is_valid else "文件格式验证失败"
+            "message": "文件格式验证通过" if is_valid else "文件格式验证失败",
         }
 
     except HTTPException:
