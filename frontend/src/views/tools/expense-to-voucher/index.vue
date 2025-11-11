@@ -385,7 +385,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { uploadFile } from '@/api/request'
+import { uploadFile } from '@/utils/request'
 import TranslationProgress from '@/components/TranslationProgress.vue'
 import { generateVouchers, translationService } from '@/utils/translationService'
 

@@ -3,7 +3,7 @@
  * 统一处理翻译相关的API调用和进度管理
  */
 
-import { fetchWithAuth, downloadFile } from '@/api/request'
+import { fetchWithAuth, downloadFile } from '@/utils/request'
 
 export class TranslationService {
   constructor() {
