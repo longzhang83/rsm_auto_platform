@@ -428,7 +428,7 @@ async def preview_bank_statement_data(
 ):
     """预览银行流水数据"""
     try:
-        preview_data = bank_statement_service.preview_bank_statement_data(
+        preview_data = await bank_statement_service.preview_bank_statement_data(
             bank_statement_file=bank_statement_file,
             customer_name=customer_name,
             max_rows=max_rows,
