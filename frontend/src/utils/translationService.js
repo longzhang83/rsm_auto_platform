@@ -2,6 +2,16 @@
  * 翻译服务工具类
  * 统一处理翻译相关的API调用和进度管理
  */
+
+const TOKEN_KEY = 'rsm_access_token'
+
+/**
+ * 获取存储的token
+ */
+function getToken() {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
 export class TranslationService {
   constructor() {
     this.currentEventSource = null
@@ -37,8 +47,15 @@ export class TranslationService {
       console.log('启动翻译任务:', startUrl)
 
       // 1. 启动翻译任务
+      const headers = {}
+      const token = getToken()
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const startResponse = await fetch(startUrl, {
         method: 'POST',
+        headers: headers,
         body: formData
       })
 
@@ -249,7 +266,13 @@ export class TranslationService {
     try {
       console.log('开始下载:', downloadUrl)
 
-      const response = await fetch(downloadUrl)
+      const headers = {}
+      const token = getToken()
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch(downloadUrl, { headers })
       if (!response.ok) {
         throw new Error('下载失败，请重试')
       }
@@ -287,11 +310,17 @@ export class TranslationService {
       try {
         // 调用后端取消API
         const cancelUrl = `/api/v1/translate/cancel/${this.currentTaskId}`
+        const headers = {
+          'Content-Type': 'application/json'
+        }
+        const token = getToken()
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
         const response = await fetch(cancelUrl, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: headers
         })
 
         if (response.ok) {
