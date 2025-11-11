@@ -212,22 +212,22 @@
             <div class="info-item">
               <h4 class="font-semibold mb-2">🎯 主要功能</h4>
               <ul class="text-sm text-gray-600 space-y-1">
-                <li>• 支持Excel/CSV格式银行流水导入</li>
-                <li>• 自动数据标准化和字段映射</li>
-                <li>• 三重智能科目匹配系统</li>
-                <li>• 自动生成标准会计凭证</li>
-                <li>• 支持多客户和多银行配置</li>
-                <li>• 可选中英双语摘要翻译</li>
+                <li>支持Excel/CSV格式银行流水导入</li>
+                <li>自动数据标准化和字段映射</li>
+                <li>三重智能科目匹配系统</li>
+                <li>自动生成标准会计凭证</li>
+                <li>支持多客户和多银行配置</li>
+                <li>可选中英双语摘要翻译</li>
               </ul>
             </div>
 
             <div class="info-item">
               <h4 class="font-semibold mb-2">📋 数据格式支持</h4>
               <ul class="text-sm text-gray-600 space-y-1">
-                <li>• 双金额列：分别标注借方/贷方</li>
-                <li>• 单金额列：正数=借方，负数=贷方</li>
-                <li>• 必需字段：日期、摘要、金额</li>
-                <li>• 推荐字段：对方户名、银行账号</li>
+                <li>双金额列：分别标注借方/贷方</li>
+                <li>单金额列：正数=借方，负数=贷方</li>
+                <li>必需字段：日期、摘要、金额</li>
+                <li>推荐字段：对方户名、银行账号</li>
               </ul>
             </div>
 
@@ -249,10 +249,10 @@
             <div class="info-item">
               <h4 class="font-semibold mb-2">⚡ 处理特点</h4>
               <ul class="text-sm text-gray-600 space-y-1">
-                <li>• 全内存处理，无临时文件</li>
-                <li>• 实时进度反馈</li>
-                <li>• 标准Excel格式输出</li>
-                <li>• 支持大批量数据处理</li>
+                <li>全内存处理，无临时文件</li>
+                <li>实时进度反馈</li>
+                <li>标准Excel格式输出</li>
+                <li>支持大批量数据处理</li>
               </ul>
             </div>
           </div>
@@ -311,21 +311,34 @@
                     <span class="text-gray-600">摘要列:</span>
                     <span class="font-mono font-medium text-blue-600">{{ customerMapping.column_mapping.summary }}</span>
                   </div>
-                  <div class="text-xs text-gray-400 mt-0.5">用于三重映射中的关键字匹配</div>
+                  <div class="text-xs text-gray-400 mt-0.5">
+                    <strong>获取逻辑:</strong> 如有"摘要"或"备注"列则使用，若有"用途"或"附言"列则使用，否则尝试使用"交易附言"或"对方账号附言"列
+                  </div>
+                </div>
+                <div class="mapping-item">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-gray-600">金额列:</span>
+                    <span class="font-mono font-medium text-blue-600">
+                      {{ customerMapping.column_mapping.amount || '（使用借方/贷方列）' }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-400 mt-0.5">
+                    单金额列模式（正数=借方，负数=贷方）；若为空则使用双列模式
+                  </div>
                 </div>
                 <div class="mapping-item">
                   <div class="flex justify-between text-sm">
                     <span class="text-gray-600">借方列:</span>
                     <span class="font-mono font-medium text-blue-600">{{ customerMapping.column_mapping.debit }}</span>
                   </div>
-                  <div class="text-xs text-gray-400 mt-0.5">借方金额（可为空，支持双列/单列模式）</div>
+                  <div class="text-xs text-gray-400 mt-0.5">借方金额（双列模式，可为空）</div>
                 </div>
                 <div class="mapping-item">
                   <div class="flex justify-between text-sm">
                     <span class="text-gray-600">贷方列:</span>
                     <span class="font-mono font-medium text-blue-600">{{ customerMapping.column_mapping.credit }}</span>
                   </div>
-                  <div class="text-xs text-gray-400 mt-0.5">贷方金额（可为空，支持双列/单列模式）</div>
+                  <div class="text-xs text-gray-400 mt-0.5">贷方金额（双列模式，可为空）</div>
                 </div>
               </div>
             </div>
@@ -857,6 +870,27 @@ const resetForm = () => {
 .mapping-section h4 {
   color: #1f2937;
   margin-bottom: 0.5rem;
+}
+
+.info-item ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.info-item ul li {
+  padding-left: 1rem;
+  position: relative;
+}
+
+.info-item ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.6em;
+  width: 4px;
+  height: 4px;
+  background-color: #3b82f6;
+  border-radius: 50%;
 }
 
 .mapping-header {
