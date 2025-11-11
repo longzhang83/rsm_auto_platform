@@ -45,7 +45,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import request from '@/api/request'
 
 const router = useRouter()
 const loading = ref(true)
