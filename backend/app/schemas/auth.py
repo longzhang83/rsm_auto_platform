@@ -10,7 +10,7 @@ from typing import Optional
 class UserBase(BaseModel):
     """用户基础模型"""
 
-    username: str = Field(..., min_length=3, max_length=50, description="用户名")
+    username: str = Field(..., min_length=2, max_length=50, description="用户名")  # 改为2以支持中文名
     email: EmailStr = Field(..., description="邮箱地址")
 
 
@@ -28,10 +28,12 @@ class UserLogin(BaseModel):
     password: str = Field(..., description="密码")
 
 
-class UserResponse(UserBase):
-    """用户响应模型"""
+class UserResponse(BaseModel):
+    """用户响应模型 - 不继承UserBase以允许更灵活的验证"""
 
     id: int
+    username: str = Field(..., description="用户名")
+    email: str = Field(..., description="邮箱地址")  # 使用str而非EmailStr，允许内部域名
     created_at: datetime
     wework_userid: Optional[str] = None
     wework_name: Optional[str] = None
