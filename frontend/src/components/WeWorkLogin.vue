@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
@@ -69,10 +69,12 @@ const loadWeWorkConfig = async () => {
     enabled.value = true
     config.value = response
 
-    // 等待下一个tick，确保DOM已更新
+    // 等待DOM更新完成后再初始化二维码
+    await nextTick()
+    // 额外延迟以确保DOM完全渲染
     setTimeout(() => {
       initWeWorkQR()
-    }, 100)
+    }, 50)
   } catch (err) {
     console.error('获取企业微信配置失败:', err)
     error.value = '获取企业微信配置失败，请稍后重试'
@@ -106,10 +108,24 @@ const initWeWorkQR = () => {
 
 const renderQRCode = () => {
   try {
-    // 清空容器
+    // 检查容器是否存在
     const container = document.getElementById('wework-qr-container')
-    if (container) {
-      container.innerHTML = ''
+    if (!container) {
+      console.error('企业微信二维码容器未找到')
+      error.value = '二维码容器未准备好，请刷新页面重试'
+      loading.value = false
+      return
+    }
+
+    // 清空容器
+    container.innerHTML = ''
+
+    // 检查WwLogin是否可用
+    if (typeof window.WwLogin !== 'function') {
+      console.error('WwLogin SDK未正确加载')
+      error.value = '企业微信SDK未正确加载'
+      loading.value = false
+      return
     }
 
     // 生成二维码
@@ -125,7 +141,7 @@ const renderQRCode = () => {
     loading.value = false
   } catch (err) {
     console.error('渲染企业微信二维码失败:', err)
-    error.value = '渲染企业微信二维码失败'
+    error.value = `渲染企业微信二维码失败: ${err.message || '未知错误'}`
     loading.value = false
   }
 }
