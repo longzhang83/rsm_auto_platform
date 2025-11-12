@@ -23,7 +23,7 @@
               <path d="M17 4.5L7 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
-          <span class="flip-text">企业微信</span>
+          <span class="flip-text">企微登录</span>
         </div>
 
         <div class="login-header">
@@ -155,7 +155,7 @@ const handleLogin = async () => {
   gap: 4px;
   cursor: pointer;
   padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #49e670ff 0%, #0095d7 100%);
   border-radius: 12px;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);

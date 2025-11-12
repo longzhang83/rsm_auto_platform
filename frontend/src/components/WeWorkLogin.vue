@@ -1,9 +1,5 @@
 <template>
   <div class="wework-login">
-    <div class="divider">
-      <span>或</span>
-    </div>
-
     <div v-if="!enabled" class="wework-disabled">
       <el-alert
         title="企业微信登录未启用"
