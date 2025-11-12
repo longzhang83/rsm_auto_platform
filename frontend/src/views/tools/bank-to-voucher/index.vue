@@ -168,13 +168,12 @@
 
           <div class="preview-content">
             <el-table
-             <el-table-column
               :data="previewInfo.data"
               border
               stripe
               max-height="400"
               class="preview-table"
-            />
+            >
               <el-table-column
                 v-for="(column, index) in previewInfo.columns"
                 :key="index"
@@ -302,7 +301,7 @@
                     <span class="font-mono font-medium text-blue-600">{{ customerMapping.column_mapping.summary }}</span>
                   </div>
                   <div class="text-xs text-gray-400 mt-0.5">
-                    <strong>获取逻辑:</strong> 第一个字段为空使用第二个字段，以此类推
+                    <strong>获取逻辑:</strong> 如有"摘要"或"备注"列则使用，若有"用途"或"附言"列则使用，否则尝试使用"交易附言"或"对方账号附言"列
                   </div>
                 </div>
                 <div class="mapping-item">
