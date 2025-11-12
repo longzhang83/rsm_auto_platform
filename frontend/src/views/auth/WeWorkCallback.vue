@@ -118,7 +118,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 50%, var(--brand-secondary) 100%);
+  background: #fafafa;  /* 改为浅灰色背景，更清爽 */
   padding: 20px;
 }
 
