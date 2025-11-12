@@ -159,33 +159,7 @@ onMounted(() => {
 
 <style scoped>
 .wework-login {
-  margin-top: 30px;
-}
-
-.divider {
-  position: relative;
-  text-align: center;
-  margin: 30px 0;
-}
-
-.divider::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e4e7ed;
-}
-
-.divider span {
-  position: relative;
-  display: inline-block;
-  padding: 0 15px;
-  background: white;
-  color: #909399;
-  font-size: 14px;
-  z-index: 1;
+  margin-top: 0;
 }
 
 .wework-disabled {

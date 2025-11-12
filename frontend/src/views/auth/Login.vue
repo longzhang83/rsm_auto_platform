@@ -12,53 +12,68 @@
     <!-- 登录表单容器 -->
     <div class="login-container">
       <div class="login-box">
-        <!-- 翻页切换按钮 -->
-        <div class="page-flip-button" @click="goToWeWorkLogin" title="企业微信登录">
-          <div class="flip-icon">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M12 22V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M12 12L2 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M12 12L22 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M17 4.5L7 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <span class="flip-text">企微登录</span>
-        </div>
-
         <div class="login-header">
           <img src="/images/logo.png" alt="Logo" class="logo" />
           <h1 class="title">容诚税务师事务所</h1>
           <p class="subtitle">智能化自动化工具平台</p>
         </div>
 
-        <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form"
-          @keyup.enter="handleLogin">
-          <el-form-item prop="username">
-            <el-input v-model="loginForm.username" placeholder="用户名" size="large" prefix-icon="User" clearable />
-          </el-form-item>
-
-          <el-form-item prop="password">
-            <el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" prefix-icon="Lock"
-              show-password clearable />
-          </el-form-item>
-
-          <el-form-item>
-            <el-button type="primary" size="large" class="login-button" :loading="loading" @click="handleLogin">
-              {{ loading ? '登录中...' : '登录' }}
-            </el-button>
-          </el-form-item>
-
-          <div class="footer-links">
-            <div class="register-link">
-              还没有账号？
-              <router-link to="/register" class="link">立即注册</router-link>
-            </div>
-            <div class="forgot-password-link">
-              <router-link to="/forgot-password" class="link">忘记密码？</router-link>
-            </div>
+        <!-- 登录方式切换 -->
+        <div class="login-tabs">
+          <div class="tab-buttons">
+            <button
+              :class="['tab-button', { active: loginMode === 'password' }]"
+              @click="loginMode = 'password'"
+            >
+              <el-icon class="tab-icon"><Lock /></el-icon>
+              <span>密码登录</span>
+            </button>
+            <button
+              :class="['tab-button', { active: loginMode === 'wework' }]"
+              @click="loginMode = 'wework'"
+            >
+              <el-icon class="tab-icon"><Briefcase /></el-icon>
+              <span>企业微信</span>
+            </button>
           </div>
-        </el-form>
+          <div class="tab-indicator" :style="{ left: loginMode === 'password' ? '0%' : '50%' }"></div>
+        </div>
+
+        <!-- 密码登录表单 -->
+        <div v-show="loginMode === 'password'" class="login-content">
+          <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form"
+            @keyup.enter="handleLogin">
+            <el-form-item prop="username">
+              <el-input v-model="loginForm.username" placeholder="用户名" size="large" prefix-icon="User" clearable />
+            </el-form-item>
+
+            <el-form-item prop="password">
+              <el-input v-model="loginForm.password" type="password" placeholder="密码" size="large" prefix-icon="Lock"
+                show-password clearable />
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" size="large" class="login-button" :loading="loading" @click="handleLogin">
+                {{ loading ? '登录中...' : '登录' }}
+              </el-button>
+            </el-form-item>
+
+            <div class="footer-links">
+              <div class="register-link">
+                还没有账号？
+                <router-link to="/register" class="link">立即注册</router-link>
+              </div>
+              <div class="forgot-password-link">
+                <router-link to="/forgot-password" class="link">忘记密码？</router-link>
+              </div>
+            </div>
+          </el-form>
+        </div>
+
+        <!-- 企业微信登录 -->
+        <div v-show="loginMode === 'wework'" class="login-content">
+          <WeWorkLogin />
+        </div>
       </div>
     </div>
   </div>
@@ -69,15 +84,14 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
+import { Lock, Briefcase } from '@element-plus/icons-vue'
+import WeWorkLogin from '@/components/WeWorkLogin.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
-
-const goToWeWorkLogin = () => {
-  router.push('/wework-login')
-}
+const loginMode = ref('password') // 'password' 或 'wework'
 
 const loginForm = reactive({
   username: '',
@@ -144,66 +158,81 @@ const handleLogin = async () => {
   z-index: 1;
 }
 
-/* 翻页按钮样式 */
-.page-flip-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
+/* 登录方式切换标签 */
+.login-tabs {
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.tab-buttons {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  padding: 12px;
-  background: linear-gradient(135deg, #49e670ff 0%, #0095d7 100%);
+  background: #f5f7fa;
   border-radius: 12px;
+  padding: 4px;
+  position: relative;
+}
+
+.tab-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  color: #606266;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  position: relative;
+  z-index: 2;
 }
 
-.page-flip-button:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+.tab-button .tab-icon {
+  font-size: 18px;
+  transition: transform 0.3s ease;
 }
 
-.page-flip-button:active {
-  transform: translateY(0) scale(0.98);
+.tab-button:hover {
+  color: #667eea;
 }
 
-.flip-icon {
-  width: 32px;
-  height: 32px;
+.tab-button:hover .tab-icon {
+  transform: scale(1.1);
+}
+
+.tab-button.active {
   color: white;
-  animation: flipAnimation 3s ease-in-out infinite;
 }
 
-.flip-icon svg {
-  width: 100%;
-  height: 100%;
+.tab-indicator {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 50%;
+  height: calc(100% - 8px);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
-.flip-text {
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
-  white-space: nowrap;
-  letter-spacing: 0.5px;
+.login-content {
+  animation: fadeIn 0.3s ease;
 }
 
-/* 翻页动画 */
-@keyframes flipAnimation {
-  0%, 100% {
-    transform: perspective(400px) rotateY(0deg);
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  25% {
-    transform: perspective(400px) rotateY(180deg);
-  }
-  50% {
-    transform: perspective(400px) rotateY(180deg);
-  }
-  75% {
-    transform: perspective(400px) rotateY(360deg);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
