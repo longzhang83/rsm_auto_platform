@@ -72,8 +72,6 @@
         style="width: 100%"
         @sort-change="handleSortChange"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-
         <el-table-column prop="time" label="处理时间" width="180" sortable="custom">
           <template #default="scope">
             <div>
@@ -128,34 +126,6 @@
             <span class="font-semibold">{{ scope.row.resultCount }}</span>
           </template>
         </el-table-column>
-
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="scope">
-            <el-button type="text" size="small" @click="viewRecord(scope.row)">
-              <el-icon><View /></el-icon>
-              查看
-            </el-button>
-            <el-button
-              v-if="scope.row.status === 'success'"
-              type="text"
-              size="small"
-              @click="downloadRecord(scope.row)"
-            >
-              <el-icon><Download /></el-icon>
-              下载
-            </el-button>
-            <el-button
-              v-if="scope.row.status === 'failed'"
-              type="text"
-              size="small"
-              @click="retryRecord(scope.row)"
-            >
-              <el-icon><Refresh /></el-icon>
-              重试
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
 
       <!-- 分页 -->
       <div class="pagination-container mt-4">
