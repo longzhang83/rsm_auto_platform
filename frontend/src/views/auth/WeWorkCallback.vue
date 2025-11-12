@@ -79,10 +79,10 @@ const handleCallback = async () => {
 
       // 保存token和用户信息
       if (response.access_token && response.user) {
-        // 使用auth store的方法保存token和用户信息
-        localStorage.setItem('token', response.access_token)
+        // 使用 auth store 保存登录状态
+        authStore.token = response.access_token
         authStore.user = response.user
-        authStore.isAuthenticated = true
+        localStorage.setItem('rsm_access_token', response.access_token)
 
         ElMessage.success('登录成功！')
 
