@@ -126,6 +126,7 @@
             <span class="font-semibold">{{ scope.row.resultCount }}</span>
           </template>
         </el-table-column>
+      </el-table>
 
       <!-- 分页 -->
       <div class="pagination-container mt-4">
