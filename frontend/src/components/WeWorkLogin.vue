@@ -33,7 +33,8 @@
         </el-button>
       </div>
 
-      <div v-else id="wework-qr-container" class="qr-container"></div>
+      <!-- 始终渲染容器，用 v-show 控制显示 -->
+      <div id="wework-qr-container" class="qr-container" v-show="!loading && !error"></div>
 
       <p class="wework-hint">使用企业微信扫码登录</p>
     </div>
@@ -89,12 +90,21 @@ const initWeWorkQR = () => {
     return
   }
 
+  // 先设置 loading 为 false，让 DOM 容器显示出来
+  loading.value = false
+
   // 加载企业微信JS SDK
   if (typeof window.WwLogin === 'undefined') {
+    // 显示加载状态
+    loading.value = true
     const script = document.createElement('script')
     script.src = 'https://rescdn.qqmail.com/node/ww/wwopenmng/js/sso/wwLogin-1.0.0.js'
     script.onload = () => {
-      renderQRCode()
+      loading.value = false
+      // 再次等待 DOM 更新后渲染
+      setTimeout(() => {
+        renderQRCode()
+      }, 50)
     }
     script.onerror = () => {
       error.value = '加载企业微信SDK失败'
@@ -102,7 +112,10 @@ const initWeWorkQR = () => {
     }
     document.head.appendChild(script)
   } else {
-    renderQRCode()
+    // SDK 已加载，直接渲染
+    setTimeout(() => {
+      renderQRCode()
+    }, 50)
   }
 }
 
@@ -113,7 +126,6 @@ const renderQRCode = () => {
     if (!container) {
       console.error('企业微信二维码容器未找到')
       error.value = '二维码容器未准备好，请刷新页面重试'
-      loading.value = false
       return
     }
 
@@ -124,7 +136,6 @@ const renderQRCode = () => {
     if (typeof window.WwLogin !== 'function') {
       console.error('WwLogin SDK未正确加载')
       error.value = '企业微信SDK未正确加载'
-      loading.value = false
       return
     }
 
@@ -138,11 +149,10 @@ const renderQRCode = () => {
       href: '', // 可以自定义样式CSS URL
     })
 
-    loading.value = false
+    console.log('企业微信二维码渲染成功')
   } catch (err) {
     console.error('渲染企业微信二维码失败:', err)
     error.value = `渲染企业微信二维码失败: ${err.message || '未知错误'}`
-    loading.value = false
   }
 }
 
