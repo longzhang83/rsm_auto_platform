@@ -12,6 +12,20 @@
     <!-- 登录表单容器 -->
     <div class="login-container">
       <div class="login-box">
+        <!-- 翻页切换按钮 -->
+        <div class="page-flip-button" @click="goToWeWorkLogin" title="企业微信登录">
+          <div class="flip-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 22V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 12L2 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 12L22 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M17 4.5L7 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span class="flip-text">企业微信</span>
+        </div>
+
         <div class="login-header">
           <img src="/images/logo.png" alt="Logo" class="logo" />
           <h1 class="title">容诚税务师事务所</h1>
@@ -45,9 +59,6 @@
             </div>
           </div>
         </el-form>
-
-        <!-- 企业微信登录 -->
-        <WeWorkLogin />
       </div>
     </div>
   </div>
@@ -58,12 +69,15 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
-import WeWorkLogin from '@/components/WeWorkLogin.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
+
+const goToWeWorkLogin = () => {
+  router.push('/wework-login')
+}
 
 const loginForm = reactive({
   username: '',
@@ -128,6 +142,69 @@ const handleLogin = async () => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   position: relative;
   z-index: 1;
+}
+
+/* 翻页按钮样式 */
+.page-flip-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.page-flip-button:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.page-flip-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.flip-icon {
+  width: 32px;
+  height: 32px;
+  color: white;
+  animation: flipAnimation 3s ease-in-out infinite;
+}
+
+.flip-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.flip-text {
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* 翻页动画 */
+@keyframes flipAnimation {
+  0%, 100% {
+    transform: perspective(400px) rotateY(0deg);
+  }
+  25% {
+    transform: perspective(400px) rotateY(180deg);
+  }
+  50% {
+    transform: perspective(400px) rotateY(180deg);
+  }
+  75% {
+    transform: perspective(400px) rotateY(360deg);
+  }
 }
 
 .login-header {

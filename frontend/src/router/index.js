@@ -29,6 +29,12 @@ const router = createRouter({
       meta: { title: '重置密码', requiresAuth: false }
     },
     {
+      path: '/wework-login',
+      name: 'WeWorkLogin',
+      component: () => import('@/views/auth/WeWorkLogin.vue'),
+      meta: { title: '企业微信登录', requiresAuth: false }
+    },
+    {
       path: '/auth/wework/callback',
       name: 'WeWorkCallback',
       component: () => import('@/views/auth/WeWorkCallback.vue'),
@@ -120,7 +126,7 @@ router.beforeEach(async (to, from, next) => {
     }
   } else {
     // 如果已登录，访问登录/注册/忘记密码页面时重定向到首页
-    const authPages = ['/login', '/register', '/forgot-password']
+    const authPages = ['/login', '/register', '/forgot-password', '/wework-login']
     if (authPages.includes(to.path) && authStore.isLoggedIn) {
       next('/')
     } else {
