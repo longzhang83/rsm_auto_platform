@@ -89,7 +89,7 @@
               </el-upload>
             </el-form-item>
 
-  
+
             <!-- 翻译设置 -->
             <el-divider content-position="left">
               <span class="text-sm font-medium text-gray-700">翻译设置</span>
@@ -167,24 +167,14 @@
           </template>
 
           <div class="preview-content">
-            <div class="mapping-info mb-4">
-              <h4 class="font-semibold mb-2">字段映射</h4>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                <div><strong>日期:</strong> {{ previewInfo.mapping.date }}</div>
-                <div><strong>对方户名:</strong> {{ previewInfo.mapping.counterparty }}</div>
-                <div><strong>摘要:</strong> {{ previewInfo.mapping.summary }}</div>
-                <div><strong>借方:</strong> {{ previewInfo.mapping.debit }}</div>
-                <div><strong>贷方:</strong> {{ previewInfo.mapping.credit }}</div>
-              </div>
-            </div>
-
             <el-table
+             <el-table-column
               :data="previewInfo.data"
               border
               stripe
               max-height="400"
               class="preview-table"
-            >
+            />
               <el-table-column
                 v-for="(column, index) in previewInfo.columns"
                 :key="index"
@@ -312,7 +302,7 @@
                     <span class="font-mono font-medium text-blue-600">{{ customerMapping.column_mapping.summary }}</span>
                   </div>
                   <div class="text-xs text-gray-400 mt-0.5">
-                    <strong>获取逻辑:</strong> 如有"摘要"或"备注"列则使用，若有"用途"或"附言"列则使用，否则尝试使用"交易附言"或"对方账号附言"列
+                    <strong>获取逻辑:</strong> 第一个字段为空使用第二个字段，以此类推
                   </div>
                 </div>
                 <div class="mapping-item">
@@ -942,13 +932,6 @@ const resetForm = () => {
 .preview-content {
   max-height: 500px;
   overflow-y: auto;
-}
-
-.mapping-info {
-  background-color: #f8fafc;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border-left: 4px solid #3b82f6;
 }
 
 .preview-table {
