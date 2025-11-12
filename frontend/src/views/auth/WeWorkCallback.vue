@@ -2,7 +2,7 @@
   <div class="callback-container">
     <div class="callback-box">
       <div v-if="loading" class="loading-state">
-        <el-icon class="is-loading" size="48" color="#667eea">
+        <el-icon class="is-loading" size="48" :style="{ color: 'var(--brand-primary)' }">
           <Loading />
         </el-icon>
         <h2>正在登录...</h2>
@@ -10,7 +10,7 @@
       </div>
 
       <div v-else-if="error" class="error-state">
-        <el-icon size="48" color="#f56c6c">
+        <el-icon size="48" :style="{ color: 'var(--el-color-error)' }">
           <CircleClose />
         </el-icon>
         <h2>登录失败</h2>
@@ -21,7 +21,7 @@
       </div>
 
       <div v-else class="success-state">
-        <el-icon size="48" color="#67c23a">
+        <el-icon size="48" :style="{ color: 'var(--brand-success)' }">
           <CircleCheck />
         </el-icon>
         <h2>登录成功</h2>
@@ -118,7 +118,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 50%, var(--brand-secondary) 100%);
   padding: 20px;
 }
 

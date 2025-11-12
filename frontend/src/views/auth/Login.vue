@@ -197,7 +197,7 @@ const handleLogin = async () => {
 }
 
 .tab-button:hover {
-  color: #667eea;
+  color: var(--brand-primary);
 }
 
 .tab-button:hover .tab-icon {
@@ -214,11 +214,11 @@ const handleLogin = async () => {
   left: 0;
   width: 50%;
   height: calc(100% - 8px);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 50%, var(--brand-secondary) 100%);
   border-radius: 10px;
   transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 149, 215, 0.3);
 }
 
 .login-content {
@@ -289,13 +289,13 @@ const handleLogin = async () => {
 }
 
 .link {
-  color: #667eea;
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 600;
 }
 
 .link:hover {
-  color: #764ba2;
+  color: var(--brand-primary-dark);
   text-decoration: underline;
 }
 

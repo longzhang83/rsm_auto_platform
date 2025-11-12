@@ -264,13 +264,13 @@ const goToLogin = () => {
 }
 
 .link {
-  color: #667eea;
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 600;
 }
 
 .link:hover {
-  color: #764ba2;
+  color: var(--brand-primary-dark);
   text-decoration: underline;
 }
 
@@ -290,7 +290,7 @@ const goToLogin = () => {
 
 .alert-message {
   font-size: 14px;
-  color: #67c23a;
+  color: var(--brand-success);
   margin-bottom: 12px;
 }
 
