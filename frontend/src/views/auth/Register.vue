@@ -26,13 +26,29 @@
         <el-form-item prop="email">
           <div class="email-input-group">
             <el-input
-              v-model="registerForm.email"
-              placeholder="邮箱 (@rsmchina.com.cn;@rsmcn.cloud)"
+              v-model="emailPrefix"
+              placeholder="邮箱前缀（如：louis.zhang）"
               size="large"
               prefix-icon="Message"
               clearable
-              @input="handleEmailChange"
+              @input="handleEmailPrefixChange"
+              class="email-prefix-input"
             />
+            <span class="email-at-symbol">@</span>
+            <el-select
+              v-model="emailDomain"
+              placeholder="选择域名"
+              size="large"
+              @change="handleEmailDomainChange"
+              class="email-domain-select"
+            >
+              <el-option
+                v-for="domain in availableDomains"
+                :key="domain"
+                :label="domain"
+                :value="domain"
+              />
+            </el-select>
             <el-button
               type="primary"
               :disabled="!registerForm.email || codeLoading || codeCountdown > 0"
@@ -114,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
@@ -127,6 +143,11 @@ const loading = ref(false)
 const codeLoading = ref(false)
 const codeCountdown = ref(0)
 
+// 邮箱前缀和域名
+const emailPrefix = ref('')
+const emailDomain = ref('')
+const availableDomains = ref([])
+
 const registerForm = reactive({
   username: '',
   email: '',
@@ -135,7 +156,39 @@ const registerForm = reactive({
   verification_code: ''
 })
 
-// 处理邮箱变化，自动提取用户名
+// 加载允许的邮箱域名
+const loadEmailDomains = async () => {
+  try {
+    const response = await request.get('/auth/email-domains')
+    availableDomains.value = response.domains
+    if (availableDomains.value.length > 0) {
+      emailDomain.value = availableDomains.value[0]  // 默认选择第一个
+    }
+  } catch (error) {
+    console.error('加载邮箱域名失败:', error)
+    ElMessage.error('加载邮箱域名失败，请刷新重试')
+  }
+}
+
+// 处理邮箱前缀变化
+const handleEmailPrefixChange = () => {
+  if (emailPrefix.value && emailDomain.value) {
+    registerForm.email = `${emailPrefix.value}@${emailDomain.value}`
+    registerForm.username = emailPrefix.value  // 自动填充用户名
+  } else {
+    registerForm.email = ''
+    registerForm.username = ''
+  }
+}
+
+// 处理邮箱域名变化
+const handleEmailDomainChange = () => {
+  if (emailPrefix.value && emailDomain.value) {
+    registerForm.email = `${emailPrefix.value}@${emailDomain.value}`
+  }
+}
+
+// 处理邮箱变化，自动提取用户名（保留用于其他可能的调用）
 const handleEmailChange = (value) => {
   if (value && value.includes('@')) {
     // 提取@前面的部分作为用户名
@@ -296,6 +349,11 @@ const handleRegister = async () => {
     console.log('表单验证失败:', error)
   }
 }
+
+// 组件挂载时加载邮箱域名
+onMounted(() => {
+  loadEmailDomains()
+})
 </script>
 
 <style scoped>
@@ -350,16 +408,31 @@ const handleRegister = async () => {
 
 .email-input-group {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   width: 100%;
 }
 
-.email-input-group :deep(.el-input) {
+.email-prefix-input {
   flex: 1;
+  min-width: 0;
+}
+
+.email-at-symbol {
+  color: #606266;
+  font-size: 16px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.email-domain-select {
+  width: 180px;
+  flex-shrink: 0;
 }
 
 .send-code-btn {
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .register-button {

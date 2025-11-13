@@ -33,6 +33,24 @@ from app.core.config import settings
 router = APIRouter()
 
 
+@router.get(
+    "/email-domains",
+    response_model=dict,
+    summary="获取允许的邮箱域名列表"
+)
+async def get_allowed_email_domains():
+    """
+    获取注册时允许的邮箱域名列表
+
+    返回：
+    - **domains**: 域名列表（如 ["rsmchina.com.cn", "rsmcn.cloud"]）
+    """
+    # 从配置中读取域名，支持逗号分隔的多个域名
+    domains_str = settings.allowed_email_domains
+    domains = [d.strip() for d in domains_str.split(',') if d.strip()]
+    return {"domains": domains}
+
+
 @router.post(
     "/send-verification-code",
     response_model=SendVerificationCodeResponse,
