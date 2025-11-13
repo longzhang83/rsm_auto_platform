@@ -107,7 +107,20 @@ class SummaryTranslator:
             if self.config.sheet_name is not None:
                 sheet_name = self.config.sheet_name
                 # 先检查工作表是否存在
-                excel_file = pd.ExcelFile(self.config.input_file, engine="openpyxl")
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                excel_file = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
+                        excel_file = pd.ExcelFile(self.config.input_file, engine=engine)
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
+
+                if excel_file is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
                 try:
                     if (
                         isinstance(sheet_name, str)
@@ -127,84 +140,67 @@ class SummaryTranslator:
                     excel_file.close()
 
                 # 智能读取Excel文件，优先使用第一行作为列名
-                try:
-                    df = pd.read_excel(
-                        self.config.input_file,
-                        sheet_name=sheet_name,
-                        header=0,
-                        engine="openpyxl",
-                    )
-
-                    # 显示可用列名，方便调试
-                    logger.info(
-                        f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
-                    )
-
-                    # 如果指定的列不存在，提供友好的错误信息
-                    if self.config.summary_column not in df.columns:
-                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                        raise ValueError(
-                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
-                            f"可用列名: {available_columns}\n"
-                            f"请检查列名是否正确，或使用以上可用列名之一。"
-                        )
-
-                except ValueError as e:
-                    if "摘要列" in str(e):
-                        # 重新抛出列名不存在的错误
-                        raise
-                    else:
-                        # 其他Excel读取错误，尝试备用方案
-                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                df = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
                         df = pd.read_excel(
                             self.config.input_file,
                             sheet_name=sheet_name,
                             header=0,
-                            engine="xlrd",
+                            engine=engine,
                         )
-                        if self.config.summary_column not in df.columns:
-                            available_columns = ", ".join(
-                                f"'{col}'" for col in df.columns
-                            )
-                            raise ValueError(
-                                f"摘要列 '{self.config.summary_column}' 不存在。可用列: {available_columns}"
-                            )
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
+
+                if df is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
+                # 显示可用列名，方便调试
+                logger.info(
+                    f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
+                )
+
+                # 如果指定的列不存在，提供友好的错误信息
+                if self.config.summary_column not in df.columns:
+                    available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                    raise ValueError(
+                        f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                        f"可用列名: {available_columns}\n"
+                        f"请检查列名是否正确，或使用以上可用列名之一。"
+                    )
             else:
-                # 读取第一个工作表，逻辑同上
-                try:
-                    df = pd.read_excel(
-                        self.config.input_file, header=0, engine="openpyxl"
-                    )
-                    logger.info(
-                        f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
-                    )
-
-                    if self.config.summary_column not in df.columns:
-                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                        raise ValueError(
-                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
-                            f"可用列名: {available_columns}\n"
-                            f"请检查列名是否正确，或使用以上可用列名之一。"
-                        )
-
-                except ValueError as e:
-                    if "摘要列" in str(e):
-                        raise
-                    else:
-                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
+                # 读取第一个工作表
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                df = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
                         df = pd.read_excel(
-                            self.config.input_file, header=0, engine="xlrd"
+                            self.config.input_file, header=0, engine=engine
                         )
-                        if self.config.summary_column not in df.columns:
-                            available_columns = ", ".join(
-                                f"'{col}'" for col in df.columns
-                            )
-                            logger.warning(
-                                f"指定的摘要列 '{self.config.summary_column}' 不存在，自动使用第一列 '{df.columns[0]}'"
-                            )
-                            logger.info(f"可用列名: {available_columns}")
-                            # 自动使用第一列
-                            self.config.summary_column = df.columns[0]
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
+
+                if df is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
+                logger.info(
+                    f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
+                )
+
+                if self.config.summary_column not in df.columns:
+                    available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                    raise ValueError(
+                        f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                        f"可用列名: {available_columns}\n"
+                        f"请检查列名是否正确，或使用以上可用列名之一。"
+                    )
 
             df.columns = [str(col).strip() for col in df.columns]
 

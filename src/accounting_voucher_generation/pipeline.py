@@ -164,7 +164,20 @@ def load_expense_data(
     usecols: Optional[Iterable[str]] = None,
 ) -> Tuple[pd.DataFrame, str]:
     file_path = config.data_dir / config.expense_file
-    excel = pd.ExcelFile(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    excel = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            excel = pd.ExcelFile(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if excel is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
 
     if config.expense_sheet is not None:
         sheet_name = config.expense_sheet

@@ -138,7 +138,20 @@ def load_bank_statement_data(
 ) -> pd.DataFrame:
     """加载银行流水数据"""
     file_path = config.data_dir / config.bank_statement_file
-    excel = pd.ExcelFile(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    excel = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            excel = pd.ExcelFile(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if excel is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
 
     if config.bank_statement_sheet is not None:
         sheet_name = config.bank_statement_sheet
@@ -177,18 +190,30 @@ def load_bank_statement_data_from_bytes(
             sheet_name = 0
 
         # 直接使用pd.read_excel，不在加载阶段进行日期解析
-        read_excel_kwargs = {
-            "io": excel_file,
-            "sheet_name": sheet_name,
-            "header": 0,
-            "engine": "openpyxl",
-            "parse_dates": [date_col],  # 不进行日期解析
-        }
+        # 尝试不同的引擎来支持.xlsx和.xls格式
+        df = None
+        last_error = None
+        for engine in ["openpyxl", "xlrd"]:
+            try:
+                read_excel_kwargs = {
+                    "io": io.BytesIO(file_bytes),  # 为每次尝试创建新的BytesIO
+                    "sheet_name": sheet_name,
+                    "header": 0,
+                    "engine": engine,
+                    "parse_dates": [date_col],
+                }
 
-        if usecols:
-            read_excel_kwargs["usecols"] = usecols
+                if usecols:
+                    read_excel_kwargs["usecols"] = usecols
 
-        df = pd.read_excel(**read_excel_kwargs)
+                df = pd.read_excel(**read_excel_kwargs)
+                break
+            except Exception as e:
+                last_error = e
+                continue
+
+        if df is None:
+            raise ValueError(f"无法读取Excel文件（尝试了.xlsx和.xls格式）: {last_error}")
     elif file_extension == ".csv":
         # 处理CSV文件
         import io
@@ -214,7 +239,21 @@ def load_bank_statement_data_from_bytes(
 def load_bank_statement_column_mapping(config: BankStatementConfig) -> pd.DataFrame:
     """加载银行流水列名映射"""
     file_path = config.data_dir / config.column_mapping_file
-    df = pd.read_excel(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    df = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            df = pd.read_excel(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if df is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
+
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
@@ -222,7 +261,21 @@ def load_bank_statement_column_mapping(config: BankStatementConfig) -> pd.DataFr
 def load_accounting_subject_mapping(config: BankStatementConfig) -> pd.DataFrame:
     """加载会计科目映射"""
     file_path = config.data_dir / config.subject_mapping_file
-    df = pd.read_excel(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    df = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            df = pd.read_excel(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if df is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
+
     df.columns = [str(col).strip() for col in df.columns]
     return df
 

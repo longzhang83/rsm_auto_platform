@@ -176,6 +176,7 @@ class VoucherService:
         expense_period: Optional[str],
     ) -> Tuple[str, pd.DataFrame]:
         """解析费用工作簿"""
+        # 首先尝试openpyxl（用于.xlsx格式）
         try:
             buffer = io.BytesIO(data)
             excel = pd.ExcelFile(buffer, engine="openpyxl")
@@ -188,13 +189,22 @@ class VoucherService:
             excel.close()
             return (expense_period or str(target_sheet)).strip(), df
         except Exception as exc_openpyxl:
+            # 如果openpyxl失败，尝试xlrd（用于.xls格式）
             try:
-                # 这里可以添加XLS支持
-                raise exc_openpyxl
+                buffer = io.BytesIO(data)
+                excel = pd.ExcelFile(buffer, engine="xlrd")
+                target_sheet = expense_sheet or (
+                    excel.sheet_names[0] if excel.sheet_names else None
+                )
+                if target_sheet is None:
+                    raise ValueError("费用工作簿中未找到任何工作表")
+                df = excel.parse(sheet_name=target_sheet, header=1)
+                excel.close()
+                return (expense_period or str(target_sheet)).strip(), df
             except Exception as exc_xlrd:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"费用工作簿解析失败：openpyxl: {exc_openpyxl}; xlrd: {exc_xlrd}",
+                    detail=f"费用工作簿解析失败（尝试了.xlsx和.xls格式）：openpyxl: {exc_openpyxl}; xlrd: {exc_xlrd}",
                 ) from exc_xlrd
 
     def _read_excel_with_fallback(
@@ -205,17 +215,19 @@ class VoucherService:
         dtype: Optional[object] = None,
     ) -> pd.DataFrame:
         """使用备用方法读取Excel文件"""
+        # 首先尝试openpyxl（用于.xlsx格式）
         try:
             buffer = io.BytesIO(data)
             return pd.read_excel(buffer, header=header, dtype=dtype, engine="openpyxl")
         except Exception as exc_openpyxl:
+            # 如果openpyxl失败，尝试xlrd（用于.xls格式）
             try:
-                # 这里可以添加XLS支持
-                raise exc_openpyxl
+                buffer = io.BytesIO(data)
+                return pd.read_excel(buffer, header=header, dtype=dtype, engine="xlrd")
             except Exception as exc_xlrd:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Excel 解析失败：openpyxl: {exc_openpyxl}; xlrd: {exc_xlrd}",
+                    detail=f"Excel 解析失败（尝试了.xlsx和.xls格式）：openpyxl: {exc_openpyxl}; xlrd: {exc_xlrd}",
                 ) from exc_xlrd
 
     def _create_result_zip(self, output_dir: Path, mapping_path: Path) -> BinaryIO:
