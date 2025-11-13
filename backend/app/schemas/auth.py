@@ -2,7 +2,7 @@
 认证相关的Pydantic模型
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, computed_field, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -31,6 +31,8 @@ class UserLogin(BaseModel):
 class UserResponse(BaseModel):
     """用户响应模型 - 不继承UserBase以允许更灵活的验证"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str = Field(..., description="用户名")
     email: str = Field(..., description="邮箱地址")  # 使用str而非EmailStr，允许内部域名
@@ -41,9 +43,13 @@ class UserResponse(BaseModel):
     wework_department: Optional[str] = None
     login_type: str = "password"
     is_admin: bool = False
+    hashed_password: Optional[str] = Field(None, exclude=True)  # 从数据库读取，但不输出到JSON
 
-    class Config:
-        from_attributes = True
+    @computed_field
+    @property
+    def has_password(self) -> bool:
+        """计算属性：用户是否设置了密码"""
+        return self.hashed_password is not None and self.hashed_password != ""
 
 
 class Token(BaseModel):

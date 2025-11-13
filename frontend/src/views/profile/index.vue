@@ -75,7 +75,7 @@
             <el-divider />
 
             <el-alert
-              v-if="!userInfo.hashed_password"
+              v-if="!userInfo.has_password"
               type="warning"
               :closable="false"
               show-icon
@@ -91,7 +91,7 @@
               <el-button
                 type="danger"
                 plain
-                :disabled="!userInfo.hashed_password"
+                :disabled="!userInfo.has_password"
                 @click="handleUnbind"
               >
                 <el-icon class="mr-1"><Close /></el-icon>
@@ -124,11 +124,11 @@
               <div class="security-info">
                 <div class="security-title">登录密码</div>
                 <div class="security-desc text-gray-500">
-                  {{ userInfo.hashed_password ? '已设置' : '未设置（仅企业微信登录）' }}
+                  {{ userInfo.has_password ? '已设置' : '未设置（仅企业微信登录）' }}
                 </div>
               </div>
               <el-button type="primary" plain @click="showPasswordDialog = true">
-                {{ userInfo.hashed_password ? '修改密码' : '设置密码' }}
+                {{ userInfo.has_password ? '修改密码' : '设置密码' }}
               </el-button>
             </div>
           </div>
@@ -172,7 +172,7 @@
     <!-- 修改密码对话框 -->
     <el-dialog
       v-model="showPasswordDialog"
-      :title="userInfo.hashed_password ? '修改密码' : '设置密码'"
+      :title="userInfo.has_password ? '修改密码' : '设置密码'"
       width="500px"
     >
       <el-form
@@ -181,7 +181,7 @@
         :rules="passwordRules"
         label-width="100px"
       >
-        <el-form-item v-if="userInfo.hashed_password" label="当前密码" prop="oldPassword">
+        <el-form-item v-if="userInfo.has_password" label="当前密码" prop="oldPassword">
           <el-input
             v-model="passwordForm.oldPassword"
             type="password"
@@ -285,7 +285,7 @@ const passwordRules = computed(() => {
   }
 
   // 如果已有密码，添加当前密码验证
-  if (userInfo.value.hashed_password) {
+  if (userInfo.value.has_password) {
     rules.oldPassword = [
       { required: true, message: '请输入当前密码', trigger: ['blur', 'change'] },
       {
@@ -318,7 +318,7 @@ const handleChangePassword = async () => {
     await passwordFormRef.value.validate()
 
     // 额外检查：如果用户有密码但没有输入当前密码
-    if (userInfo.value.hashed_password && !passwordForm.oldPassword) {
+    if (userInfo.value.has_password && !passwordForm.oldPassword) {
       ElMessage.error('请输入当前密码')
       return
     }
@@ -328,7 +328,7 @@ const handleChangePassword = async () => {
       oldPassword: passwordForm.oldPassword,
       newPassword: passwordForm.newPassword,
       oldPasswordLength: passwordForm.oldPassword?.length,
-      hasHashedPassword: userInfo.value.hashed_password
+      has_password: userInfo.value.has_password
     })
 
     passwordLoading.value = true
