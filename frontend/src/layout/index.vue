@@ -82,9 +82,10 @@
               <el-icon><Bell /></el-icon>
               <span class="notification-dot"></span>
             </button>
-            <button class="action-btn theme-btn" @click="toggleTheme" :title="appStore.isDark ? '切换到亮色模式' : '切换到暗色模式'">
+            <!-- 暂时禁用主题切换功能 -->
+            <!-- <button class="action-btn theme-btn" @click="toggleTheme" :title="appStore.isDark ? '切换到亮色模式' : '切换到暗色模式'">
               <el-icon><Moon v-if="appStore.isDark" /><Sunny v-else /></el-icon>
-            </button>
+            </button> -->
             <button class="action-btn settings-btn" @click="navigateToSettings">
               <el-icon><Setting /></el-icon>
             </button>
