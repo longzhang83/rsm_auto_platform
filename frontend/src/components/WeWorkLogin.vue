@@ -44,6 +44,15 @@ import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
+// Props - 支持自定义redirect_uri用于绑定场景
+const props = defineProps({
+  redirectUri: {
+    type: String,
+    default: null,
+    required: false
+  }
+})
+
 const router = useRouter()
 const loading = ref(true)
 const error = ref('')
@@ -136,11 +145,14 @@ const renderQRCode = () => {
     }
 
     // 生成二维码
+    // 使用自定义redirect_uri（绑定场景）或默认值（登录场景）
+    const redirectUri = props.redirectUri || config.value.redirect_uri
+
     new window.WwLogin({
       id: 'wework-qr-container',
       appid: config.value.corp_id,
       agentid: config.value.agent_id,
-      redirect_uri: encodeURIComponent(config.value.redirect_uri),
+      redirect_uri: encodeURIComponent(redirectUri),
       state: config.value.state,
       href: '', // 可以自定义样式CSS URL
     })

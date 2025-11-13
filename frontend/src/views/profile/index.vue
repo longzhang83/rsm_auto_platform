@@ -222,43 +222,29 @@
       <div class="bind-wework-content text-center">
         <p class="mb-4 text-gray-600">请使用企业微信扫描二维码完成绑定</p>
 
-        <div v-if="bindLoading" class="loading-container">
-          <el-icon class="is-loading" size="48">
-            <Loading />
-          </el-icon>
-          <p class="mt-4">正在加载二维码...</p>
-        </div>
-
-        <div v-else-if="bindError" class="error-container">
-          <el-alert type="error" :closable="false" show-icon>
-            {{ bindError }}
-          </el-alert>
-          <el-button type="primary" class="mt-4" @click="loadBindQRCode">
-            重新加载
-          </el-button>
-        </div>
-
-        <div v-else id="bind-qr-container" class="qr-container mx-auto"></div>
+        <!-- 使用通用的企业微信二维码组件 -->
+        <WeWorkLoginQR :redirect-uri="bindRedirectUri" />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import dayjs from 'dayjs'
+import WeWorkLoginQR from '@/components/WeWorkLogin.vue'
 
 const authStore = useAuthStore()
 const passwordFormRef = ref(null)
 const showPasswordDialog = ref(false)
 const showBindDialog = ref(false)
 const passwordLoading = ref(false)
-const bindLoading = ref(false)
-const bindError = ref('')
-const bindConfig = ref(null)
+
+// 绑定企业微信的回调地址
+const bindRedirectUri = ref(window.location.origin + '/wework-bind-callback')
 
 // 用户信息
 const userInfo = computed(() => authStore.user || {})
@@ -374,115 +360,6 @@ const handleUnbind = async () => {
     }
   }
 }
-
-// 加载绑定二维码
-const loadBindQRCode = async () => {
-  bindLoading.value = true
-  bindError.value = ''
-
-  try {
-    const config = await request.get('/auth/wework/config')
-
-    if (!config.enabled) {
-      bindError.value = '企业微信登录未启用'
-      bindLoading.value = false
-      return
-    }
-
-    bindConfig.value = config
-
-    // 使用nextTick确保对话框DOM已渲染
-    await nextTick()
-    // 额外等待，确保对话框完全显示
-    setTimeout(() => {
-      renderBindQRCode()
-    }, 200)
-  } catch (error) {
-    console.error('获取企业微信配置失败:', error)
-    bindError.value = '获取企业微信配置失败'
-    bindLoading.value = false
-  }
-}
-
-// 渲染绑定二维码
-const renderBindQRCode = () => {
-  if (!bindConfig.value) return
-
-  // 加载企业微信JS SDK
-  if (typeof window.WwLogin === 'undefined') {
-    const script = document.createElement('script')
-    script.src = 'https://rescdn.qqmail.com/node/ww/wwopenmng/js/sso/wwLogin-1.0.0.js'
-    script.onload = () => {
-      // SDK加载完成后，再次确认DOM已准备好
-      setTimeout(() => {
-        createQRCode()
-      }, 100)
-    }
-    script.onerror = () => {
-      bindError.value = '加载企业微信SDK失败'
-      bindLoading.value = false
-    }
-    document.head.appendChild(script)
-  } else {
-    createQRCode()
-  }
-}
-
-// 创建二维码
-const createQRCode = () => {
-  try {
-    const container = document.getElementById('bind-qr-container')
-
-    // 检查容器是否存在
-    if (!container) {
-      console.error('二维码容器未找到，尝试重试...')
-      // 重试一次
-      setTimeout(() => {
-        const retryContainer = document.getElementById('bind-qr-container')
-        if (!retryContainer) {
-          bindError.value = '二维码容器未找到，请关闭对话框后重试'
-          bindLoading.value = false
-          return
-        }
-        retryContainer.innerHTML = ''
-        new window.WwLogin({
-          id: 'bind-qr-container',
-          appid: bindConfig.value.corp_id,
-          agentid: bindConfig.value.agent_id,
-          redirect_uri: encodeURIComponent(window.location.origin + '/wework-bind-callback'),
-          state: bindConfig.value.state,
-          href: '',
-        })
-        bindLoading.value = false
-      }, 300)
-      return
-    }
-
-    container.innerHTML = ''
-
-    new window.WwLogin({
-      id: 'bind-qr-container',
-      appid: bindConfig.value.corp_id,
-      agentid: bindConfig.value.agent_id,
-      redirect_uri: encodeURIComponent(window.location.origin + '/wework-bind-callback'),
-      state: bindConfig.value.state,
-      href: '',
-    })
-
-    bindLoading.value = false
-  } catch (error) {
-    console.error('创建二维码失败:', error)
-    bindError.value = '创建二维码失败: ' + error.message
-    bindLoading.value = false
-  }
-}
-
-// 监听绑定对话框打开
-watch(showBindDialog, (newVal) => {
-  if (newVal) {
-    loadBindQRCode()
-  }
-})
 
 // 监听密码对话框关闭
 watch(showPasswordDialog, (newVal) => {
@@ -602,21 +479,5 @@ onMounted(() => {
 .stat-label {
   color: #666;
   font-size: 14px;
-}
-
-.qr-container {
-  display: inline-block;
-}
-
-:deep(#bind-qr-container iframe) {
-  width: 300px !important;
-  height: 360px !important;
-  border: none;
-}
-
-.loading-container,
-.error-container {
-  padding: 40px 20px;
-  text-align: center;
 }
 </style>
