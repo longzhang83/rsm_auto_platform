@@ -126,10 +126,6 @@
                     <el-icon><User /></el-icon>
                     个人中心
                   </el-dropdown-item>
-                  <el-dropdown-item @click="navigateToProfile">
-                    <el-icon><Setting /></el-icon>
-                    账户设置
-                  </el-dropdown-item>
                   <el-dropdown-item @click="navigateToHistory">
                     <el-icon><DocumentCopy /></el-icon>
                     我的记录
