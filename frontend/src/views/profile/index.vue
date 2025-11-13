@@ -320,11 +320,15 @@ const handleChangePassword = async () => {
 
       // 刷新用户信息
       await authStore.initAuth()
+    } catch (error) {
+      // 复用auth store的错误处理模式
+      console.error('修改密码失败:', error)
+      ElMessage.error(error.response?.data?.detail || '修改密码失败，请稍后重试')
     } finally {
       passwordLoading.value = false
     }
   } catch (error) {
-    // 验证失败，不做处理
+    // 表单验证失败，不做处理（Element Plus会自动显示验证错误）
   }
 }
 
@@ -349,15 +353,23 @@ const handleUnbind = async () => {
       }
     )
 
-    await request.post('/auth/wework/unbind')
-    ElMessage.success('企业微信账号已解绑')
+    try {
+      await request.post('/auth/wework/unbind')
+      ElMessage.success('企业微信账号已解绑')
 
-    // 刷新用户信息
-    await authStore.initAuth()
-  } catch (error) {
-    if (error !== 'cancel') {
+      // 刷新用户信息
+      await authStore.initAuth()
+    } catch (error) {
+      // 复用auth store的错误处理模式
       console.error('解绑失败:', error)
+      ElMessage.error(error.response?.data?.detail || '解绑失败，请稍后重试')
     }
+  } catch (error) {
+    // 用户取消操作，不做处理
+    if (error === 'cancel') {
+      return
+    }
+    console.error('操作失败:', error)
   }
 }
 
