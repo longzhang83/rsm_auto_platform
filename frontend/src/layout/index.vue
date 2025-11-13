@@ -82,8 +82,8 @@
               <el-icon><Bell /></el-icon>
               <span class="notification-dot"></span>
             </button>
-            <button class="action-btn theme-btn">
-              <el-icon><Sunny /></el-icon>
+            <button class="action-btn theme-btn" @click="toggleTheme" :title="appStore.isDark ? '切换到亮色模式' : '切换到暗色模式'">
+              <el-icon><Moon v-if="appStore.isDark" /><Sunny v-else /></el-icon>
             </button>
             <button class="action-btn settings-btn" @click="navigateToSettings">
               <el-icon><Setting /></el-icon>
@@ -156,7 +156,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -166,6 +166,11 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+
+// 初始化主题
+onMounted(() => {
+  appStore.initTheme()
+})
 
 // 菜单路由
 const menuRoutes = computed(() => {
@@ -192,6 +197,11 @@ const userInitials = computed(() => {
 // 切换侧边栏
 const toggleSidebar = () => {
   appStore.toggleSidebar()
+}
+
+// 切换主题
+const toggleTheme = () => {
+  appStore.toggleTheme()
 }
 
 // 导航到系统设置
