@@ -435,7 +435,7 @@ const createQRCode = () => {
       id: 'bind-qr-container',
       appid: bindConfig.value.corp_id,
       agentid: bindConfig.value.agent_id,
-      redirect_uri: encodeURIComponent(window.location.origin + '/profile/wework/bind/callback'),
+      redirect_uri: encodeURIComponent(window.location.origin + '/wework-bind-callback'),
       state: bindConfig.value.state,
       href: '',
     })

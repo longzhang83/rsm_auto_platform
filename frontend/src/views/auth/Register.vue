@@ -23,16 +23,6 @@
         :rules="registerRules"
         class="register-form"
       >
-        <el-form-item prop="username">
-          <el-input
-            v-model="registerForm.username"
-            placeholder="用户名（3-50个字符）"
-            size="large"
-            prefix-icon="User"
-            clearable
-          />
-        </el-form-item>
-
         <el-form-item prop="email">
           <div class="email-input-group">
             <el-input
@@ -41,6 +31,7 @@
               size="large"
               prefix-icon="Message"
               clearable
+              @input="handleEmailChange"
             />
             <el-button
               type="primary"
@@ -52,6 +43,17 @@
               {{ codeCountdown > 0 ? `${codeCountdown}s` : '获取验证码' }}
             </el-button>
           </div>
+        </el-form-item>
+
+        <el-form-item prop="username">
+          <el-input
+            v-model="registerForm.username"
+            placeholder="用户名（自动从邮箱提取）"
+            size="large"
+            prefix-icon="User"
+            disabled
+          />
+          <div class="form-tip">用户名将自动从邮箱前缀提取（例如：louis.zhang@rsmchina.com.cn → louis.zhang）</div>
         </el-form-item>
 
         <el-form-item prop="verification_code">
@@ -133,6 +135,16 @@ const registerForm = reactive({
   verification_code: ''
 })
 
+// 处理邮箱变化，自动提取用户名
+const handleEmailChange = (value) => {
+  if (value && value.includes('@')) {
+    // 提取@前面的部分作为用户名
+    registerForm.username = value.split('@')[0]
+  } else {
+    registerForm.username = ''
+  }
+}
+
 // 验证确认密码
 const validateConfirmPassword = (rule, value, callback) => {
   if (value === '') {
@@ -174,8 +186,8 @@ const validateEmailDomain = (rule, value, callback) => {
 
 const registerRules = {
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' }
+    { required: true, message: '请输入邮箱以自动生成用户名', trigger: 'change' },
+    { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'change' }
   ],
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
@@ -374,6 +386,13 @@ const handleRegister = async () => {
 .link:hover {
   color: var(--brand-primary-dark);
   text-decoration: underline;
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #95a5a6;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 @media (max-width: 576px) {

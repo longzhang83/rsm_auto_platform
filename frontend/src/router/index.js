@@ -41,6 +41,12 @@ const router = createRouter({
       meta: { title: '企业微信登录', requiresAuth: false }
     },
     {
+      path: '/wework-bind-callback',
+      name: 'WeWorkBindCallback',
+      component: () => import('@/views/auth/WeWorkBindCallback.vue'),
+      meta: { title: '绑定企业微信', requiresAuth: true }
+    },
+    {
       path: '/',
       name: 'Layout',
       component: () => import('@/layout/index.vue'),
