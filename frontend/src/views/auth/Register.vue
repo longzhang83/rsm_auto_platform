@@ -209,9 +209,6 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 }
 
-// 允许的邮箱域名列表
-const allowedEmailDomains = ['rsmchina.com.cn', 'rsmcn.cloud']
-
 // 自定义邮箱域名验证器
 const validateEmailDomain = (rule, value, callback) => {
   if (!value) {
@@ -228,8 +225,8 @@ const validateEmailDomain = (rule, value, callback) => {
   }
 
   const domain = match[1].toLowerCase()
-  if (!allowedEmailDomains.includes(domain)) {
-    const domainsText = allowedEmailDomains.join(' 或 ')
+  if (!availableDomains.value.includes(domain)) {
+    const domainsText = availableDomains.value.join(' 或 ')
     callback(new Error(`邮箱域名必须为 ${domainsText}`))
     return
   }
@@ -281,8 +278,8 @@ const sendVerificationCode = async () => {
   }
 
   const domain = match[1].toLowerCase()
-  if (!allowedEmailDomains.includes(domain)) {
-    const domainsText = allowedEmailDomains.join(' 或 ')
+  if (!availableDomains.value.includes(domain)) {
+    const domainsText = availableDomains.value.join(' 或 ')
     ElMessage.error(`邮箱域名必须为 ${domainsText}`)
     return
   }
