@@ -287,7 +287,17 @@ const passwordRules = computed(() => {
   // 如果已有密码，添加当前密码验证
   if (userInfo.value.hashed_password) {
     rules.oldPassword = [
-      { required: true, message: '请输入当前密码', trigger: 'blur' }
+      { required: true, message: '请输入当前密码', trigger: ['blur', 'change'] },
+      {
+        validator: (rule, value, callback) => {
+          if (!value || value.trim() === '') {
+            callback(new Error('当前密码不能为空'))
+          } else {
+            callback()
+          }
+        },
+        trigger: ['blur', 'change']
+      }
     ]
   }
 
@@ -306,6 +316,12 @@ const handleChangePassword = async () => {
 
   try {
     await passwordFormRef.value.validate()
+
+    // 额外检查：如果用户有密码但没有输入当前密码
+    if (userInfo.value.hashed_password && !passwordForm.oldPassword) {
+      ElMessage.error('请输入当前密码')
+      return
+    }
 
     passwordLoading.value = true
     try {
