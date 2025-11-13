@@ -280,7 +280,7 @@
     <div class="recent-section">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-gray-800">最近处理记录</h2>
-        <el-button type="text" @click="navigateToTool('/history')">查看全部</el-button>
+        <el-button type="link" @click="navigateToTool('/history')">查看全部</el-button>
       </div>
       <div class="bg-white rounded-lg card-shadow">
         <el-table :data="recentRecords" style="width: 100%">

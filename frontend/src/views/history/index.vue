@@ -58,7 +58,7 @@
             <el-tag class="ml-3" type="info" size="small">共 {{ total }} 条记录</el-tag>
           </div>
           <div class="flex items-center">
-            <el-button type="text" @click="handleExport">
+            <el-button type="link" @click="handleExport">
               <el-icon class="mr-1"><Download /></el-icon>
               导出记录
             </el-button>
