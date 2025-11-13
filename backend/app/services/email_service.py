@@ -64,7 +64,7 @@ class EmailService:
                         </p>
                         <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
                         <p style="color: #999; font-size: 11px; margin: 0;">
-                            © 2024 容诚税务师事务所。版权所有。
+                            © 2025 容诚税务师事务所。版权所有。
                         </p>
                     </div>
                 </body>
@@ -153,7 +153,7 @@ class EmailService:
                         </p>
                         <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
                         <p style="color: #999; font-size: 11px; margin: 0;">
-                            © 2024 容诚税务师事务所。版权所有。
+                            © 2025 容诚税务师事务所。版权所有。
                         </p>
                     </div>
                 </body>
