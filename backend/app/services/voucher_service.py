@@ -37,8 +37,13 @@ class VoucherService:
         start_seq: int = 0,
         expense_period: Optional[str] = None,
         expense_sheet: Optional[str] = None,
-    ) -> BinaryIO:
-        """生成会计凭证"""
+    ) -> Tuple[BinaryIO, int]:
+        """
+        生成会计凭证
+
+        Returns:
+            Tuple[BinaryIO, int]: (ZIP文件流, 生成的凭证行数)
+        """
         print(f"开始生成凭证，文件: {expense_file.filename}")
 
         # 验证主文件
@@ -157,8 +162,13 @@ class VoucherService:
                         status_code=400, detail="生成结果为空，请检查上传数据是否正确。"
                     )
 
+                # 获取生成的凭证行数
+                voucher_count = len(df_out)
+                print(f"成功生成 {voucher_count} 条凭证记录")
+
                 # 创建ZIP文件
-                return self._create_result_zip(output_dir, mapping_path)
+                zip_buffer = self._create_result_zip(output_dir, mapping_path)
+                return zip_buffer, voucher_count
 
         except HTTPException:
             raise

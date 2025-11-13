@@ -57,7 +57,7 @@ async def generate_vouchers(
 
     try:
         print(f"收到请求: expense_file={expense_file.filename}, preparer={preparer}")
-        zip_buffer = await voucher_service.generate_vouchers(
+        zip_buffer, voucher_count = await voucher_service.generate_vouchers(
             expense_file=expense_file,
             employee_file=employee_file,
             subject_file=subject_file,
@@ -73,15 +73,14 @@ async def generate_vouchers(
         # 计算处理时长
         duration = time.time() - start_time
 
-        # 记录成功的处理
-        # TODO: 优化为统计实际生成的凭证条数
+        # 记录成功的处理，使用实际生成的凭证条数
         DashboardService.add_record(
             db=db,
             tool="费用清单转凭证",
             file_name=expense_file.filename,
             status="成功",
             duration=duration,
-            record_count=1,  # 暂时记录为1个文件，后续可优化为实际凭证条数
+            record_count=voucher_count,  # 使用实际生成的凭证条数
             user_id=current_user.id,
         )
 
@@ -186,7 +185,7 @@ async def start_voucher_generation(
             progress_manager.update_progress(current_task_id, 5.0, "正在解析文件...")
 
             # 调用凭证生成服务
-            zip_buffer = await voucher_service.generate_vouchers(
+            zip_buffer, voucher_count = await voucher_service.generate_vouchers(
                 expense_file=expense_file_obj,
                 employee_file=employee_file_obj,
                 subject_file=subject_file_obj,
@@ -217,14 +216,14 @@ async def start_voucher_generation(
             # 计算处理时长
             duration = time.time() - start_time
 
-            # 记录成功的处理
+            # 记录成功的处理，使用实际生成的凭证条数
             DashboardService.add_record(
                 db=db,
                 tool="费用清单转凭证",
                 file_name=expense_file_obj.filename,
                 status="成功",
                 duration=duration,
-                record_count=1,
+                record_count=voucher_count,  # 使用实际生成的凭证条数
                 user_id=current_user.id,
             )
 
