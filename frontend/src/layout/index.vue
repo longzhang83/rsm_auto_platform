@@ -122,15 +122,15 @@
                       </div>
                     </div>
                   </el-dropdown-item>
-                  <el-dropdown-item divided>
+                  <el-dropdown-item divided @click="navigateToProfile">
                     <el-icon><User /></el-icon>
                     个人中心
                   </el-dropdown-item>
-                  <el-dropdown-item>
+                  <el-dropdown-item @click="navigateToProfile">
                     <el-icon><Setting /></el-icon>
                     账户设置
                   </el-dropdown-item>
-                  <el-dropdown-item>
+                  <el-dropdown-item @click="navigateToHistory">
                     <el-icon><DocumentCopy /></el-icon>
                     我的记录
                   </el-dropdown-item>
@@ -196,6 +196,16 @@ const userInitials = computed(() => {
 // 切换侧边栏
 const toggleSidebar = () => {
   appStore.toggleSidebar()
+}
+
+// 导航到个人中心/账户设置
+const navigateToProfile = () => {
+  router.push('/profile')
+}
+
+// 导航到我的记录
+const navigateToHistory = () => {
+  router.push('/history')
 }
 
 // 退出登录
