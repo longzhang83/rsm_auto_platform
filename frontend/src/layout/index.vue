@@ -85,7 +85,7 @@
             <button class="action-btn theme-btn">
               <el-icon><Sunny /></el-icon>
             </button>
-            <button class="action-btn settings-btn">
+            <button class="action-btn settings-btn" @click="navigateToSettings">
               <el-icon><Setting /></el-icon>
             </button>
           </div>
@@ -192,6 +192,11 @@ const userInitials = computed(() => {
 // 切换侧边栏
 const toggleSidebar = () => {
   appStore.toggleSidebar()
+}
+
+// 导航到系统设置
+const navigateToSettings = () => {
+  router.push('/settings')
 }
 
 // 导航到个人中心/账户设置
