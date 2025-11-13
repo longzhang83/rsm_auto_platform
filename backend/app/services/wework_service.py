@@ -237,7 +237,7 @@ class WeWorkService:
             user.wework_name = name
             user.wework_avatar = avatar
             user.wework_department = department
-            user.login_type = "wework"
+            # 保留原有登录方式，支持双登录
             db.commit()
             db.refresh(user)
 
@@ -248,15 +248,15 @@ class WeWorkService:
             )
 
         # 2. 如果有email，检查是否存在该邮箱的用户（自动绑定）
-        if email:
+        if email and not email.endswith("@wework.local"):  # 排除系统生成的内部邮箱
             existing_user = db.query(User).filter(User.email == email).first()
             if existing_user and not existing_user.wework_userid:
-                logger.info(f"自动绑定企业微信账号到已有用户: {email}")
+                logger.info(f"自动绑定企业微信账号到已有用户（邮箱匹配）: {email}")
                 existing_user.wework_userid = userid
                 existing_user.wework_name = name
                 existing_user.wework_avatar = avatar
                 existing_user.wework_department = department
-                existing_user.login_type = "wework"
+                # 保留原有登录方式，支持双登录
                 db.commit()
                 db.refresh(existing_user)
 
@@ -266,7 +266,26 @@ class WeWorkService:
                     user=UserResponse.model_validate(existing_user),
                 )
 
-        # 3. 创建新用户
+        # 3. 尝试通过用户名匹配（如果企业微信名称与已有用户名完全匹配）
+        if name:
+            existing_user = db.query(User).filter(User.username == name).first()
+            if existing_user and not existing_user.wework_userid:
+                logger.info(f"自动绑定企业微信账号到已有用户（用户名匹配）: {name}")
+                existing_user.wework_userid = userid
+                existing_user.wework_name = name
+                existing_user.wework_avatar = avatar
+                existing_user.wework_department = department
+                # 保留原有登录方式，支持双登录
+                db.commit()
+                db.refresh(existing_user)
+
+                access_token = create_access_token(data={"sub": existing_user.username})
+                return Token(
+                    access_token=access_token,
+                    user=UserResponse.model_validate(existing_user),
+                )
+
+        # 4. 创建新用户
         # 生成唯一用户名（基于企业微信名称或userid）
         base_username = name or userid
         username = base_username
