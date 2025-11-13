@@ -245,7 +245,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -391,10 +391,12 @@ const loadBindQRCode = async () => {
 
     bindConfig.value = config
 
-    // 等待DOM更新
+    // 使用nextTick确保对话框DOM已渲染
+    await nextTick()
+    // 额外等待，确保对话框完全显示
     setTimeout(() => {
       renderBindQRCode()
-    }, 100)
+    }, 200)
   } catch (error) {
     console.error('获取企业微信配置失败:', error)
     bindError.value = '获取企业微信配置失败'
@@ -411,7 +413,10 @@ const renderBindQRCode = () => {
     const script = document.createElement('script')
     script.src = 'https://rescdn.qqmail.com/node/ww/wwopenmng/js/sso/wwLogin-1.0.0.js'
     script.onload = () => {
-      createQRCode()
+      // SDK加载完成后，再次确认DOM已准备好
+      setTimeout(() => {
+        createQRCode()
+      }, 100)
     }
     script.onerror = () => {
       bindError.value = '加载企业微信SDK失败'
@@ -427,9 +432,33 @@ const renderBindQRCode = () => {
 const createQRCode = () => {
   try {
     const container = document.getElementById('bind-qr-container')
-    if (container) {
-      container.innerHTML = ''
+
+    // 检查容器是否存在
+    if (!container) {
+      console.error('二维码容器未找到，尝试重试...')
+      // 重试一次
+      setTimeout(() => {
+        const retryContainer = document.getElementById('bind-qr-container')
+        if (!retryContainer) {
+          bindError.value = '二维码容器未找到，请关闭对话框后重试'
+          bindLoading.value = false
+          return
+        }
+        retryContainer.innerHTML = ''
+        new window.WwLogin({
+          id: 'bind-qr-container',
+          appid: bindConfig.value.corp_id,
+          agentid: bindConfig.value.agent_id,
+          redirect_uri: encodeURIComponent(window.location.origin + '/wework-bind-callback'),
+          state: bindConfig.value.state,
+          href: '',
+        })
+        bindLoading.value = false
+      }, 300)
+      return
     }
+
+    container.innerHTML = ''
 
     new window.WwLogin({
       id: 'bind-qr-container',
@@ -443,7 +472,7 @@ const createQRCode = () => {
     bindLoading.value = false
   } catch (error) {
     console.error('创建二维码失败:', error)
-    bindError.value = '创建二维码失败'
+    bindError.value = '创建二维码失败: ' + error.message
     bindLoading.value = false
   }
 }
