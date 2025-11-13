@@ -210,8 +210,9 @@ class WeWorkService:
 
         场景：
         1. 如果wework_userid已绑定，直接登录
-        2. 如果email存在且未绑定wework，自动绑定
-        3. 否则创建新用户
+        2. 尝试用户名匹配（企业微信name与注册username匹配）
+        3. 尝试邮箱用户名部分匹配（例如：zhanglong@wework.local 和 zhanglong@rsmchina.com.cn）
+        4. 否则创建新用户
 
         Args:
             db: 数据库会话
@@ -247,26 +248,8 @@ class WeWorkService:
                 access_token=access_token, user=UserResponse.model_validate(user)
             )
 
-        # 2. 如果有email，检查是否存在该邮箱的用户（自动绑定）
-        if email and not email.endswith("@wework.local"):  # 排除系统生成的内部邮箱
-            existing_user = db.query(User).filter(User.email == email).first()
-            if existing_user and not existing_user.wework_userid:
-                logger.info(f"自动绑定企业微信账号到已有用户（邮箱匹配）: {email}")
-                existing_user.wework_userid = userid
-                existing_user.wework_name = name
-                existing_user.wework_avatar = avatar
-                existing_user.wework_department = department
-                # 保留原有登录方式，支持双登录
-                db.commit()
-                db.refresh(existing_user)
-
-                access_token = create_access_token(data={"sub": existing_user.username})
-                return Token(
-                    access_token=access_token,
-                    user=UserResponse.model_validate(existing_user),
-                )
-
-        # 3. 尝试通过用户名匹配（如果企业微信名称与已有用户名完全匹配）
+        # 2. 尝试通过用户名匹配（如果企业微信名称与已有用户名完全匹配）
+        # 优先使用姓名匹配，因为这是最可靠的方式
         if name:
             existing_user = db.query(User).filter(User.username == name).first()
             if existing_user and not existing_user.wework_userid:
@@ -284,6 +267,33 @@ class WeWorkService:
                     access_token=access_token,
                     user=UserResponse.model_validate(existing_user),
                 )
+
+        # 3. 尝试通过邮箱用户名部分匹配
+        # 例如：zhanglong@wework.local 和 zhanglong@rsmchina.com.cn 可以匹配
+        if email and "@" in email:
+            email_username = email.split("@")[0]  # 提取@前面的部分
+            # 查询所有用户，检查邮箱用户名部分是否匹配
+            all_users = db.query(User).filter(User.wework_userid.is_(None)).all()
+            for existing_user in all_users:
+                if existing_user.email and "@" in existing_user.email:
+                    existing_email_username = existing_user.email.split("@")[0]
+                    if email_username == existing_email_username:
+                        logger.info(
+                            f"自动绑定企业微信账号到已有用户（邮箱用户名匹配）: {email_username} ({email} -> {existing_user.email})"
+                        )
+                        existing_user.wework_userid = userid
+                        existing_user.wework_name = name
+                        existing_user.wework_avatar = avatar
+                        existing_user.wework_department = department
+                        # 保留原有登录方式，支持双登录
+                        db.commit()
+                        db.refresh(existing_user)
+
+                        access_token = create_access_token(data={"sub": existing_user.username})
+                        return Token(
+                            access_token=access_token,
+                            user=UserResponse.model_validate(existing_user),
+                        )
 
         # 4. 创建新用户
         # 生成唯一用户名（基于企业微信名称或userid）
