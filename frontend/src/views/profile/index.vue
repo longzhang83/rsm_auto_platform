@@ -323,12 +323,25 @@ const handleChangePassword = async () => {
       return
     }
 
+    // 调试：打印表单数据
+    console.log('表单数据:', {
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword,
+      oldPasswordLength: passwordForm.oldPassword?.length,
+      hasHashedPassword: userInfo.value.hashed_password
+    })
+
     passwordLoading.value = true
     try {
-      await request.post('/auth/change-password', {
+      const requestData = {
         old_password: passwordForm.oldPassword || null,
         new_password: passwordForm.newPassword
-      })
+      }
+
+      // 调试：打印请求数据
+      console.log('发送请求数据:', requestData)
+
+      await request.post('/auth/change-password', requestData)
 
       ElMessage.success('密码修改成功')
       showPasswordDialog.value = false
