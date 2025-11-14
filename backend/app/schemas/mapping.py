@@ -65,7 +65,7 @@ class SubjectMappingBase(BaseModel):
     """会计科目映射基础模型"""
 
     customer_name: str = Field(..., description="客户名称")
-    match_type: str = Field(..., description="匹配方式（对方账户名称/摘要关键字）")
+    match_type: str = Field(..., description="匹配方式（对方账户名称/摘要关键字/银行账号）")
     counterparty_name: Optional[str] = Field(default="", description="对方账户名称")
     keywords: Optional[str] = Field(default="", description="摘要关键字")
     subject_code: str = Field(..., description="会计科目编码")
@@ -80,7 +80,7 @@ class SubjectMappingBase(BaseModel):
     @validator("match_type")
     def validate_match_type(cls, v):
         """验证匹配方式"""
-        valid_types = ["对方账户名称", "摘要关键字"]
+        valid_types = ["对方账户名称", "摘要关键字", "银行账号"]
         if v not in valid_types:
             raise ValueError(f"匹配方式必须是: {', '.join(valid_types)}")
         return v

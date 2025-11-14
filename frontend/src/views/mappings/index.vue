@@ -109,7 +109,8 @@
                 @clear="loadSubjectMappings"
               >
                 <el-option label="对方账户名称" value="对方账户名称" />
-                <el-option label="关键字" value="关键字" />
+                <el-option label="摘要关键字" value="摘要关键字" />
+                <el-option label="银行账号" value="银行账号" />
               </el-select>
               <el-input
                 v-model="subjectSearch.keyword"
@@ -150,7 +151,7 @@
             <el-table-column prop="customer_name" label="客户名称" width="150" />
             <el-table-column prop="match_type" label="匹配方式" width="150" />
             <el-table-column prop="counterparty_name" label="对方账户名称" width="200" />
-            <el-table-column prop="keywords" label="关键字" width="200" />
+            <el-table-column prop="keywords" label="摘要关键字" width="200" />
             <el-table-column prop="subject_code" label="会计科目编码" width="150" />
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
@@ -243,7 +244,8 @@
         <el-form-item label="匹配方式" prop="match_type">
           <el-select v-model="subjectForm.match_type" placeholder="请选择匹配方式" style="width: 100%">
             <el-option label="对方账户名称" value="对方账户名称" />
-            <el-option label="关键字" value="关键字" />
+            <el-option label="摘要关键字" value="摘要关键字" />
+            <el-option label="银行账号" value="银行账号" />
           </el-select>
         </el-form-item>
         <el-form-item
@@ -257,11 +259,21 @@
           />
         </el-form-item>
         <el-form-item
-          label="关键字"
+          label="摘要关键字"
           prop="keywords"
-          v-if="subjectForm.match_type === '关键字'"
+          v-if="subjectForm.match_type === '摘要关键字'"
         >
-          <el-input v-model="subjectForm.keywords" placeholder="请输入关键字" />
+          <el-input v-model="subjectForm.keywords" placeholder="请输入摘要关键字" />
+        </el-form-item>
+        <el-form-item
+          label="银行账号"
+          prop="counterparty_name"
+          v-if="subjectForm.match_type === '银行账号'"
+        >
+          <el-input
+            v-model="subjectForm.counterparty_name"
+            placeholder="请输入银行账号"
+          />
         </el-form-item>
         <el-form-item label="会计科目编码" prop="subject_code">
           <el-input v-model="subjectForm.subject_code" placeholder="请输入会计科目编码" />
