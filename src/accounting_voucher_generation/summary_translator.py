@@ -12,12 +12,10 @@ try:
 except ImportError:  # pragma: no cover
     tqdm = None
 
-# 使用统一翻译接口
-from .translation_interface import (
+# 直接使用多账户翻译服务
+from .multi_account_translator import (
     batch_translate_texts,
-    translate_text,
     configure_translation_service,
-    TranslationStrategy
 )
 
 
@@ -36,7 +34,9 @@ class SummaryTranslatorConfig:
     inplace: bool = False  # 是否直接在原文件上修改
 
     # 翻译配置
-    translation_mapping_path: Path = field(default_factory=lambda: Path("data") / "translation_mapping.csv")
+    translation_mapping_path: Path = field(
+        default_factory=lambda: Path("data") / "translation_mapping.csv"
+    )
     translation_max_workers: int = 3
     translation_requests_per_second: float = 0.6
     target_language: str = "en"  # 目标语言: "en" 为英文, "zh" 为中文
@@ -56,10 +56,14 @@ class SummaryTranslatorConfig:
             input_file=Path(self.input_file).expanduser().resolve(),
             sheet_name=self.sheet_name,
             summary_column=self.summary_column,
-            output_file=Path(self.output_file).expanduser().resolve() if self.output_file else None,
+            output_file=Path(self.output_file).expanduser().resolve()
+            if self.output_file
+            else None,
             output_column=self.output_column,
             inplace=self.inplace,
-            translation_mapping_path=Path(self.translation_mapping_path).expanduser().resolve(),
+            translation_mapping_path=Path(self.translation_mapping_path)
+            .expanduser()
+            .resolve(),
             translation_max_workers=self.translation_max_workers,
             translation_requests_per_second=self.translation_requests_per_second,
             target_language=self.target_language,
@@ -86,7 +90,9 @@ class SummaryTranslator:
                     cache_path=self.config.translation_mapping_path,
                     max_workers=self.config.translation_max_workers,
                 )
-                print(f"已初始化多账户翻译服务，共 {len(self.config.zhipuai_api_keys)} 个API密钥")
+                print(
+                    f"已初始化多账户翻译服务，共 {len(self.config.zhipuai_api_keys)} 个API密钥"
+                )
             except Exception as e:
                 print(f"初始化多账户翻译服务失败: {e}")
                 print("将使用原有的单账户翻译服务")
@@ -101,69 +107,100 @@ class SummaryTranslator:
             if self.config.sheet_name is not None:
                 sheet_name = self.config.sheet_name
                 # 先检查工作表是否存在
-                excel_file = pd.ExcelFile(self.config.input_file, engine="openpyxl")
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                excel_file = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
+                        excel_file = pd.ExcelFile(self.config.input_file, engine=engine)
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
+
+                if excel_file is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
                 try:
-                    if isinstance(sheet_name, str) and sheet_name not in excel_file.sheet_names:
+                    if (
+                        isinstance(sheet_name, str)
+                        and sheet_name not in excel_file.sheet_names
+                    ):
                         available_sheets = ", ".join(excel_file.sheet_names)
-                        raise ValueError(f"工作表 '{sheet_name}' 不存在。可用的工作表: {available_sheets}")
-                    if isinstance(sheet_name, int) and sheet_name >= len(excel_file.sheet_names):
-                        raise ValueError(f"工作表索引 {sheet_name} 超出范围。可用的工作表: 0-{len(excel_file.sheet_names)-1}")
+                        raise ValueError(
+                            f"工作表 '{sheet_name}' 不存在。可用的工作表: {available_sheets}"
+                        )
+                    if isinstance(sheet_name, int) and sheet_name >= len(
+                        excel_file.sheet_names
+                    ):
+                        raise ValueError(
+                            f"工作表索引 {sheet_name} 超出范围。可用的工作表: 0-{len(excel_file.sheet_names) - 1}"
+                        )
                 finally:
                     excel_file.close()
 
                 # 智能读取Excel文件，优先使用第一行作为列名
-                try:
-                    df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="openpyxl")
-
-                    # 显示可用列名，方便调试
-                    logger.info(f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}")
-
-                    # 如果指定的列不存在，提供友好的错误信息
-                    if self.config.summary_column not in df.columns:
-                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                        raise ValueError(
-                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
-                            f"可用列名: {available_columns}\n"
-                            f"请检查列名是否正确，或使用以上可用列名之一。"
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                df = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
+                        df = pd.read_excel(
+                            self.config.input_file,
+                            sheet_name=sheet_name,
+                            header=0,
+                            engine=engine,
                         )
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
 
-                except ValueError as e:
-                    if "摘要列" in str(e):
-                        # 重新抛出列名不存在的错误
-                        raise
-                    else:
-                        # 其他Excel读取错误，尝试备用方案
-                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
-                        df = pd.read_excel(self.config.input_file, sheet_name=sheet_name, header=0, engine="xlrd")
-                        if self.config.summary_column not in df.columns:
-                            available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                            raise ValueError(f"摘要列 '{self.config.summary_column}' 不存在。可用列: {available_columns}")
+                if df is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
+                # 显示可用列名，方便调试
+                logger.info(
+                    f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
+                )
+
+                # 如果指定的列不存在，提供友好的错误信息
+                if self.config.summary_column not in df.columns:
+                    available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                    raise ValueError(
+                        f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                        f"可用列名: {available_columns}\n"
+                        f"请检查列名是否正确，或使用以上可用列名之一。"
+                    )
             else:
-                # 读取第一个工作表，逻辑同上
-                try:
-                    df = pd.read_excel(self.config.input_file, header=0, engine="openpyxl")
-                    logger.info(f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}")
-
-                    if self.config.summary_column not in df.columns:
-                        available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                        raise ValueError(
-                            f"摘要列 '{self.config.summary_column}' 不存在。\n"
-                            f"可用列名: {available_columns}\n"
-                            f"请检查列名是否正确，或使用以上可用列名之一。"
+                # 读取第一个工作表
+                # 尝试不同的引擎来支持.xlsx和.xls格式
+                df = None
+                last_error = None
+                for engine in ["openpyxl", "xlrd"]:
+                    try:
+                        df = pd.read_excel(
+                            self.config.input_file, header=0, engine=engine
                         )
+                        break
+                    except Exception as e:
+                        last_error = e
+                        continue
 
-                except ValueError as e:
-                    if "摘要列" in str(e):
-                        raise
-                    else:
-                        logger.warning(f"使用标准读取失败，尝试备用方案: {e}")
-                        df = pd.read_excel(self.config.input_file, header=0, engine="xlrd")
-                        if self.config.summary_column not in df.columns:
-                            available_columns = ", ".join(f"'{col}'" for col in df.columns)
-                            logger.warning(f"指定的摘要列 '{self.config.summary_column}' 不存在，自动使用第一列 '{df.columns[0]}'")
-                            logger.info(f"可用列名: {available_columns}")
-                            # 自动使用第一列
-                            self.config.summary_column = df.columns[0]
+                if df is None:
+                    raise ValueError(f"无法读取Excel文件: {last_error}")
+
+                logger.info(
+                    f"Excel文件 '{self.config.input_file}' 的列名: {list(df.columns)}"
+                )
+
+                if self.config.summary_column not in df.columns:
+                    available_columns = ", ".join(f"'{col}'" for col in df.columns)
+                    raise ValueError(
+                        f"摘要列 '{self.config.summary_column}' 不存在。\n"
+                        f"可用列名: {available_columns}\n"
+                        f"请检查列名是否正确，或使用以上可用列名之一。"
+                    )
 
             df.columns = [str(col).strip() for col in df.columns]
 
@@ -173,7 +210,9 @@ class SummaryTranslator:
         # 检查摘要列是否存在
         if self.config.summary_column not in df.columns:
             available_columns = ", ".join(df.columns)
-            raise ValueError(f"摘要列 '{self.config.summary_column}' 不存在。可用列: {available_columns}")
+            raise ValueError(
+                f"摘要列 '{self.config.summary_column}' 不存在。可用列: {available_columns}"
+            )
 
         return df
 
@@ -202,7 +241,9 @@ class SummaryTranslator:
             target_language=self.config.target_language,
         )
 
-    def apply_translations(self, df: pd.DataFrame, translations: Dict[str, str]) -> pd.DataFrame:
+    def apply_translations(
+        self, df: pd.DataFrame, translations: Dict[str, str]
+    ) -> pd.DataFrame:
         """将翻译结果应用到DataFrame"""
         result_df = df.copy() if not self.config.inplace else df
 
@@ -230,13 +271,19 @@ class SummaryTranslator:
                 # 根据目标语言格式化输出
                 if self.config.target_language == "en":
                     # 中译英：中文--英文格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
+                    result_df.at[idx, self.config.output_column] = (
+                        f"{original_text}--{translated_text}"
+                    )
                 elif self.config.target_language == "zh":
                     # 英译中：英文--中文格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
+                    result_df.at[idx, self.config.output_column] = (
+                        f"{original_text}--{translated_text}"
+                    )
                 else:
                     # 默认格式
-                    result_df.at[idx, self.config.output_column] = f"{original_text}--{translated_text}"
+                    result_df.at[idx, self.config.output_column] = (
+                        f"{original_text}--{translated_text}"
+                    )
             else:
                 # 如果没有找到翻译，使用原文
                 result_df.at[idx, self.config.output_column] = original_text
@@ -254,9 +301,10 @@ class SummaryTranslator:
             input_suffix = self.config.input_file.suffix
 
             # 检查原文件名是否已包含_translated
-            if '_translated' in input_stem:
+            if "_translated" in input_stem:
                 # 如果已包含，添加时间戳
                 import time
+
                 timestamp = int(time.time())
                 output_stem = f"{input_stem}_{timestamp}"
             else:
@@ -271,13 +319,13 @@ class SummaryTranslator:
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                if output_path.suffix.lower() in ['.xlsx', '.xls']:
+                if output_path.suffix.lower() in [".xlsx", ".xls"]:
                     df.to_excel(output_path, index=False, engine="openpyxl")
-                elif output_path.suffix.lower() == '.csv':
+                elif output_path.suffix.lower() == ".csv":
                     df.to_csv(output_path, index=False, encoding="utf-8-sig")
                 else:
                     # 默认保存为Excel
-                    output_path = output_path.with_suffix('.xlsx')
+                    output_path = output_path.with_suffix(".xlsx")
                     df.to_excel(output_path, index=False, engine="openpyxl")
                 break  # 成功保存，退出重试循环
             except Exception as e:
@@ -287,14 +335,18 @@ class SummaryTranslator:
                 else:
                     # 等待一段时间后重试
                     import time
+
                     time.sleep(1)
                     # 如果文件被锁定，尝试生成新的文件名
                     if "locked" in str(e).lower() or "being used" in str(e).lower():
                         import time
+
                         timestamp = int(time.time())
                         name_part = output_path.stem
                         ext_part = output_path.suffix
-                        output_path = output_path.parent / f"{name_part}_{timestamp}{ext_part}"
+                        output_path = (
+                            output_path.parent / f"{name_part}_{timestamp}{ext_part}"
+                        )
 
         return output_path
 
@@ -327,9 +379,17 @@ class SummaryTranslator:
             percentage = 25.00 + (current / total) * 60.00  # 25%-85%是翻译阶段
             percentage = round(percentage * 100) / 100  # 保留2位小数
             if self.config.progress_callback:
-                self.config.progress_callback(percentage, f"正在翻译: {current_item}", current, total, current_item)
+                self.config.progress_callback(
+                    percentage,
+                    f"正在翻译: {current_item}",
+                    current,
+                    total,
+                    current_item,
+                )
 
-        translations = self.translate_summaries_with_progress(unique_summaries, translation_progress)
+        translations = self.translate_summaries_with_progress(
+            unique_summaries, translation_progress
+        )
 
         # 4. 应用翻译结果
         if self.config.progress_callback:
@@ -350,30 +410,25 @@ class SummaryTranslator:
 
         return result_df, output_path
 
-    def translate_summaries_with_progress(self, summaries: List[str], progress_callback: callable) -> Dict[str, str]:
+    def translate_summaries_with_progress(
+        self, summaries: List[str], progress_callback: callable
+    ) -> Dict[str, str]:
         """带进度回调的翻译摘要文本"""
         import logging
+
         logger = logging.getLogger(__name__)
 
         logger.info(f"[summary_translator] 开始翻译 {len(summaries)} 个摘要文本")
 
         # 使用统一翻译接口，根据是否需要取消功能选择策略
-        # 修复：使用智能策略选择，避免硬编码选择async策略
-        if self.config.cancel_check:
-            # 需要取消功能时，使用自动策略选择，优先选择已初始化的实现
-            strategy = TranslationStrategy.AUTO
-            logger.info(f"[summary_translator] 需要取消功能，使用自动策略选择")
-        else:
-            # 不需要取消功能时，使用稳定的chatglm_v2
-            strategy = TranslationStrategy.CHATGLM_V2
-            logger.info(f"[summary_translator] 使用翻译策略: {strategy}")
+        # 直接使用多账户翻译服务
+        logger.info("[summary_translator] 使用多账户翻译服务")
 
         return batch_translate_texts(
             texts=summaries,
             target_language=self.config.target_language,
             progress_callback=progress_callback,
             cancel_check=self.config.cancel_check,
-            strategy=strategy,
             max_workers=self.config.translation_max_workers,
             requests_per_second=self.config.translation_requests_per_second,
             mapping_path=self.config.translation_mapping_path,
@@ -421,7 +476,9 @@ def translate_summaries_from_excel(
         output_file=Path(output_file) if output_file else None,
         output_column=output_column,
         inplace=inplace,
-        translation_mapping_path=Path(translation_mapping_path) if translation_mapping_path else None,
+        translation_mapping_path=Path(translation_mapping_path)
+        if translation_mapping_path
+        else None,
         translation_max_workers=translation_max_workers,
         translation_requests_per_second=translation_requests_per_second,
         skip_existing=skip_existing,

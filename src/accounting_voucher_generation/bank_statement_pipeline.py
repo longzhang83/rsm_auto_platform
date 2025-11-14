@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Tuple, Union
-from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-import logging
 import pandas as pd
 
 try:
@@ -13,7 +12,10 @@ try:
 except ImportError:  # pragma: no cover
     tqdm = None
 
-from .translation_interface import batch_translate_texts, configure_translation_service
+from .multi_account_translator import (
+    batch_translate_texts,
+    configure_translation_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +138,20 @@ def load_bank_statement_data(
 ) -> pd.DataFrame:
     """加载银行流水数据"""
     file_path = config.data_dir / config.bank_statement_file
-    excel = pd.ExcelFile(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    excel = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            excel = pd.ExcelFile(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if excel is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
 
     if config.bank_statement_sheet is not None:
         sheet_name = config.bank_statement_sheet
@@ -149,6 +164,7 @@ def load_bank_statement_data(
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
+
 def load_bank_statement_data_from_bytes(
     file_bytes: bytes,
     file_name: str,
@@ -156,7 +172,6 @@ def load_bank_statement_data_from_bytes(
     column_mapping: Dict[str, str],
     *,
     usecols: Optional[Iterable[str]] = None,
-
 ) -> pd.DataFrame:
     """从字节数据直接加载银行流水数据"""
     import io
@@ -175,18 +190,30 @@ def load_bank_statement_data_from_bytes(
             sheet_name = 0
 
         # 直接使用pd.read_excel，不在加载阶段进行日期解析
-        read_excel_kwargs = {
-            "io": excel_file,
-            "sheet_name": sheet_name,
-            "header": 0,
-            "engine": "openpyxl",
-            "parse_dates": [date_col],  # 不进行日期解析
-        }
+        # 尝试不同的引擎来支持.xlsx和.xls格式
+        df = None
+        last_error = None
+        for engine in ["openpyxl", "xlrd"]:
+            try:
+                read_excel_kwargs = {
+                    "io": io.BytesIO(file_bytes),  # 为每次尝试创建新的BytesIO
+                    "sheet_name": sheet_name,
+                    "header": 0,
+                    "engine": engine,
+                    "parse_dates": [date_col],
+                }
 
-        if usecols:
-            read_excel_kwargs["usecols"] = usecols
+                if usecols:
+                    read_excel_kwargs["usecols"] = usecols
 
-        df = pd.read_excel(**read_excel_kwargs)
+                df = pd.read_excel(**read_excel_kwargs)
+                break
+            except Exception as e:
+                last_error = e
+                continue
+
+        if df is None:
+            raise ValueError(f"无法读取Excel文件（尝试了.xlsx和.xls格式）: {last_error}")
     elif file_extension == ".csv":
         # 处理CSV文件
         import io
@@ -194,15 +221,12 @@ def load_bank_statement_data_from_bytes(
         csv_file = io.StringIO(file_bytes.decode("utf-8"))
 
         # 直接使用pd.read_csv，不在加载阶段进行日期解析
-        read_csv_kwargs = {
-            "filepath_or_buffer": csv_file,
-            "encoding": "utf-8"
-        }
+        read_csv_kwargs = {"filepath_or_buffer": csv_file, "encoding": "utf-8"}
 
         if usecols:
             read_csv_kwargs["usecols"] = usecols
 
-        logger.info(f"[数据加载] 调用pd.read_csv加载CSV文件，不进行日期解析")
+        logger.info("[数据加载] 调用pd.read_csv加载CSV文件，不进行日期解析")
         df = pd.read_csv(**read_csv_kwargs)
     else:
         raise ValueError(f"不支持的文件格式: {file_extension}")
@@ -215,7 +239,21 @@ def load_bank_statement_data_from_bytes(
 def load_bank_statement_column_mapping(config: BankStatementConfig) -> pd.DataFrame:
     """加载银行流水列名映射"""
     file_path = config.data_dir / config.column_mapping_file
-    df = pd.read_excel(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    df = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            df = pd.read_excel(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if df is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
+
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
@@ -223,7 +261,21 @@ def load_bank_statement_column_mapping(config: BankStatementConfig) -> pd.DataFr
 def load_accounting_subject_mapping(config: BankStatementConfig) -> pd.DataFrame:
     """加载会计科目映射"""
     file_path = config.data_dir / config.subject_mapping_file
-    df = pd.read_excel(file_path, engine="openpyxl")
+
+    # 尝试不同的引擎来支持.xlsx和.xls格式
+    df = None
+    last_error = None
+    for engine in ["openpyxl", "xlrd"]:
+        try:
+            df = pd.read_excel(file_path, engine=engine)
+            break
+        except Exception as e:
+            last_error = e
+            continue
+
+    if df is None:
+        raise ValueError(f"无法读取Excel文件 {file_path}: {last_error}")
+
     df.columns = [str(col).strip() for col in df.columns]
     return df
 
@@ -232,37 +284,53 @@ def get_column_mapping_for_customer(
     column_mapping_df: pd.DataFrame,
     customer_name: str,
     config: BankStatementConfig,
-    bank_name: Optional[str] = None
+    bank_name: Optional[str] = None,
 ) -> Dict[str, str]:
     """获取指定客户的列名映射（支持银行名称）"""
 
     # 1. 优先尝试客户+银行精确匹配
     if bank_name and bank_name.strip():
         bank_name = bank_name.strip()
-        logger.info(f"[列名映射] 尝试客户+银行精确匹配: {customer_name} + '{bank_name}' (长度: {len(bank_name)})")
+        logger.info(
+            f"[列名映射] 尝试客户+银行精确匹配: {customer_name} + '{bank_name}' (长度: {len(bank_name)})"
+        )
 
         # 显示可用的银行选项
-        customer_banks = column_mapping_df[column_mapping_df.iloc[:, 0] == customer_name].iloc[:, 1].unique()
-        logger.info(f"[列名映射] 客户 {customer_name} 可用的银行选项: {list(customer_banks)}")
+        customer_banks = (
+            column_mapping_df[column_mapping_df.iloc[:, 0] == customer_name]
+            .iloc[:, 1]
+            .unique()
+        )
+        logger.info(
+            f"[列名映射] 客户 {customer_name} 可用的银行选项: {list(customer_banks)}"
+        )
 
         exact_match = column_mapping_df[
-            (column_mapping_df.iloc[:, 0] == customer_name) &
-            (column_mapping_df.iloc[:, 1] == bank_name)
+            (column_mapping_df.iloc[:, 0] == customer_name)
+            & (column_mapping_df.iloc[:, 1] == bank_name)
         ]
         if not exact_match.empty:
-            logger.info(f"[列名映射] 找到客户+银行精确匹配: {customer_name} + {bank_name}")
+            logger.info(
+                f"[列名映射] 找到客户+银行精确匹配: {customer_name} + {bank_name}"
+            )
             mapping = exact_match.iloc[0].to_dict()
             return _build_mapping_from_row(mapping, config)
         else:
-            logger.info(f"[列名映射] 客户+银行精确匹配失败: {customer_name} + {bank_name}，尝试仅客户匹配")
+            logger.info(
+                f"[列名映射] 客户+银行精确匹配失败: {customer_name} + {bank_name}，尝试仅客户匹配"
+            )
 
     # 2. Fallback到仅客户名称匹配（向后兼容）
     customer_rows = column_mapping_df[column_mapping_df.iloc[:, 0] == customer_name]
     if not customer_rows.empty:
         if bank_name and bank_name.strip():
-            logger.info(f"[列名映射] 使用客户 {customer_name} 的第一条记录（银行 {bank_name} 未找到）")
+            logger.info(
+                f"[列名映射] 使用客户 {customer_name} 的第一条记录（银行 {bank_name} 未找到）"
+            )
         else:
-            logger.info(f"[列名映射] 使用客户 {customer_name} 的第一条记录（未指定银行）")
+            logger.info(
+                f"[列名映射] 使用客户 {customer_name} 的第一条记录（未指定银行）"
+            )
 
         mapping = customer_rows.iloc[0].to_dict()
         return _build_mapping_from_row(mapping, config)
@@ -272,7 +340,9 @@ def get_column_mapping_for_customer(
     return _get_default_mapping(config)
 
 
-def _build_mapping_from_row(mapping: Dict[str, Any], config: BankStatementConfig) -> Dict[str, str]:
+def _build_mapping_from_row(
+    mapping: Dict[str, Any], config: BankStatementConfig
+) -> Dict[str, str]:
     """从数据行构建映射字典"""
     # 处理NaN值，避免JSON序列化错误
     cleaned_mapping = {}
@@ -280,11 +350,15 @@ def _build_mapping_from_row(mapping: Dict[str, Any], config: BankStatementConfig
         if pd.isna(value):
             cleaned_mapping[key] = None
         else:
-            cleaned_mapping[key] = str(value).strip() if isinstance(value, str) else value
+            cleaned_mapping[key] = (
+                str(value).strip() if isinstance(value, str) else value
+            )
 
     return {
         "date": cleaned_mapping.get("日期", config.default_date_column),
-        "counterparty": cleaned_mapping.get("对方户名", config.default_counterparty_column),
+        "counterparty": cleaned_mapping.get(
+            "对方户名", config.default_counterparty_column
+        ),
         "summary": cleaned_mapping.get("摘要", config.default_summary_column),
         "debit": cleaned_mapping.get("借方", config.default_debit_column),
         "credit": cleaned_mapping.get("贷方", config.default_credit_column),
@@ -314,7 +388,9 @@ def _get_default_mapping(config: BankStatementConfig) -> Dict[str, str]:
     }
 
 
-def get_customer_banks(column_mapping_df: pd.DataFrame, customer_name: str) -> List[str]:
+def get_customer_banks(
+    column_mapping_df: pd.DataFrame, customer_name: str
+) -> List[str]:
     """获取客户对应的银行列表"""
     try:
         customer_rows = column_mapping_df[column_mapping_df.iloc[:, 0] == customer_name]
@@ -324,10 +400,12 @@ def get_customer_banks(column_mapping_df: pd.DataFrame, customer_name: str) -> L
         valid_banks = []
         for bank in banks:
             bank_str = str(bank).strip()
-            if (bank_str and
-                bank_str.lower() != 'nan' and
-                bank_str.lower() != 'default' and
-                bank_str.lower() != '默认'):
+            if (
+                bank_str
+                and bank_str.lower() != "nan"
+                and bank_str.lower() != "default"
+                and bank_str.lower() != "默认"
+            ):
                 valid_banks.append(bank_str)
 
         logger.info(f"[银行列表] 客户 {customer_name} 的可用银行: {valid_banks}")
@@ -344,12 +422,9 @@ def get_available_customers(column_mapping_df: pd.DataFrame) -> List[Dict[str, A
         customers = []
         for customer_name in column_mapping_df.iloc[:, 0].dropna().unique():
             customer_str = str(customer_name).strip()
-            if customer_str and customer_str.lower() != 'nan':
+            if customer_str and customer_str.lower() != "nan":
                 banks = get_customer_banks(column_mapping_df, customer_str)
-                customers.append({
-                    "name": customer_str,
-                    "banks": banks
-                })
+                customers.append({"name": customer_str, "banks": banks})
 
         logger.info(f"[客户列表] 获取到 {len(customers)} 个客户")
         return customers
@@ -397,6 +472,60 @@ def _coerce_amount(value: object) -> Optional[float]:
     if abs(amount) < 1e-9:
         return None
     return round(amount, 2)
+
+
+def _extract_summary_from_columns(
+    row: pd.Series, summary_col_spec: str, df: pd.DataFrame
+) -> str:
+    """
+    从列规范中提取摘要，支持一对多字段映射
+
+    支持格式:
+    - "摘要" - 单列映射
+    - "摘要/备注/说明" - 多列映射，以/分隔，按顺序检查，第一个非空值即为结果
+
+    Args:
+        row: DataFrame行数据
+        summary_col_spec: 摘要列规范字符串（可能包含/分隔的多个列名）
+        df: 完整的DataFrame，用于检查列是否存在
+
+    Returns:
+        提取到的摘要字符串，如果所有列都为空则返回空字符串
+    """
+    if not summary_col_spec:
+        return ""
+
+    # 解析多列规范
+    column_names = [col.strip() for col in summary_col_spec.split("/")]
+
+    # 按顺序检查每个列，返回第一个非空值
+    for col_name in column_names:
+        if col_name not in df.columns:
+            logger.debug(f"[摘要提取] 列'{col_name}'不存在于数据中，跳过")
+            continue
+
+        try:
+            value = row[col_name]
+            # 检查是否为空（None, NaN, 空字符串）
+            if value is None or (isinstance(value, float) and pd.isna(value)):
+                logger.debug(f"[摘要提取] 列'{col_name}'为空，尝试下一个列")
+                continue
+
+            # 转为字符串并去除空格
+            summary = str(value).strip()
+            if summary and summary != "nan":
+                logger.debug(f"[摘要提取] 从列'{col_name}'获取摘要: '{summary}'")
+                return summary
+            else:
+                logger.debug(f"[摘要提取] 列'{col_name}'为空字符串，尝试下一个列")
+                continue
+
+        except Exception as e:
+            logger.debug(f"[摘要提取] 从列'{col_name}'读取时出错: {e}")
+            continue
+
+    logger.debug("[摘要提取] 所有列都为空，返回空摘要")
+    return ""
 
 
 def _iter_rows_with_progress(
@@ -493,13 +622,28 @@ def standardize_bank_statement_data(
     original_columns = df.columns.tolist()
     logger.info(f"[数据标准化] 原始数据列名: {original_columns}")
 
-    # 1. 检查核心必需的列是否存在
+    # 1. 检查核心必需的列是否存在（支持多列映射）
     core_required_mappings = ["date", "summary"]
     core_missing_mappings = []
     for mapping_key in core_required_mappings:
         mapped_col = column_mapping.get(mapping_key)
-        if not mapped_col or mapped_col not in original_columns:
+        if not mapped_col:
             core_missing_mappings.append(f"{mapping_key} -> '{mapped_col}'")
+            continue
+
+        # 对于摘要列，支持多列映射（以/分隔）
+        if mapping_key == "summary" and "/" in mapped_col:
+            # 解析多列映射，检查是否至少有一个列存在
+            summary_cols = [col.strip() for col in mapped_col.split("/")]
+            has_any_column = any(col in original_columns for col in summary_cols)
+            if not has_any_column:
+                core_missing_mappings.append(
+                    f"{mapping_key} -> '{mapped_col}' (none of the columns exist)"
+                )
+        else:
+            # 对于其他列，直接检查
+            if mapped_col not in original_columns:
+                core_missing_mappings.append(f"{mapping_key} -> '{mapped_col}'")
 
     if core_missing_mappings:
         error_msg = f"缺少核心必需的列映射配置 - {', '.join(core_missing_mappings)}"
@@ -516,7 +660,7 @@ def standardize_bank_statement_data(
             available_amount_mappings.append(f"{mapping_key} -> '{mapped_col}'")
 
     if not available_amount_mappings:
-        error_msg = f"缺少金额列映射配置，需要配置借方列、贷方列或金额列中的至少一个"
+        error_msg = "缺少金额列映射配置，需要配置借方列、贷方列或金额列中的至少一个"
         logger.error(f"[数据标准化] {error_msg}")
         logger.error(f"[数据标准化] 可用列名: {original_columns}")
         raise ValueError(error_msg)
@@ -545,14 +689,19 @@ def standardize_bank_statement_data(
             f"[数据标准化] 检测到可选增强字段: {', '.join(available_optional_mappings)}"
         )
     else:
-        logger.info(f"[数据标准化] 未配置可选增强字段，将使用基础处理模式")
+        logger.info("[数据标准化] 未配置可选增强字段，将使用基础处理模式")
 
     logger.info("[数据标准化] 检查通过，开始数据处理...")
 
-    #日期列=源数据
+    # 日期列=源数据
     standardized_df["日期"] = standardized_df[date_col]
-    #摘要列=源数据
-    standardized_df["摘要"] = standardized_df[summary_col].str.strip()
+    # 摘要列=源数据（支持一对多字段映射）
+    logger.info(f"[数据标准化] 摘要字段配置: '{summary_col}'")
+    # 使用新的摘要提取函数，支持一对多字段映射（以/分隔多个列名）
+    standardized_df["摘要"] = standardized_df.apply(
+        lambda row: _extract_summary_from_columns(row, summary_col, standardized_df),
+        axis=1,
+    )
 
     # 初始化标准化列
 
@@ -593,18 +742,18 @@ def standardize_bank_statement_data(
         standardized_df["贷方"] = (
             standardized_df[credit_col].apply(_coerce_amount).fillna(0.0)
         )
-        logger.debug(f"[数据标准化] 已处理双列金额格式")
+        logger.debug("[数据标准化] 已处理双列金额格式")
 
     elif has_single_amount_col:
         # 单列格式：正数表示借方，负数表示贷方
         amounts = standardized_df[amount_col].apply(_coerce_amount).fillna(0.0)
         standardized_df["借方"] = amounts.apply(lambda x: x if x > 0 else 0.0)
         standardized_df["贷方"] = amounts.apply(lambda x: -x if x < 0 else 0.0)
-        logger.debug(f"[数据标准化] 已处理单列金额格式，转换为借方/贷方")
+        logger.debug("[数据标准化] 已处理单列金额格式，转换为借方/贷方")
 
     else:
         # 如果都没有，尝试自动检测（向后兼容）
-        logger.warning(f"[数据标准化] 映射配置中的金额列都存在，尝试自动检测...")
+        logger.warning("[数据标准化] 映射配置中的金额列都存在，尝试自动检测...")
         # 这里可以添加向后兼容的自动检测逻辑
 
     # 处理对方户名和银行账号标准化（基于映射配置）
@@ -1255,15 +1404,16 @@ def generate_bank_statement_vouchers_from_bytes(
     # 加载必要的配置文件（统一加载，传递完整参数包括bank_name）
     column_mapping_df = load_bank_statement_column_mapping(cfg)
     column_mapping = get_column_mapping_for_customer(
-            column_mapping_df, cfg.customer_name, cfg
-        )
+        column_mapping_df, cfg.customer_name, cfg
+    )
 
     logger.info(f"[数据加载] 开始加载银行流水数据，文件名: {file_name}")
     bank_statement_df = load_bank_statement_data_from_bytes(
         file_bytes, file_name, cfg, column_mapping
     )
-    logger.info(f"[数据加载] 加载完成 - 列数: {len(bank_statement_df.columns)}, 行数: {len(bank_statement_df)}")
-
+    logger.info(
+        f"[数据加载] 加载完成 - 列数: {len(bank_statement_df.columns)}, 行数: {len(bank_statement_df)}"
+    )
 
     subject_mapping_df = (
         subject_mapping_df

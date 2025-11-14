@@ -2,6 +2,9 @@
  * 翻译服务工具类
  * 统一处理翻译相关的API调用和进度管理
  */
+
+import { fetchWithAuth, downloadFile } from '@/utils/request'
+
 export class TranslationService {
   constructor() {
     this.currentEventSource = null
@@ -36,8 +39,8 @@ export class TranslationService {
     try {
       console.log('启动翻译任务:', startUrl)
 
-      // 1. 启动翻译任务
-      const startResponse = await fetch(startUrl, {
+      // 1. 启动翻译任务（使用统一的请求拦截器，自动添加认证）
+      const startResponse = await fetchWithAuth(startUrl, {
         method: 'POST',
         body: formData
       })
@@ -249,12 +252,8 @@ export class TranslationService {
     try {
       console.log('开始下载:', downloadUrl)
 
-      const response = await fetch(downloadUrl)
-      if (!response.ok) {
-        throw new Error('下载失败，请重试')
-      }
-
-      const blob = await response.blob()
+      // 使用统一的下载工具（自动添加认证）
+      const blob = await downloadFile(downloadUrl)
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -285,9 +284,9 @@ export class TranslationService {
 
     if (this.currentTaskId) {
       try {
-        // 调用后端取消API
-        const cancelUrl = `/api/v1/translate/cancel/${this.currentTaskId}`
-        const response = await fetch(cancelUrl, {
+        // 调用后端取消API（使用统一的请求拦截器）
+        const cancelUrl = `/translate/cancel/${this.currentTaskId}`
+        const response = await fetchWithAuth(cancelUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -327,8 +326,8 @@ export const translationService = new TranslationService()
 export async function translateSummary(formData, options = {}) {
   return translationService.executeWithProgress({
     formData,
-    startUrl: '/api/v1/translate/start',
-    downloadUrl: '/api/v1/translate/download/{taskId}',
+    startUrl: '/translate/start',
+    downloadUrl: '/translate/download/{taskId}',
     ...options
   })
 }
@@ -337,8 +336,18 @@ export async function translateSummary(formData, options = {}) {
 export async function generateBankVouchers(formData, options = {}) {
   return translationService.executeWithProgress({
     formData,
-    startUrl: '/api/v1/bank-statements/generate/start',
-    downloadUrl: '/api/v1/bank-statements/download/{taskId}',
+    startUrl: '/bank-statements/generate/start',
+    downloadUrl: '/bank-statements/download/{taskId}',
+    ...options
+  })
+}
+
+// 便捷方法：费用清单转凭证
+export async function generateVouchers(formData, options = {}) {
+  return translationService.executeWithProgress({
+    formData,
+    startUrl: '/vouchers/generate/start',
+    downloadUrl: '/vouchers/download/{taskId}',
     ...options
   })
 }

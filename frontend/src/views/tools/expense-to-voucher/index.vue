@@ -369,12 +369,25 @@
         </el-card>
       </div>
     </div>
+
+    <!-- 进度对话框 -->
+    <TranslationProgress
+      v-model="showProgress"
+      :title="'生成凭证'"
+      :processing="generating"
+      @cancel="handleCancelProgress"
+      @close="handleCloseProgress"
+      ref="translationProgressRef"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { uploadFile } from '@/utils/request'
+import TranslationProgress from '@/components/TranslationProgress.vue'
+import { generateVouchers, translationService } from '@/utils/translationService'
 
 // 表单数据
 const form = reactive({
@@ -408,6 +421,9 @@ const rules = {
 
 const loading = ref(false)
 const formRef = ref(null)
+const translationProgressRef = ref()
+const showProgress = ref(false)
+const generating = ref(false)
 
 // 凭证设置收缩状态
 const settingsExpanded = ref(false) // 默认收缩
@@ -484,7 +500,8 @@ const handleSubmit = async () => {
     const valid = await formRef.value.validate()
     if (!valid) return
 
-    loading.value = true
+    generating.value = true
+    showProgress.value = true
 
     const formData = new FormData()
 
@@ -515,35 +532,61 @@ const handleSubmit = async () => {
       formData.append('expense_sheet', form.sheetName)
     }
 
-    // 发送请求
-    const response = await fetch('/api/v1/vouchers/generate', {
-      method: 'POST',
-      body: formData
+    // 使用异步生成模式，带进度跟踪
+    await generateVouchers(formData, {
+      onProgress: (progressData) => {
+        if (translationProgressRef.value) {
+          translationProgressRef.value.updateProgress(progressData)
+        }
+      },
+      onComplete: async (downloadResult) => {
+        // 自动下载生成的文件
+        const downloadUrl = `/api/v1/vouchers/download/${downloadResult.task_id}`
+        try {
+          const response = await uploadFile(downloadUrl, null, 'GET')
+          const blob = await response.blob()
+          const url = window.URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = url
+          link.download = 'vouchers_bundle.zip'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          window.URL.revokeObjectURL(url)
+
+          ElMessage.success('凭证生成成功！')
+        } catch (error) {
+          console.error('下载失败:', error)
+          ElMessage.error('下载失败：' + error.message)
+        }
+      },
+      onError: (error) => {
+        console.error('生成失败:', error)
+        ElMessage.error('生成失败：' + error.message)
+      },
+      timeout: 7200000 // 2小时超时
     })
-
-    if (!response.ok) {
-      throw new Error('生成失败')
-    }
-
-    // 下载文件
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'vouchers_bundle.zip'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
-
-    ElMessage.success('凭证生成成功！')
 
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error('生成失败：' + error.message)
+    ElMessage.error('提交失败：' + error.message)
   } finally {
-    loading.value = false
+    generating.value = false
+    translationService.cleanup()
   }
+}
+
+// 取消进度
+const handleCancelProgress = async () => {
+  await translationService.cancel()
+  generating.value = false
+  showProgress.value = false
+  ElMessage.info('已取消生成任务')
+}
+
+// 关闭进度对话框
+const handleCloseProgress = () => {
+  showProgress.value = false
 }
 
 // 重置表单

@@ -1,0 +1,23 @@
+# UV 配置文件示例
+# 复制此文件为 .uv.toml 并根据需要修改
+
+[pip]
+# PyPI 镜像源配置
+# 注意：这只影响包下载速度，不会改变 uv.lock 的内容
+
+# 选项 1: 清华大学镜像（国内推荐）
+index-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+
+# 选项 2: 阿里云镜像
+# index-url = "https://mirrors.aliyun.com/pypi/simple"
+
+# 选项 3: 中国科技大学镜像
+# index-url = "https://pypi.mirrors.ustc.edu.cn/simple"
+
+# 选项 4: 官方源（服务器推荐）
+# index-url = "https://pypi.org/simple"
+
+# 说明：
+# - 本地开发：使用国内镜像加速下载
+# - 服务器部署：使用官方源或服务器所在地区的镜像
+# - uv.lock 文件：始终使用官方源生成，提交到 Git

@@ -58,7 +58,7 @@
             <el-tag class="ml-3" type="info" size="small">共 {{ total }} 条记录</el-tag>
           </div>
           <div class="flex items-center">
-            <el-button type="text" @click="handleExport">
+            <el-button type="link" @click="handleExport">
               <el-icon class="mr-1"><Download /></el-icon>
               导出记录
             </el-button>
@@ -72,8 +72,6 @@
         style="width: 100%"
         @sort-change="handleSortChange"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-
         <el-table-column prop="time" label="处理时间" width="180" sortable="custom">
           <template #default="scope">
             <div>
@@ -128,33 +126,6 @@
             <span class="font-semibold">{{ scope.row.resultCount }}</span>
           </template>
         </el-table-column>
-
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="scope">
-            <el-button type="text" size="small" @click="viewRecord(scope.row)">
-              <el-icon><View /></el-icon>
-              查看
-            </el-button>
-            <el-button
-              v-if="scope.row.status === 'success'"
-              type="text"
-              size="small"
-              @click="downloadRecord(scope.row)"
-            >
-              <el-icon><Download /></el-icon>
-              下载
-            </el-button>
-            <el-button
-              v-if="scope.row.status === 'failed'"
-              type="text"
-              size="small"
-              @click="retryRecord(scope.row)"
-            >
-              <el-icon><Refresh /></el-icon>
-              重试
-            </el-button>
-          </template>
-        </el-table-column>
       </el-table>
 
       <!-- 分页 -->
@@ -177,6 +148,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+import request from '@/utils/request'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 // 筛选器
 const filters = reactive({
@@ -195,41 +172,87 @@ const total = ref(0)
 const loading = ref(false)
 
 // 表格数据
-const tableData = ref([
-  {
-    id: 1,
-    time: '2025-01-15 14:32:15',
-    tool: 'expense',
-    fileName: '2025年1月费用报销表.xlsx',
-    user: '张三',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    status: 'success',
-    duration: '2.8s',
-    resultCount: 86
-  },
-  {
-    id: 2,
-    time: '2025-01-15 14:28:42',
-    tool: 'translate',
-    fileName: '费用摘要翻译.xlsx',
-    user: '李四',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    status: 'success',
-    duration: '1.5s',
-    resultCount: 23
-  },
-  {
-    id: 3,
-    time: '2025-01-15 14:15:30',
-    tool: 'expense',
-    fileName: '差旅费报销单.xlsx',
-    user: '王五',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    status: 'failed',
-    duration: '5.2s',
-    resultCount: 0
+const tableData = ref([])
+
+// 映射前端工具类型到后端
+const toolMap = {
+  'expense': '费用清单转凭证',
+  'translate': '摘要翻译',
+  'bank': '银行流水转凭证'
+}
+
+// 映射前端状态到后端
+const statusMap = {
+  'success': '成功',
+  'failed': '失败',
+  'processing': '处理中'
+}
+
+// 映射后端工具类型到前端
+const reversedToolMap = {
+  '费用清单转凭证': 'expense',
+  '摘要翻译': 'translate',
+  '银行流水转凭证': 'bank'
+}
+
+// 映射后端状态到前端
+const reversedStatusMap = {
+  '成功': 'success',
+  '失败': 'failed',
+  '处理中': 'processing'
+}
+
+// 加载处理记录
+const loadRecords = async () => {
+  loading.value = true
+  try {
+    // 构建查询参数
+    const params = {
+      page: pagination.page,
+      page_size: pagination.size
+    }
+
+    // 添加过滤条件
+    if (filters.tool) {
+      params.tool = toolMap[filters.tool]
+    }
+
+    if (filters.status) {
+      params.status = statusMap[filters.status]
+    }
+
+    // 添加日期范围过滤
+    if (filters.dateRange && filters.dateRange.length === 2) {
+      params.start_date = dayjs(filters.dateRange[0]).format('YYYY-MM-DD')
+      params.end_date = dayjs(filters.dateRange[1]).format('YYYY-MM-DD')
+    }
+
+    // 调用 API
+    const response = await request.get('/dashboard/records', { params })
+
+    // 映射数据到表格格式
+    tableData.value = response.records.map(record => ({
+      id: record.id,
+      time: record.time,
+      tool: reversedToolMap[record.tool] || record.tool,
+      fileName: record.file_name,
+      user: record.user || '-',
+      avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+      status: reversedStatusMap[record.status] || record.status,
+      duration: record.duration,
+      resultCount: record.record_count
+    }))
+
+    total.value = response.total
+  } catch (error) {
+    console.error('加载处理记录失败:', error)
+    ElMessage.error('加载处理记录失败')
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
   }
-])
+}
 
 // 工具类型映射
 const getToolName = (tool) => {
@@ -271,21 +294,27 @@ const getStatusTagType = (status) => {
 
 // 格式化时间
 const formatTime = (time) => {
+  if (!time) return '-'
+  // 处理 UTC 时间，转换为本地时间
+  if (!time.endsWith('Z') && !time.includes('+')) {
+    return dayjs.utc(time).local().format('HH:mm:ss')
+  }
   return dayjs(time).format('HH:mm:ss')
 }
 
 const formatDate = (time) => {
+  if (!time) return '-'
+  // 处理 UTC 时间，转换为本地时间
+  if (!time.endsWith('Z') && !time.includes('+')) {
+    return dayjs.utc(time).local().format('YYYY-MM-DD')
+  }
   return dayjs(time).format('YYYY-MM-DD')
 }
 
 // 事件处理
 const handleSearch = () => {
-  loading.value = true
-  // 模拟搜索
-  setTimeout(() => {
-    loading.value = false
-    total.value = tableData.value.length
-  }, 500)
+  pagination.page = 1 // 重置到第一页
+  loadRecords()
 }
 
 const handleReset = () => {
@@ -294,22 +323,24 @@ const handleReset = () => {
     status: '',
     dateRange: []
   })
-  handleSearch()
+  pagination.page = 1
+  loadRecords()
 }
 
 const handleSortChange = ({ prop, order }) => {
   console.log('排序:', prop, order)
-  // 实现排序逻辑
+  // 实现排序逻辑（暂不实现）
 }
 
 const handleSizeChange = (size) => {
   pagination.size = size
-  handleSearch()
+  pagination.page = 1 // 重置到第一页
+  loadRecords()
 }
 
 const handlePageChange = (page) => {
   pagination.page = page
-  handleSearch()
+  loadRecords()
 }
 
 const handleExport = () => {
@@ -331,8 +362,9 @@ const retryRecord = (record) => {
   ElMessage.info('重试功能开发中...')
 }
 
+// 页面加载时获取数据
 onMounted(() => {
-  total.value = tableData.value.length
+  loadRecords()
 })
 </script>
 

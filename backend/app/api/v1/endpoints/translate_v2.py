@@ -1,16 +1,24 @@
-from __future__ import annotations
+"""
+翻译API v2 - 异步翻译 + 缓存管理
+整合了translate.py的所有功能
+"""
 
-from typing import Optional
+from typing import List, Optional
 import asyncio
 import io
+import time
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.schemas.translate import TranslateRequest
+from app.schemas.translate import CacheItem, CacheUpdateRequest
 from app.services.translate_service import TranslateService
 from app.core.progress_manager import progress_manager
+from app.services.dashboard_service import DashboardService
+from app.db.database import get_db
+from app.api.dependencies import get_current_user
+from app.db.models import User
 
 router = APIRouter()
 translate_service = TranslateService()
@@ -18,6 +26,7 @@ translate_service = TranslateService()
 
 class TranslateStartRequest(BaseModel):
     """开始翻译请求模型"""
+
     summary_column: str = "费用摘要"
     sheet_name: Optional[str] = None
     output_column: str = "摘要翻译"
@@ -27,6 +36,7 @@ class TranslateStartRequest(BaseModel):
 
 class TranslateStartResponse(BaseModel):
     """开始翻译响应模型"""
+
     task_id: str
     message: str
     target_language: str
@@ -41,6 +51,7 @@ async def start_translation(
     translation_file: Optional[UploadFile] = File(None),
     force: bool = Form(False),
     target_language: str = Form("en"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     开始翻译任务（异步）
@@ -60,25 +71,41 @@ async def start_translation(
 
         # 预先读取文件内容，避免后台任务中文件关闭问题
         excel_bytes = await excel_file.read()
+        excel_filename = excel_file.filename
         translation_bytes = None
         if translation_file:
             translation_bytes = await translation_file.read()
 
         # 创建模拟UploadFile对象，使用预读取的字节数据
-        excel_file_obj = UploadFile(filename=excel_file.filename, file=io.BytesIO(excel_bytes))
+        excel_file_obj = UploadFile(
+            filename=excel_filename, file=io.BytesIO(excel_bytes)
+        )
         translation_file_obj = None
         if translation_bytes:
-            translation_file_obj = UploadFile(filename=translation_file.filename, file=io.BytesIO(translation_bytes))
+            translation_file_obj = UploadFile(
+                filename=translation_file.filename, file=io.BytesIO(translation_bytes)
+            )
+
+        # 保存user_id用于后台任务
+        user_id = current_user.id
 
         # 在后台启动翻译任务
         async def run_translation_task(current_task_id: str):
+            start_time = time.time()
+            translated_count = 0
             try:
                 print(f"[DEBUG] 开始后台翻译任务: {current_task_id}")
-                progress_manager.update_progress(current_task_id, 0.1, "准备翻译文件...")
+                progress_manager.update_progress(
+                    current_task_id, 0.1, "准备翻译文件..."
+                )
 
                 # 执行翻译
                 print(f"[DEBUG] 调用翻译服务，任务ID: {current_task_id}")
-                zip_buffer, _ = await translate_service.translate_summaries(
+                (
+                    zip_buffer,
+                    _,
+                    translated_count,
+                ) = await translate_service.translate_summaries(
                     excel_file=excel_file_obj,
                     summary_column=summary_column,
                     sheet_name=sheet_name,
@@ -88,18 +115,59 @@ async def start_translation(
                     target_language=target_language,
                     task_id=current_task_id,
                 )
-                print(f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}")
+                print(
+                    f"[DEBUG] 翻译服务完成，任务ID: {current_task_id}，翻译记录数: {translated_count}"
+                )
+
+                # 计算处理时长
+                duration = time.time() - start_time
 
                 # 存储结果
                 progress_manager.store_result(current_task_id, zip_buffer.getvalue())
                 progress_manager.complete_task(current_task_id, "翻译完成")
                 print(f"[DEBUG] 任务完成并存储结果: {current_task_id}")
 
+                # 记录成功的处理到Dashboard
+                # 创建新的数据库会话用于后台任务
+                db = next(get_db())
+                try:
+                    DashboardService.add_record(
+                        db=db,
+                        tool="摘要翻译",
+                        file_name=excel_filename,
+                        status="成功",
+                        duration=duration,
+                        record_count=translated_count,  # 使用实际翻译的记录条数
+                        user_id=user_id,  # 使用保存的用户ID
+                    )
+                finally:
+                    db.close()
+
             except Exception as e:
+                # 计算处理时长
+                duration = time.time() - start_time
+
                 print(f"[DEBUG] 翻译任务失败: {current_task_id}, 错误: {e}")
                 import traceback
+
                 traceback.print_exc()
                 progress_manager.fail_task(current_task_id, str(e))
+
+                # 记录失败的处理到Dashboard
+                # 创建新的数据库会话用于后台任务
+                db = next(get_db())
+                try:
+                    DashboardService.add_record(
+                        db=db,
+                        tool="摘要翻译",
+                        file_name=excel_filename,
+                        status="失败",
+                        duration=duration,
+                        record_count=0,  # 失败时记录数为0
+                        user_id=user_id,  # 使用保存的用户ID
+                    )
+                finally:
+                    db.close()
 
         # 启动后台任务
         print(f"[DEBUG] 创建后台任务，任务ID: {task_id}")
@@ -107,9 +175,7 @@ async def start_translation(
         print(f"[DEBUG] 后台任务已启动: {task_id}")
 
         return TranslateStartResponse(
-            task_id=task_id,
-            message="翻译任务已开始",
-            target_language=target_language
+            task_id=task_id, message="翻译任务已开始", target_language=target_language
         )
 
     except HTTPException as e:
@@ -118,20 +184,29 @@ async def start_translation(
     except Exception as exc:
         print(f"翻译异常: {exc}")
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"启动翻译任务时发生错误：{exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"启动翻译任务时发生错误：{exc}"
+        ) from exc
 
 
 @router.post("/cancel/{task_id}")
 async def cancel_translation(task_id: str):
     """
     取消翻译任务
+
+    Args:
+        task_id: 任务ID
+
+    Returns:
+        取消结果
     """
     success = progress_manager.cancel_task(task_id)
     if success:
-        return {"message": "任务已取消", "task_id": task_id}
+        return {"success": True, "message": "任务已取消", "task_id": task_id}
     else:
-        raise HTTPException(status_code=404, detail="任务不存在或无法取消")
+        raise HTTPException(status_code=404, detail="任务不存在或已完成")
 
 
 @router.get("/download/{task_id}")
@@ -139,7 +214,11 @@ async def download_translation_result(task_id: str):
     """
     下载翻译结果
 
-    使用Server-Sent Events流式传输
+    Args:
+        task_id: 任务ID
+
+    Returns:
+        翻译结果ZIP文件
     """
     result_data = progress_manager.get_result(task_id)
     if not result_data:
@@ -154,5 +233,130 @@ async def download_translation_result(task_id: str):
         media_type="application/zip",
         headers={
             "Content-Disposition": f"attachment; filename=translated_summaries_{task_id}.zip"
-        }
+        },
     )
+
+
+# ============================================================================
+# 缓存管理端点（从translate.py迁移）
+# ============================================================================
+
+
+@router.get("/cache", response_model=List[CacheItem])
+async def get_translation_cache(
+    search: Optional[str] = Query(default=None),
+    page: int = Query(default=1),
+    limit: int = Query(default=100),
+) -> List[CacheItem]:
+    """
+    获取翻译缓存列表
+
+    - **search**: 搜索关键词（可选）
+    - **page**: 页码（默认1）
+    - **limit**: 每页条数（默认100，最大500）
+    """
+    try:
+        limit = min(limit, 500)  # 限制最大条数
+        cache_items = await translate_service.get_translation_cache(search, page, limit)
+        return cache_items
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"获取翻译缓存失败：{exc}") from exc
+
+
+@router.post("/cache", response_model=CacheItem)
+async def add_translation_cache_item(request: CacheUpdateRequest) -> CacheItem:
+    """
+    添加新的翻译缓存条目
+
+    - **source**: 原文
+    - **target**: 译文
+    """
+    try:
+        if not request.source or not request.target:
+            raise HTTPException(status_code=400, detail="原文和译文不能为空")
+
+        cache_item = await translate_service.add_translation_cache_item(
+            request.source, request.target
+        )
+        return cache_item
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"添加翻译缓存失败：{exc}") from exc
+
+
+@router.put("/cache", response_model=CacheItem)
+async def update_translation_cache_item(request: CacheUpdateRequest) -> CacheItem:
+    """
+    更新翻译缓存条目
+
+    - **source**: 原文
+    - **target**: 译文
+    """
+    try:
+        if not request.source or not request.target:
+            raise HTTPException(status_code=400, detail="原文和译文不能为空")
+
+        cache_item = await translate_service.update_translation_cache_item(
+            request.source, request.target
+        )
+        return cache_item
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"更新翻译缓存失败：{exc}") from exc
+
+
+@router.delete("/cache")
+async def delete_translation_cache_item(source: str) -> dict:
+    """
+    删除翻译缓存条目
+
+    - **source**: 要删除的原文
+    """
+    try:
+        success = await translate_service.delete_translation_cache_item(source)
+        if not success:
+            raise HTTPException(status_code=404, detail="翻译缓存条目不存在")
+        return {"message": "删除成功"}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"删除翻译缓存失败：{exc}") from exc
+
+
+@router.get("/cache/download")
+async def download_translation_cache() -> StreamingResponse:
+    """
+    下载翻译缓存CSV文件
+    """
+    try:
+        csv_content = await translate_service.get_translation_cache_csv()
+
+        # 创建响应
+        headers = {
+            "Content-Disposition": "attachment; filename=translation_mapping.csv"
+        }
+        return StreamingResponse(
+            io.StringIO(csv_content),
+            media_type="text/csv",
+            headers=headers,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"下载翻译缓存失败：{exc}") from exc
+
+
+# ============================================================================
+# 统计信息端点（从translate.py迁移）
+# ============================================================================
+
+
+@router.get("/stats")
+async def get_translation_stats() -> dict:
+    """
+    获取翻译服务统计信息
+
+    Returns:
+        翻译服务统计信息，包括请求数、缓存命中率、账户使用情况等
+    """
+    try:
+        stats_data = await translate_service.get_translation_stats()
+        return stats_data
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"获取翻译统计失败：{exc}") from exc

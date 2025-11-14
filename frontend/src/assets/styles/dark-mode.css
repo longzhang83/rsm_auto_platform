@@ -1,0 +1,116 @@
+/* 暗色模式样式 */
+
+/* 亮色模式（默认）- CSS 变量 */
+:root {
+  /* 主色调 */
+  --primary-50: #e6f7ff;
+  --primary-100: #bae7ff;
+  --primary-200: #91d5ff;
+  --primary-300: #69c0ff;
+  --primary-400: #40a9ff;
+  --primary-500: #1890ff;
+  --primary-600: #0095d7;
+  --primary-700: #096dd9;
+  --primary-800: #0050b3;
+  --primary-900: #003a8c;
+
+  /* 中性色 */
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e8e8e8;
+  --neutral-300: #d9d9d9;
+  --neutral-400: #bfbfbf;
+  --neutral-500: #8c8c8c;
+  --neutral-600: #595959;
+  --neutral-700: #434343;
+  --neutral-800: #262626;
+  --neutral-900: #1f1f1f;
+
+  /* 强调色 */
+  --accent-500: #52c41a;
+  --accent-600: #389e0d;
+
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #fafafa;
+  --bg-tertiary: #f5f5f5;
+
+  /* 文字色 */
+  --text-primary: #262626;
+  --text-secondary: #595959;
+  --text-tertiary: #8c8c8c;
+
+  /* 边框色 */
+  --border-color: #e8e8e8;
+  --border-color-light: #f0f0f0;
+
+  /* 阴影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* 暗色模式 - 覆盖 CSS 变量 */
+.dark {
+  /* 主色调 - 暗色模式下稍微降低亮度 */
+  --primary-50: #111d2c;
+  --primary-100: #112a45;
+  --primary-200: #15395b;
+  --primary-300: #164c7e;
+  --primary-400: #1765ad;
+  --primary-500: #177ddc;
+  --primary-600: #3c9ae8;
+  --primary-700: #65b7f3;
+  --primary-800: #8dcff8;
+  --primary-900: #b7e3fa;
+
+  /* 中性色 - 暗色模式 */
+  --neutral-50: #141414;
+  --neutral-100: #1f1f1f;
+  --neutral-200: #2a2a2a;
+  --neutral-300: #3a3a3a;
+  --neutral-400: #4a4a4a;
+  --neutral-500: #8c8c8c;
+  --neutral-600: #bfbfbf;
+  --neutral-700: #d9d9d9;
+  --neutral-800: #e8e8e8;
+  --neutral-900: #f5f5f5;
+
+  /* 强调色 - 稍微调整饱和度 */
+  --accent-500: #49aa19;
+  --accent-600: #5ec234;
+
+  /* 背景色 - 暗色 */
+  --bg-primary: #141414;
+  --bg-secondary: #1f1f1f;
+  --bg-tertiary: #2a2a2a;
+
+  /* 文字色 - 暗色模式 */
+  --text-primary: #e8e8e8;
+  --text-secondary: #bfbfbf;
+  --text-tertiary: #8c8c8c;
+
+  /* 边框色 - 暗色 */
+  --border-color: #3a3a3a;
+  --border-color-light: #2a2a2a;
+
+  /* 阴影 - 暗色模式下更明显 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
+
+  /* Element Plus 暗色模式 */
+  color-scheme: dark;
+}
+
+/* 确保body和html的背景也跟随主题 */
+html.dark,
+html.dark body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* 平滑过渡效果 */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

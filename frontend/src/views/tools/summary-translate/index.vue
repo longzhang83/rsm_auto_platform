@@ -162,7 +162,7 @@
               <!-- 高级选项 -->
               <div class="advanced-options mt-4">
                 <el-divider content-position="left">
-                  <el-button type="text" @click="showAdvanced = !showAdvanced">
+                  <el-button type="link" @click="showAdvanced = !showAdvanced">
                     <el-icon class="mr-1">
                       <component :is="showAdvanced ? 'ArrowUp' : 'ArrowDown'" />
                     </el-icon>

@@ -8,13 +8,14 @@ export const useAppStore = defineStore('app', {
     },
     device: 'desktop',
     size: 'default',
-    theme: 'light',
+    theme: localStorage.getItem('theme') || 'light', // 从localStorage读取主题
     language: 'zh-cn'
   }),
 
   getters: {
     isDesktop: (state) => state.device === 'desktop',
-    isMobile: (state) => state.device === 'mobile'
+    isMobile: (state) => state.device === 'mobile',
+    isDark: (state) => state.theme === 'dark'
   },
 
   actions: {
@@ -38,10 +39,28 @@ export const useAppStore = defineStore('app', {
 
     setTheme(theme) {
       this.theme = theme
+      localStorage.setItem('theme', theme) // 持久化主题设置
+      // 应用主题到document
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    },
+
+    toggleTheme() {
+      const newTheme = this.theme === 'light' ? 'dark' : 'light'
+      this.setTheme(newTheme)
     },
 
     setLanguage(language) {
       this.language = language
+    },
+
+    // 初始化主题
+    initTheme() {
+      const savedTheme = localStorage.getItem('theme') || 'light'
+      this.setTheme(savedTheme)
     }
   }
 })

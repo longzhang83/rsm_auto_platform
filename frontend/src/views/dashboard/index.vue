@@ -119,14 +119,16 @@
         </div>
 
         <!-- 银行流水转凭证 -->
-        <div class="enhanced-tool-card bg-white rounded-2xl p-8 opacity-90 relative overflow-hidden">
-          <div class="absolute top-0 right-0 bg-gradient-to-l from-gray-500 to-transparent px-4 py-2">
-            <span class="text-white text-xs font-semibold">即将推出</span>
-          </div>
-
+        <div
+          class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
+          @click="navigateToTool('/bank-to-voucher')"
+        >
           <div class="flex items-start justify-between mb-6">
-            <div class="w-16 h-16 bg-gradient-to-br from-gray-400 to-gray-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
               <el-icon class="text-3xl text-white"><CreditCard /></el-icon>
+            </div>
+            <div class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-3 py-1 rounded-full">
+              财务工具
             </div>
           </div>
 
@@ -137,12 +139,12 @@
 
           <div class="flex items-center justify-between pt-6 border-t border-gray-100">
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-              <span class="text-sm font-medium text-yellow-700">开发中</span>
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span class="text-sm font-medium text-green-700">运行正常</span>
             </div>
-            <div class="flex items-center text-gray-400">
-              <span class="text-sm font-medium mr-2">敬请期待</span>
-              <el-icon><ArrowRight /></el-icon>
+            <div class="flex items-center text-blue-600 group-hover:text-blue-700 transition-colors duration-200">
+              <span class="text-sm font-medium mr-2">立即使用</span>
+              <el-icon class="transform group-hover:translate-x-1 transition-transform duration-200"><ArrowRight /></el-icon>
             </div>
           </div>
         </div>
@@ -217,24 +219,34 @@
         <div class="stat-card group">
           <div class="stat-card-header">
             <div class="stat-icon yellow">
-              <el-icon><Money /></el-icon>
+              <el-icon><Clock /></el-icon>
             </div>
             <div class="stat-trend positive">
               <el-icon><CaretTop /></el-icon>
-              <span>5%</span>
+              <span>持续增长</span>
             </div>
           </div>
           <div class="stat-content">
-            <div class="stat-number">¥{{ stats.totalAmount.toLocaleString() }}</div>
-            <div class="stat-label">处理总金额</div>
-          </div>
-          <div class="stat-chart">
-            <div class="chart-bar" style="height: 70%"></div>
-            <div class="chart-bar" style="height: 85%"></div>
-            <div class="chart-bar" style="height: 60%"></div>
-            <div class="chart-bar" style="height: 95%"></div>
-            <div class="chart-bar" style="height: 80%"></div>
-            <div class="chart-bar" style="height: 90%"></div>
+            <div class="stat-number">{{ (stats.timeSavedTotal / 60).toFixed(1) }}h</div>
+            <div class="stat-label">累计节约时间</div>
+            <div class="time-breakdown mt-3 text-xs text-gray-600 space-y-1">
+              <div class="flex justify-between">
+                <span>今日:</span>
+                <span class="font-semibold">{{ (stats.timeSavedToday / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本周:</span>
+                <span class="font-semibold">{{ (stats.timeSavedWeek / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本月:</span>
+                <span class="font-semibold">{{ (stats.timeSavedMonth / 60).toFixed(1) }}小时</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本年:</span>
+                <span class="font-semibold">{{ (stats.timeSavedYear / 60).toFixed(1) }}小时</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -268,12 +280,12 @@
     <div class="recent-section">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl font-bold text-gray-800">最近处理记录</h2>
-        <el-button type="text" @click="navigateToTool('/history')">查看全部</el-button>
+        <el-button type="link" @click="navigateToTool('/history')">查看全部</el-button>
       </div>
       <div class="bg-white rounded-lg card-shadow">
         <el-table :data="recentRecords" style="width: 100%">
           <el-table-column prop="time" label="处理时间" width="180" />
-          <el-table-column prop="tool" label="使用工具" width="120">
+          <el-table-column prop="tool" label="使用工具" width="140">
             <template #default="scope">
               <el-tag :type="getToolTagType(scope.row.tool)" size="small">
                 {{ scope.row.tool }}
@@ -289,12 +301,6 @@
             </template>
           </el-table-column>
           <el-table-column prop="duration" label="处理时长" width="120" />
-          <el-table-column label="操作" width="120">
-            <template #default="scope">
-              <el-button type="text" size="small" @click="viewRecord(scope.row)">查看</el-button>
-              <el-button type="text" size="small" @click="downloadRecord(scope.row)">下载</el-button>
-            </template>
-          </el-table-column>
         </el-table>
       </div>
     </div>
@@ -304,7 +310,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import dayjs from 'dayjs'
+import { getDashboardData } from '@/api/dashboard'
 
 const router = useRouter()
 
@@ -314,61 +322,70 @@ const currentDate = ref('')
 const lastUpdateTime = ref('')
 let timeInterval = null
 
+// 加载状态
+const loading = ref(false)
+
 // 统计数据
 const stats = ref({
-  voucherCount: 156,
-  translateCount: 89,
-  totalAmount: 456780,
-  avgProcessTime: 3.2
+  voucherCount: 0,
+  translateCount: 0,
+  avgProcessTime: 0,
+  timeSavedToday: 0,
+  timeSavedWeek: 0,
+  timeSavedMonth: 0,
+  timeSavedYear: 0,
+  timeSavedTotal: 0
 })
 
 // 最近记录
-const recentRecords = ref([
-  {
-    time: '2025-01-15 14:32:15',
-    tool: '费用清单转凭证',
-    fileName: '2025年1月费用报销表.xlsx',
-    status: '成功',
-    duration: '2.8s'
-  },
-  {
-    time: '2025-01-15 14:28:42',
-    tool: '摘要翻译',
-    fileName: '费用摘要翻译.xlsx',
-    status: '成功',
-    duration: '1.5s'
-  },
-  {
-    time: '2025-01-15 14:15:30',
-    tool: '费用清单转凭证',
-    fileName: '差旅费报销单.xlsx',
-    status: '失败',
-    duration: '5.2s'
-  },
-  {
-    time: '2025-01-15 13:52:18',
-    tool: '摘要翻译',
-    fileName: 'Q4费用报表.xlsx',
-    status: '成功',
-    duration: '3.1s'
-  }
-])
+const recentRecords = ref([])
 
 // 更新时间
 const updateTime = () => {
   currentTime.value = dayjs().format('HH:mm:ss')
   currentDate.value = dayjs().format('YYYY年MM月DD日 dddd')
-  lastUpdateTime.value = dayjs().format('HH:mm:ss')
+}
+
+// 加载Dashboard数据
+const loadDashboardData = async () => {
+  loading.value = true
+  try {
+    const data = await getDashboardData()
+
+    // 更新统计数据
+    stats.value.voucherCount = data.stats.voucher_count
+    stats.value.translateCount = data.stats.translate_count
+    stats.value.avgProcessTime = data.stats.avg_process_time
+    stats.value.timeSavedToday = data.stats.time_saved_today
+    stats.value.timeSavedWeek = data.stats.time_saved_week
+    stats.value.timeSavedMonth = data.stats.time_saved_month
+    stats.value.timeSavedYear = data.stats.time_saved_year
+    stats.value.timeSavedTotal = data.stats.time_saved_total
+
+    // 更新最近记录 - 转换字段名
+    recentRecords.value = data.recent_records.map(record => ({
+      id: record.id,
+      time: record.time,
+      tool: record.tool,
+      fileName: record.file_name,
+      status: record.status,
+      duration: record.duration,
+      recordCount: record.record_count
+    }))
+
+    lastUpdateTime.value = data.last_update_time
+  } catch (error) {
+    console.error('加载Dashboard数据失败:', error)
+    ElMessage.error('加载Dashboard数据失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 刷新统计数据
-const refreshStats = () => {
-  // 模拟数据刷新
-  stats.value.voucherCount = Math.floor(Math.random() * 50) + 150
-  stats.value.translateCount = Math.floor(Math.random() * 30) + 80
-  stats.value.totalAmount = Math.floor(Math.random() * 100000) + 400000
-  stats.value.avgProcessTime = (Math.random() * 2 + 2).toFixed(1)
-  lastUpdateTime.value = dayjs().format('HH:mm:ss')
+const refreshStats = async () => {
+  await loadDashboardData()
+  ElMessage.success('数据已刷新')
 }
 
 // 导航到工具页面
@@ -386,19 +403,11 @@ const getToolTagType = (tool) => {
   return typeMap[tool] || 'info'
 }
 
-// 查看记录
-const viewRecord = (record) => {
-  console.log('查看记录:', record)
-}
-
-// 下载记录
-const downloadRecord = (record) => {
-  console.log('下载记录:', record)
-}
-
 onMounted(() => {
   updateTime()
   timeInterval = setInterval(updateTime, 1000)
+  // 加载Dashboard数据
+  loadDashboardData()
 })
 
 onUnmounted(() => {

@@ -54,14 +54,36 @@ class Settings(BaseSettings):
     max_file_size: int = 50 * 1024 * 1024  # 50MB
     allowed_extensions: list[str] = [".xlsx", ".xls", ".csv"]
 
+    # 邮件配置（用于注册验证码）
+    smtp_server: str = "smtp.qq.com"  # SMTP服务器地址
+    smtp_port: int = 587  # SMTP端口
+    smtp_username: Optional[str] = None  # 发件人邮箱
+    smtp_password: Optional[str] = None  # 邮箱授权码
+    email_from_name: str = "容诚税务师事务所"  # 发件人名称
+
+    # 邮箱注册配置
+    allowed_email_domains: str = "rsmchina.com.cn"  # 允许的邮箱域名（多个用逗号分隔）
+    verification_code_expiry: int = 300  # 验证码有效期（秒），默认5分钟
+    verification_code_length: int = 6  # 验证码长度
+
+    # 企业微信配置
+    wework_corp_id: Optional[str] = None  # 企业ID
+    wework_agent_id: Optional[str] = None  # 应用ID
+    wework_secret: Optional[str] = None  # 应用密钥
+    wework_callback_url: Optional[str] = None  # 回调URL
+    wework_enabled: bool = False  # 是否启用企业微信登录
+
     # 默认凭证配置
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"
     default_credit_account: str = "224104"
 
     class Config:
-        # 使用绝对路径指向项目根目录的.env文件
-        env_file = Path("D:/360MoveData/Users/long/Desktop/accounting-voucher-generation/.env")
+        # 从当前文件位置计算项目根目录的.env文件路径
+        # backend/app/core/config.py -> 项目根目录
+        _config_file_path = Path(__file__).resolve()
+        _project_root = _config_file_path.parent.parent.parent.parent
+        env_file = _project_root / ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
 

@@ -6,18 +6,17 @@
 
 from __future__ import annotations
 
-import asyncio
 import csv
 import os
 import threading
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 import random
 import logging
+
 
 # .env文件加载支持
 def load_env_file(env_path: Optional[Union[str, Path]] = None) -> None:
@@ -39,17 +38,18 @@ def load_env_file(env_path: Optional[Union[str, Path]] = None) -> None:
 
     if env_path and Path(env_path).exists():
         try:
-            with open(env_path, 'r', encoding='utf-8') as f:
+            with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#') and '=' in line:
-                        key, value = line.split('=', 1)
+                    if line and not line.startswith("#") and "=" in line:
+                        key, value = line.split("=", 1)
                         os.environ[key.strip()] = value.strip()
                         logger = logging.getLogger(__name__)
                         logger.debug(f"Loaded from .env: {key.strip()}")
         except Exception as e:
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to load .env file from {env_path}: {e}")
+
 
 # 自动加载 .env 文件
 load_env_file()
@@ -59,7 +59,7 @@ try:
 except ImportError:
     tqdm = None
 
-from zhipuai import ZhipuAI
+from zhipuai import ZhipuAI  # noqa: E402
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -68,6 +68,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class GLMAccount:
     """GLM账户配置"""
+
     api_key: str
     name: str = ""
     requests_per_second: float = 0.6
@@ -88,7 +89,7 @@ class GLMAccount:
         return cls(
             api_key=api_key,
             name=name or f"GLM_Account_{api_key[:8]}",
-            requests_per_second=rps
+            requests_per_second=rps,
         )
 
     def __post_init__(self):
@@ -125,6 +126,7 @@ class GLMAccount:
 @dataclass
 class TranslationTask:
     """翻译任务"""
+
     source_text: str
     target_language: str = "en"
     task_id: str = ""
@@ -132,7 +134,9 @@ class TranslationTask:
 
     def __post_init__(self):
         if not self.task_id:
-            self.task_id = f"task_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+            self.task_id = (
+                f"task_{int(time.time() * 1000)}_{random.randint(1000, 9999)}"
+            )
 
 
 class MultiAccountTranslationService:
@@ -152,7 +156,10 @@ class MultiAccountTranslationService:
         self.cache_path = cache_path or Path("data/translation_mapping.csv")
         self.max_workers = max_workers
         # 优先使用传入的system_prompt，否则从环境变量读取
-        self.system_prompt = system_prompt or os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
+        self.system_prompt = system_prompt or os.getenv(
+            "ZHIPUAI_SYSTEM_PROMPT",
+            "你是一名专业的双语助理，请提供准确、简洁的翻译结果。",
+        )
 
         # 打印模型配置信息
         logger.info(f"翻译服务初始化完成 - 模型: {self.model}, 账户数: {len(accounts)}")
@@ -173,7 +180,7 @@ class MultiAccountTranslationService:
             "cache_hits": 0,
             "account_usage": {account.name: 0 for account in accounts},
             "errors": 0,
-            "start_time": time.time()
+            "start_time": time.time(),
         }
 
         # 限流器，每个账户一个
@@ -183,16 +190,34 @@ class MultiAccountTranslationService:
         }
 
     def _load_cache(self):
-        """加载翻译缓存"""
+        """加载翻译缓存 - 兼容多种格式"""
         try:
             if self.cache_path.exists():
                 with self.cache_path.open("r", newline="", encoding="utf-8-sig") as f:
                     reader = csv.reader(f)
                     for row in reader:
                         if len(row) >= 2 and row[0] != "source":
-                            source, target = row[0].strip(), row[1].strip()
-                            if source and target:
-                                self.cache[source] = target
+                            source_raw, target = row[0].strip(), row[1].strip()
+                            if source_raw and target:
+                                # 提取实际的源文本（兼容不同格式）
+                                # 格式1: "source" (简单格式)
+                                # 格式2: "zh:source->en" (带方向标记)
+                                # 格式3: "en:source->zh" (带方向标记)
+                                source = source_raw
+
+                                # 移除语言方向标记，提取纯文本
+                                if source.startswith("zh:") and "->en" in source:
+                                    source = source[3:].replace("->en", "").strip()
+                                elif source.startswith("en:") and "->zh" in source:
+                                    source = source[3:].replace("->zh", "").strip()
+                                elif "->en" in source:
+                                    source = source.replace("->en", "").strip()
+                                elif "->zh" in source:
+                                    source = source.replace("->zh", "").strip()
+
+                                # 使用简单格式存储（源文本 -> 译文）
+                                if source:
+                                    self.cache[source] = target
                 logger.info(f"加载了 {len(self.cache)} 条翻译缓存")
         except Exception as e:
             logger.error(f"加载翻译缓存失败: {e}")
@@ -215,7 +240,9 @@ class MultiAccountTranslationService:
             # 尝试找到可用的账户
             for _ in range(len(self.accounts) * 2):  # 最多尝试两轮
                 account = self.accounts[self.current_account_index]
-                self.current_account_index = (self.current_account_index + 1) % len(self.accounts)
+                self.current_account_index = (self.current_account_index + 1) % len(
+                    self.accounts
+                )
 
                 if account.can_use():
                     return account
@@ -228,7 +255,9 @@ class MultiAccountTranslationService:
 
         return None
 
-    def _translate_with_account(self, account: GLMAccount, text: str, target_language: str) -> Tuple[Optional[str], Optional[str]]:
+    def _translate_with_account(
+        self, account: GLMAccount, text: str, target_language: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """使用指定账户翻译文本"""
         try:
             # 限流
@@ -296,12 +325,18 @@ class MultiAccountTranslationService:
             account.error_count += 1
             current_time = time.time()
 
-            if "rate limit" in error_msg or "1302" in error_msg or "concurrent" in error_msg:
+            if (
+                "rate limit" in error_msg
+                or "1302" in error_msg
+                or "concurrent" in error_msg
+            ):
                 logger.warning(f"账户 {account.name} 触发速率限制")
                 # 设置冷却时间：首次冷却10秒，后续冷却时间递增
                 account.last_429_time = current_time
                 if account.last_429_time > 0:
-                    cooldown_seconds = min(30, 10 * (2 ** min(account.error_count, 3)))  # 最多冷却30秒
+                    cooldown_seconds = min(
+                        30, 10 * (2 ** min(account.error_count, 3))
+                    )  # 最多冷却30秒
                 else:
                     cooldown_seconds = 10
                 account.cooldown_until = current_time + cooldown_seconds
@@ -342,7 +377,9 @@ class MultiAccountTranslationService:
         # 尝试翻译
         for attempt in range(3):
             try:
-                error, result = self._translate_with_account(account, text, target_language)
+                error, result = self._translate_with_account(
+                    account, text, target_language
+                )
 
                 if error:
                     logger.warning(f"翻译失败 (尝试 {attempt + 1}): {error}")
@@ -399,9 +436,9 @@ class MultiAccountTranslationService:
         requests_per_second: float = 0.6,
         mapping_path: Optional[Union[str, Path]] = None,
         progress_description: str = "翻译摘要",
-        **kwargs
+        **kwargs,
     ) -> Dict[str, str]:
-        """批量翻译文本 - 智能并发方案"""
+        """批量翻译文本 - 智能并发方案，支持缓存"""
         # 去重和清理
         unique_texts = []
         seen = set()
@@ -415,9 +452,41 @@ class MultiAccountTranslationService:
             return {}
 
         results = {}
-        completed_count = 0
+        texts_to_translate = []
+        cache_hits = 0
 
-        logger.info(f"开始智能并发翻译 {len(unique_texts)} 个文本，使用 {len(self.accounts)} 个账户")
+        # 首先检查缓存，分离出需要翻译的文本
+        with self.cache_lock:
+            for text in unique_texts:
+                if text in self.cache:
+                    results[text] = self.cache[text]
+                    cache_hits += 1
+                    self.stats["cache_hits"] += 1
+                else:
+                    texts_to_translate.append(text)
+
+        logger.info(
+            f"批量翻译: 总计 {len(unique_texts)} 条，缓存命中 {cache_hits} 条，需要翻译 {len(texts_to_translate)} 条"
+        )
+
+        # 如果所有文本都在缓存中，直接返回
+        if not texts_to_translate:
+            logger.info("所有文本都已缓存，跳过翻译")
+            return results
+
+        # 更新进度（缓存命中的部分）
+        completed_count = cache_hits
+        if progress_callback and cache_hits > 0:
+            try:
+                progress_callback(
+                    completed_count, len(unique_texts), f"缓存命中: {cache_hits} 条"
+                )
+            except Exception as e:
+                logger.error(f"进度回调失败: {e}")
+
+        logger.info(
+            f"开始智能并发翻译 {len(texts_to_translate)} 个文本，使用 {len(self.accounts)} 个账户"
+        )
 
         def worker_with_account(account: GLMAccount, text: str) -> Tuple[str, str]:
             """使用指定账户翻译文本"""
@@ -430,14 +499,18 @@ class MultiAccountTranslationService:
             else:
                 return text, result or text
 
-        # 按账户数量分配任务
+        # 按账户数量分配任务（只翻译未缓存的文本）
         account_queues = []
-        texts_per_account = len(unique_texts) // len(self.accounts)
+        texts_per_account = len(texts_to_translate) // len(self.accounts)
 
         for i, account in enumerate(self.accounts):
             start_idx = i * texts_per_account
-            end_idx = start_idx + texts_per_account if i < len(self.accounts) - 1 else len(unique_texts)
-            account_texts = unique_texts[start_idx:end_idx]
+            end_idx = (
+                start_idx + texts_per_account
+                if i < len(self.accounts) - 1
+                else len(texts_to_translate)
+            )
+            account_texts = texts_to_translate[start_idx:end_idx]
             account_queues.append((account, account_texts))
 
         # 使用线程池，每个账户一个线程
@@ -445,6 +518,7 @@ class MultiAccountTranslationService:
 
         # 使用线程安全的计数器
         import threading
+
         completed_count_lock = threading.Lock()
         completed_count = 0
 
@@ -462,7 +536,9 @@ class MultiAccountTranslationService:
                 for i, text in enumerate(texts_queue):
                     # 检查是否已取消
                     if cancel_check and cancel_check():
-                        logger.info(f"[multi_account_translator] 翻译已取消，停止处理: {account.name}")
+                        logger.info(
+                            f"[multi_account_translator] 翻译已取消，停止处理: {account.name}"
+                        )
                         break
 
                     try:
@@ -480,10 +556,18 @@ class MultiAccountTranslationService:
                         if progress_callback:
                             try:
                                 percentage = (current_completed / current_total) * 100
-                                logger.info(f"[multi_account_translator] 更新进度: {percentage:.1f}% ({current_completed}/{current_total}) - {text[:30]}...")
-                                progress_callback(current_completed, current_total, f"翻译: {text[:30]}...")
+                                logger.info(
+                                    f"[multi_account_translator] 更新进度: {percentage:.1f}% ({current_completed}/{current_total}) - {text[:30]}..."
+                                )
+                                progress_callback(
+                                    current_completed,
+                                    current_total,
+                                    f"翻译: {text[:30]}...",
+                                )
                             except Exception as e:
-                                logger.error(f"[multi_account_translator] 进度回调失败: {e}")
+                                logger.error(
+                                    f"[multi_account_translator] 进度回调失败: {e}"
+                                )
 
                         # 移除手动sleep，使用内置的速率限制器进行控制
 
@@ -510,34 +594,69 @@ class MultiAccountTranslationService:
 
                     # 检查是否已取消
                     if cancel_check and cancel_check():
-                        logger.info(f"[multi_account_translator] 翻译已取消，停止后续处理")
+                        logger.info(
+                            "[multi_account_translator] 翻译已取消，停止后续处理"
+                        )
                         break
 
                     # 调用进度回调
                     if progress_callback:
                         try:
-                            logger.info(f"[multi_account_translator] 准备调用进度回调: {completed_count}/{len(unique_texts)} - 账户 {account.name} 完成")
-                            progress_callback(completed_count, len(unique_texts), f"账户 {account.name} 完成")
-                            logger.info(f"[multi_account_translator] 进度回调调用成功: {completed_count}/{len(unique_texts)}")
+                            logger.info(
+                                f"[multi_account_translator] 准备调用进度回调: {completed_count}/{len(unique_texts)} - 账户 {account.name} 完成"
+                            )
+                            progress_callback(
+                                completed_count,
+                                len(unique_texts),
+                                f"账户 {account.name} 完成",
+                            )
+                            logger.info(
+                                f"[multi_account_translator] 进度回调调用成功: {completed_count}/{len(unique_texts)}"
+                            )
                         except Exception as e:
-                            logger.error(f"[multi_account_translator] 进度回调调用失败: {e}")
+                            logger.error(
+                                f"[multi_account_translator] 进度回调调用失败: {e}"
+                            )
                             import traceback
-                            logger.error(f"[multi_account_translator] 错误详情: {traceback.format_exc()}")
+
+                            logger.error(
+                                f"[multi_account_translator] 错误详情: {traceback.format_exc()}"
+                            )
 
                 except Exception as e:
                     logger.error(f"账户 {account.name} 处理失败: {e}")
 
+        # 将新翻译的结果保存到缓存
+        new_translations = 0
+        with self.cache_lock:
+            for text in texts_to_translate:
+                if text in results and results[text] != text:
+                    # 只缓存成功的翻译（译文与原文不同）
+                    self.cache[text] = results[text]
+                    new_translations += 1
+
+        # 如果有新的翻译结果，异步保存缓存文件
+        if new_translations > 0:
+            logger.info(f"新增 {new_translations} 条翻译到缓存")
+            threading.Thread(target=self._save_cache, daemon=True).start()
+
         # 检查是否是因为取消而提前结束
         if cancel_check and cancel_check():
-            logger.info(f"[multi_account_translator] 翻译已取消，提前结束: 处理了 {len(results)} 条，总计 {len(unique_texts)} 条")
+            logger.info(
+                f"[multi_account_translator] 翻译已取消，提前结束: 处理了 {len(results)} 条，总计 {len(unique_texts)} 条"
+            )
         else:
-            logger.info(f"智能并发翻译完成: 总计 {len(unique_texts)} 条，成功 {len([r for r in results.values() if r != results.get(r, r)])} 条")
+            logger.info(
+                f"智能并发翻译完成: 总计 {len(unique_texts)} 条，缓存命中 {cache_hits} 条，新翻译 {new_translations} 条"
+            )
         return results
 
     def get_stats(self) -> Dict[str, Any]:
         """获取翻译服务统计信息"""
         runtime = time.time() - self.stats["start_time"]
-        cache_hit_rate = (self.stats["cache_hits"] / max(self.stats["total_requests"], 1)) * 100
+        cache_hit_rate = (
+            self.stats["cache_hits"] / max(self.stats["total_requests"], 1)
+        ) * 100
 
         return {
             "runtime_hours": runtime / 3600,
@@ -557,11 +676,12 @@ class MultiAccountTranslationService:
                     "last_used": account.last_used,
                 }
                 for account in self.accounts
-            ]
+            ],
         }
 
     class _RateLimiter:
         """速率限制器"""
+
         def __init__(self, requests_per_second: float):
             self._lock = threading.Lock()
             self._interval = 1.0 / max(requests_per_second, 0.05)
@@ -598,7 +718,8 @@ def init_translation_service(
     max_workers: Optional[int] = None,
     model: Optional[str] = None,
     system_prompt: Optional[str] = None,
-    rps: Optional[float] = None
+    rps: Optional[float] = None,
+    cache_path: Optional[Union[str, Path]] = None,
 ) -> MultiAccountTranslationService:
     """初始化翻译服务"""
     global _translation_service
@@ -611,9 +732,7 @@ def init_translation_service(
     for i, api_key in enumerate(api_keys):
         # 直接使用传入的参数创建账户配置
         account = GLMAccount(
-            api_key=api_key,
-            name=f"GLM_Account_{i+1}",
-            requests_per_second=rps
+            api_key=api_key, name=f"GLM_Account_{i + 1}", requests_per_second=rps
         )
         accounts.append(account)
 
@@ -627,13 +746,17 @@ def init_translation_service(
 
     # 优先使用传入的system_prompt参数，否则从环境变量读取
     if system_prompt is None:
-        system_prompt = os.getenv("ZHIPUAI_SYSTEM_PROMPT", "你是一名专业的双语助理，请提供准确、简洁的翻译结果。")
+        system_prompt = os.getenv(
+            "ZHIPUAI_SYSTEM_PROMPT",
+            "你是一名专业的双语助理，请提供准确、简洁的翻译结果。",
+        )
 
     _translation_service = MultiAccountTranslationService(
         accounts=accounts,
         model=model,
         max_workers=max_workers,
-        system_prompt=system_prompt
+        system_prompt=system_prompt,
+        cache_path=cache_path,
     )
 
     # 更新系统提示（如果有自定义）
@@ -641,7 +764,9 @@ def init_translation_service(
         _translation_service.system_prompt = system_prompt
 
     logger.info(f"翻译服务已初始化，共 {len(accounts)} 个GLM账户")
-    logger.info(f"模型: {model}, 最大工作线程: {max_workers}, 账户RPS: {[acc.requests_per_second for acc in accounts]}")
+    logger.info(
+        f"模型: {model}, 最大工作线程: {max_workers}, 账户RPS: {[acc.requests_per_second for acc in accounts]}"
+    )
     return _translation_service
 
 
@@ -654,7 +779,7 @@ def configure_translation_service(
     api_keys: Optional[List[str]] = None,
     cache_path: Optional[Union[str, Path]] = None,
     max_workers: int = 3,
-    **kwargs
+    **kwargs,
 ) -> MultiAccountTranslationService:
     """
     配置多账户翻译服务（兼容统一接口）
@@ -671,6 +796,7 @@ def configure_translation_service(
     # 如果未提供api_keys，从环境变量读取
     if not api_keys:
         import os
+
         api_keys_env = os.getenv("ZHIPUAI_API_KEYS", "")
         if api_keys_env:
             api_keys = [key.strip() for key in api_keys_env.split(",") if key.strip()]
@@ -680,12 +806,14 @@ def configure_translation_service(
             if single_key:
                 api_keys = [single_key]
             else:
-                raise RuntimeError("未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量")
+                raise RuntimeError(
+                    "未找到API密钥，请设置ZHIPUAI_API_KEYS或ZHIPUAI_API_KEY环境变量"
+                )
 
     # 从kwargs中提取参数
-    model = kwargs.get('model')
-    system_prompt = kwargs.get('system_prompt')
-    rps = kwargs.get('rps')  # 从kwargs中提取RPS参数
+    model = kwargs.get("model")
+    system_prompt = kwargs.get("system_prompt")
+    rps = kwargs.get("rps")  # 从kwargs中提取RPS参数
 
     # 初始化服务
     return init_translation_service(
@@ -693,7 +821,8 @@ def configure_translation_service(
         max_workers=max_workers,
         model=model,
         system_prompt=system_prompt,
-        rps=rps
+        rps=rps,
+        cache_path=cache_path,
     )
 
 
@@ -714,7 +843,7 @@ def batch_translate_texts(
     requests_per_second: float = 0.6,
     mapping_path: Optional[Union[str, Path]] = None,
     progress_description: str = "翻译摘要",
-    **kwargs
+    **kwargs,
 ) -> Dict[str, str]:
     """便捷的批量翻译函数"""
     service = get_translation_service()
@@ -729,7 +858,7 @@ def batch_translate_texts(
         requests_per_second=requests_per_second,
         mapping_path=mapping_path,
         progress_description=progress_description,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -760,7 +889,9 @@ if __name__ == "__main__":
     print("开始批量翻译测试...")
     results = service.batch_translate_texts(
         test_texts,
-        progress_callback=lambda current, total, text: print(f"进度: {current}/{total} - {text}")
+        progress_callback=lambda current, total, text: print(
+            f"进度: {current}/{total} - {text}"
+        ),
     )
 
     print("\n翻译结果:")

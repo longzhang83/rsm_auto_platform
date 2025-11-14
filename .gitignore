@@ -58,9 +58,14 @@ cover/
 
 # Django stuff:
 *.log
+/logs
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+
+# SQLite database files
+*.db
+*.db-journal
 
 # Flask stuff:
 instance/
@@ -153,3 +158,9 @@ test*
 /.ipynb_checkpoints
 *.ipynb
 
+
+/backend/data/
+
+
+# UV configuration (environment-specific)
+.uv.toml

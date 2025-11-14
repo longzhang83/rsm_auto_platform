@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 class VoucherGenerateRequest(BaseModel):
     """凭证生成请求模型"""
+
     preparer: str = Field(default="cissy", description="制单人")
     voucher_category: str = Field(default="记", description="凭证类别")
     credit_account: str = Field(default="224104", description="贷方科目")
@@ -17,6 +18,14 @@ class VoucherGenerateRequest(BaseModel):
 
 class VoucherGenerateResponse(BaseModel):
     """凭证生成响应模型"""
+
     message: str = Field(..., description="响应消息")
     file_count: int = Field(..., description="生成的文件数量")
     download_url: Optional[str] = Field(None, description="下载链接")
+
+
+class VoucherGenerateStartResponse(BaseModel):
+    """凭证生成启动响应模型（异步）"""
+
+    task_id: str = Field(..., description="任务ID")
+    message: str = Field(..., description="响应消息")

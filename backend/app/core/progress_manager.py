@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional
 import asyncio
 import uuid
 import json
@@ -8,6 +8,7 @@ from dataclasses import dataclass
 @dataclass
 class ProgressInfo:
     """进度信息"""
+
     percentage: float
     message: str
     completed: int = 0
@@ -35,8 +36,15 @@ class ProgressManager:
         self._cancel_flags[task_id] = False
         return task_id
 
-    def update_progress(self, task_id: str, percentage: float, message: str,
-                       completed: int = 0, total: int = 0, current_item: str = ""):
+    def update_progress(
+        self,
+        task_id: str,
+        percentage: float,
+        message: str,
+        completed: int = 0,
+        total: int = 0,
+        current_item: str = "",
+    ):
         """更新任务进度"""
         if task_id in self._tasks:
             # 保留2位小数
@@ -47,7 +55,7 @@ class ProgressManager:
                 message=message,
                 completed=completed,
                 total=total,
-                current_item=current_item
+                current_item=current_item,
             )
 
             # 发送更新到监听队列
@@ -58,13 +66,15 @@ class ProgressManager:
                         "message": message,
                         "completed": completed,
                         "total": total,
-                        "current_item": current_item
+                        "current_item": current_item,
                     }
                     self._listeners[task_id].put_nowait(json.dumps(progress_data))
                 except asyncio.QueueFull:
                     pass  # 队列满了就跳过
 
-    def complete_task(self, task_id: str, message: str = "完成", result_url: Optional[str] = None):
+    def complete_task(
+        self, task_id: str, message: str = "完成", result_url: Optional[str] = None
+    ):
         """完成任务"""
         if task_id in self._tasks:
             self._tasks[task_id].result_url = result_url
@@ -130,14 +140,15 @@ class ProgressManager:
             # 获取初始状态
             initial_progress = self.get_progress(task_id)
             if initial_progress:
-                yield f"data: {json.dumps({
-                    'percentage': initial_progress.percentage,
-                    'message': initial_progress.message,
-                    'completed': initial_progress.completed,
-                    'total': initial_progress.total,
-                    'current_item': initial_progress.current_item,
-                    'cancelled': initial_progress.cancelled
-                })}\n\n"
+                progress_data = {
+                    "percentage": initial_progress.percentage,
+                    "message": initial_progress.message,
+                    "completed": initial_progress.completed,
+                    "total": initial_progress.total,
+                    "current_item": initial_progress.current_item,
+                    "cancelled": initial_progress.cancelled,
+                }
+                yield f"data: {json.dumps(progress_data)}\n\n"
                 last_percentage = initial_progress.percentage
                 last_message = initial_progress.message
 
@@ -156,23 +167,28 @@ class ProgressManager:
 
                     if current_progress:
                         # 只有在进度有变化时才发送更新
-                        if (current_progress.percentage != last_percentage or
-                            current_progress.message != last_message):
-
-                            yield f"data: {json.dumps({
-                                'percentage': current_progress.percentage,
-                                'message': current_progress.message,
-                                'completed': current_progress.completed,
-                                'total': current_progress.total,
-                                'current_item': current_progress.current_item,
-                                'cancelled': current_progress.cancelled
-                            })}\n\n"
+                        if (
+                            current_progress.percentage != last_percentage
+                            or current_progress.message != last_message
+                        ):
+                            progress_data = {
+                                "percentage": current_progress.percentage,
+                                "message": current_progress.message,
+                                "completed": current_progress.completed,
+                                "total": current_progress.total,
+                                "current_item": current_progress.current_item,
+                                "cancelled": current_progress.cancelled,
+                            }
+                            yield f"data: {json.dumps(progress_data)}\n\n"
 
                             last_percentage = current_progress.percentage
                             last_message = current_progress.message
 
                         # 检查是否完成
-                        if current_progress.percentage >= 100.0 or current_progress.cancelled:
+                        if (
+                            current_progress.percentage >= 100.0
+                            or current_progress.cancelled
+                        ):
                             yield f"data: {json.dumps({'task_completed': True})}\n\n"
                             await asyncio.sleep(0.1)
                             break
@@ -187,6 +203,7 @@ class ProgressManager:
                 except Exception as e:
                     # 任何异常都不中断流程，只记录日志
                     import logging
+
                     logger = logging.getLogger(__name__)
                     logger.warning(f"Progress poll warning for task {task_id}: {e}")
                     yield f"data: {json.dumps({'error': str(e), 'iteration': iteration})}\n\n"
@@ -198,6 +215,7 @@ class ProgressManager:
         except Exception as e:
             # 最外层异常处理
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Fatal error in listen_progress for task {task_id}: {e}")
             yield f"data: {json.dumps({'percentage': -1.0, 'message': f'监听错误: {str(e)}'})}\n\n"

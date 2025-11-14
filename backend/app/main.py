@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.utils.logger import setup_logging, get_logger, get_translation_logger, get_summary_logger
+from app.utils.logger import (
+    setup_logging,
+    get_logger,
+    get_translation_logger,
+    get_summary_logger,
+)
+from app.db.database import engine, Base
 
 # 设置日志系统
 setup_logging(
@@ -43,6 +48,11 @@ async def lifespan(app: FastAPI):
     settings.output_dir.mkdir(exist_ok=True)
     settings.log_dir.mkdir(exist_ok=True)
 
+    # 初始化数据库
+    logger.info("初始化数据库...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("数据库初始化完成")
+
     logger.info(f"应用启动 - {settings.app_name} v{settings.app_version}")
     logger.info(f"环境: {settings.environment}")
     logger.info(f"数据目录: {settings.data_dir}")
@@ -71,7 +81,7 @@ if settings.environment == "development":
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3001"
+        "http://127.0.0.1:3001",
     ]
 else:
     # 生产环境：允许来自nginx的请求
@@ -99,7 +109,7 @@ async def root():
         "docs": "/docs",
         "api": "/api/v1",
         "health": "/health",
-        "mode": "api-only"
+        "mode": "api-only",
     }
 
 
@@ -112,5 +122,5 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment,
         "mode": "api-only",
-        "service": "accounting-voucher-generation-api"
+        "service": "accounting-voucher-generation-api",
     }
