@@ -324,7 +324,7 @@ class MappingService:
         Args:
             customer_name: 客户名称过滤（可选）
             match_type: 匹配方式过滤（可选）
-            search: 搜索关键字（在对方账户名称和关键字中搜索）
+            search: 搜索内容（在对方账户名称、关键字和会计科目编码中搜索）
 
         Returns:
             会计科目映射列表
