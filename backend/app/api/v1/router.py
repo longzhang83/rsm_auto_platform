@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     dashboard,
     auth,
     admin,
+    mappings,
 )
 
 api_router = APIRouter()
@@ -26,3 +27,4 @@ api_router.include_router(
 )
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
+api_router.include_router(mappings.router, prefix="/mappings", tags=["mappings"])

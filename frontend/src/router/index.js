@@ -100,6 +100,12 @@ const router = createRouter({
           name: 'Admin',
           component: () => import('@/views/admin/index.vue'),
           meta: { title: '管理后台', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
+        },
+        {
+          path: 'mappings',
+          name: 'Mappings',
+          component: () => import('@/views/mappings/index.vue'),
+          meta: { title: '映射管理', icon: 'Connection', requiresAuth: true }
         }
       ]
     },
