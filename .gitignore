@@ -143,8 +143,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-
-data/
+# Custom ignores for this project
+data/*
+# Except these specific data files
 !data/科目映射.csv
 !data/银行流水列名mapping.xlsx
 !data/会计科目mapping.xlsx
