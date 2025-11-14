@@ -144,7 +144,11 @@ dmypy.json
 cython_debug/
 
 
-/data
+data/
+!data/科目映射.csv
+!data/银行流水列名mapping.xlsx
+!data/会计科目mapping.xlsx
+
 /static
 /backend/statci
 test*
