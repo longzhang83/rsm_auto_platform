@@ -291,7 +291,10 @@ class BankStatementService:
         """获取可用的客户列表（包含银行信息）"""
         try:
             logger.info(f"开始获取客户列表，数据目录: {self.data_dir}")
-            column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
+
+            # 创建配置并解析路径（复用银行流水模块的路径处理逻辑）
+            config = BankStatementConfig(data_dir=self.data_dir).resolved()
+            column_mapping_path = config.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
             logger.info(f"映射文件路径: {column_mapping_path}")
             logger.info(f"映射文件存在: {column_mapping_path.exists()}")
 
@@ -300,9 +303,7 @@ class BankStatementService:
                 return []
 
             logger.info("开始加载列名映射文件...")
-            column_mapping_df = load_bank_statement_column_mapping(
-                BankStatementConfig(data_dir=self.data_dir)
-            )
+            column_mapping_df = load_bank_statement_column_mapping(config)
             logger.info(f"成功加载映射文件，形状: {column_mapping_df.shape}")
 
             # 使用新的函数获取客户和银行信息
@@ -322,14 +323,15 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            column_mapping_path = self.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
+            # 创建配置并解析路径（复用银行流水模块的路径处理逻辑）
+            config = BankStatementConfig(data_dir=self.data_dir).resolved()
+            column_mapping_path = config.data_dir / DEFAULT_BANK_STATEMENT_MAPPING_FILE
             if not column_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
                     detail=f"银行流水列名映射文件不存在: {DEFAULT_BANK_STATEMENT_MAPPING_FILE}"
                 )
 
-            config = BankStatementConfig(data_dir=self.data_dir)
             column_mapping_df = load_bank_statement_column_mapping(config)
 
             mapping = get_column_mapping_for_customer(column_mapping_df, customer_name, config, bank_name)
@@ -347,7 +349,8 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            config = BankStatementConfig(data_dir=self.data_dir)
+            # 创建配置并解析路径（复用银行流水模块的路径处理逻辑）
+            config = BankStatementConfig(data_dir=self.data_dir).resolved()
             column_mapping_df = load_bank_statement_column_mapping(config)
 
             banks = get_customer_banks(column_mapping_df, customer_name)
@@ -365,14 +368,15 @@ class BankStatementService:
             if not customer_name.strip():
                 raise HTTPException(status_code=400, detail="客户名称不能为空")
 
-            subject_mapping_path = self.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
+            # 创建配置并解析路径（复用银行流水模块的路径处理逻辑）
+            config = BankStatementConfig(data_dir=self.data_dir).resolved()
+            subject_mapping_path = config.data_dir / DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE
             if not subject_mapping_path.exists():
                 raise HTTPException(
                     status_code=404,
                     detail=f"会计科目映射文件不存在: {DEFAULT_ACCOUNTING_SUBJECT_MAPPING_FILE}"
                 )
 
-            config = BankStatementConfig(data_dir=self.data_dir)
             subject_mapping_df = load_accounting_subject_mapping(config)
 
             # 过滤指定客户的映射
