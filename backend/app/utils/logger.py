@@ -197,6 +197,11 @@ class LogManager:
         logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)
         logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
         logging.getLogger("uvicorn").setLevel(logging.INFO)  # 只显示INFO及以上级别
+        logging.getLogger("httpcore").setLevel(logging.WARNING)  # httpcore详细请求日志
+        logging.getLogger("httpcore.http11").setLevel(logging.WARNING)  # HTTP/1.1请求细节
+        logging.getLogger("httpx").setLevel(logging.WARNING)  # httpx HTTP客户端
+        logging.getLogger("asyncio").setLevel(logging.WARNING)  # asyncio底层日志
+        logging.getLogger("multipart").setLevel(logging.WARNING)  # multipart解析
 
     def get_logger(self, name: str) -> logging.Logger:
         """获取指定名称的日志器"""
