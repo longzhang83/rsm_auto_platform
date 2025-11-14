@@ -732,4 +732,6 @@ class MappingService:
 
 
 # 创建全局服务实例
-mapping_service = MappingService()
+from app.core.config import settings
+
+mapping_service = MappingService(data_dir=settings.data_dir)
