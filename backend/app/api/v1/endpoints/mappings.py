@@ -85,13 +85,13 @@ async def delete_column_mapping(
 async def get_subject_mappings(
     customer_name: Optional[str] = Query(None, description="客户名称过滤"),
     match_type: Optional[str] = Query(None, description="匹配方式过滤"),
-    search: Optional[str] = Query(None, description="搜索关键字"),
+    search: Optional[str] = Query(None, description="搜索内容"),
     current_user: User = Depends(get_current_user),
 ):
     """
     获取会计科目映射列表
 
-    支持按客户名称、匹配方式过滤，以及关键字搜索
+    支持按客户名称、匹配方式过滤，以及内容搜索
     """
     mappings = mapping_service.get_subject_mappings(
         customer_name=customer_name, match_type=match_type, search=search
@@ -277,7 +277,7 @@ async def download_subject_mapping_template(
 
     # 添加示例数据
     df.loc[0] = ["示例客户", "对方账户名称", "ABC公司", "", "1122"]
-    df.loc[1] = ["示例客户", "关键字", "", "工资", "5501"]
+    df.loc[1] = ["示例客户", "摘要关键字", "", "工资", "5501"]
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")

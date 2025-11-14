@@ -59,35 +59,17 @@ class MappingService:
 
             df = self._read_excel_file(column_mapping_path)
 
-            # 确保列名正确
-            expected_columns = [
+            # 检查必需的列是否存在（不要求顺序）
+            required_columns = [
                 "客户名称",
                 "银行名称",
-                "日期",
-                "对方户名",
-                "摘要",
-                "借方",
-                "贷方",
-                "金额",
-                "银行账号",
-                "付款人账号",
-                "付款人名称",
-                "收款人账号",
-                "收款人名称",
             ]
 
-            # 如果列名不匹配，尝试使用默认列名
-            if list(df.columns) != expected_columns:
-                logger.warning(
-                    f"列名映射文件列名不匹配，期望: {expected_columns}, 实际: {list(df.columns)}"
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(
+                    f"列名映射文件缺少必需的列: {missing_columns}, 实际列: {list(df.columns)}"
                 )
-                # 如果列数相同，则使用期望的列名
-                if len(df.columns) == len(expected_columns):
-                    df.columns = expected_columns
-                else:
-                    raise ValueError(
-                        f"列名映射文件格式错误: 期望{len(expected_columns)}列，实际{len(df.columns)}列"
-                    )
 
             # 过滤
             if customer_name:
@@ -98,30 +80,28 @@ class MappingService:
             # 转换为响应模型
             mappings = []
             for idx, row in df.iterrows():
+                # 安全获取列值的辅助函数
+                def get_value(col_name):
+                    if col_name in df.columns and pd.notna(row[col_name]):
+                        return str(row[col_name])
+                    return ""
+
                 mappings.append(
                     ColumnMappingResponse(
                         id=int(idx),
-                        customer_name=str(row["客户名称"]),
-                        bank_name=str(row["银行名称"]) if pd.notna(row["银行名称"]) else "",
-                        date=str(row["日期"]) if pd.notna(row["日期"]) else "",
-                        counterparty=str(row["对方户名"]) if pd.notna(row["对方户名"]) else "",
-                        summary=str(row["摘要"]) if pd.notna(row["摘要"]) else "",
-                        debit=str(row["借方"]) if pd.notna(row["借方"]) else "",
-                        credit=str(row["贷方"]) if pd.notna(row["贷方"]) else "",
-                        amount=str(row["金额"]) if pd.notna(row["金额"]) else "",
-                        bank_account=str(row["银行账号"]) if pd.notna(row["银行账号"]) else "",
-                        payer_account=str(row["付款人账号"])
-                        if pd.notna(row["付款人账号"])
-                        else "",
-                        payer_name=str(row["付款人名称"])
-                        if pd.notna(row["付款人名称"])
-                        else "",
-                        payee_account=str(row["收款人账号"])
-                        if pd.notna(row["收款人账号"])
-                        else "",
-                        payee_name=str(row["收款人名称"])
-                        if pd.notna(row["收款人名称"])
-                        else "",
+                        customer_name=get_value("客户名称"),
+                        bank_name=get_value("银行名称"),
+                        date=get_value("日期"),
+                        counterparty=get_value("对方户名"),
+                        summary=get_value("摘要"),
+                        debit=get_value("借方"),
+                        credit=get_value("贷方"),
+                        amount=get_value("金额"),
+                        bank_account=get_value("银行账号"),
+                        payer_account=get_value("付款人账号"),
+                        payer_name=get_value("付款人名称"),
+                        payee_account=get_value("收款人账号"),
+                        payee_name=get_value("收款人名称"),
                     )
                 )
 
@@ -266,21 +246,27 @@ class MappingService:
             row = df.iloc[mapping_id]
             logger.info(f"成功更新列名映射ID: {mapping_id}")
 
+            # 安全获取列值的辅助函数
+            def get_value(col_name):
+                if col_name in df.columns and pd.notna(row[col_name]):
+                    return str(row[col_name])
+                return ""
+
             return ColumnMappingResponse(
                 id=mapping_id,
-                customer_name=str(row["客户名称"]),
-                bank_name=str(row["银行名称"]) if pd.notna(row["银行名称"]) else "",
-                date=str(row["日期"]) if pd.notna(row["日期"]) else "",
-                counterparty=str(row["对方户名"]) if pd.notna(row["对方户名"]) else "",
-                summary=str(row["摘要"]) if pd.notna(row["摘要"]) else "",
-                debit=str(row["借方"]) if pd.notna(row["借方"]) else "",
-                credit=str(row["贷方"]) if pd.notna(row["贷方"]) else "",
-                amount=str(row["金额"]) if pd.notna(row["金额"]) else "",
-                bank_account=str(row["银行账号"]) if pd.notna(row["银行账号"]) else "",
-                payer_account=str(row["付款人账号"]) if pd.notna(row["付款人账号"]) else "",
-                payer_name=str(row["付款人名称"]) if pd.notna(row["付款人名称"]) else "",
-                payee_account=str(row["收款人账号"]) if pd.notna(row["收款人账号"]) else "",
-                payee_name=str(row["收款人名称"]) if pd.notna(row["收款人名称"]) else "",
+                customer_name=get_value("客户名称"),
+                bank_name=get_value("银行名称"),
+                date=get_value("日期"),
+                counterparty=get_value("对方户名"),
+                summary=get_value("摘要"),
+                debit=get_value("借方"),
+                credit=get_value("贷方"),
+                amount=get_value("金额"),
+                bank_account=get_value("银行账号"),
+                payer_account=get_value("付款人账号"),
+                payer_name=get_value("付款人名称"),
+                payee_account=get_value("收款人账号"),
+                payee_name=get_value("收款人名称"),
             )
 
         except HTTPException:
@@ -338,7 +324,7 @@ class MappingService:
         Args:
             customer_name: 客户名称过滤（可选）
             match_type: 匹配方式过滤（可选）
-            search: 搜索关键字（在对方账户名称和关键字中搜索）
+            search: 搜索内容（在对方账户名称、关键字和会计科目编码中搜索）
 
         Returns:
             会计科目映射列表
@@ -351,46 +337,47 @@ class MappingService:
 
             df = self._read_excel_file(subject_mapping_path)
 
-            # 确保列名正确
-            expected_columns = ["客户名称", "匹配方式", "对方账户名称", "关键字", "会计科目编码"]
+            # 检查必需的列是否存在（不要求顺序）
+            required_columns = ["客户名称", "匹配方式", "会计科目编码"]
 
-            if list(df.columns) != expected_columns:
-                logger.warning(
-                    f"会计科目映射文件列名不匹配，期望: {expected_columns}, 实际: {list(df.columns)}"
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(
+                    f"会计科目映射文件缺少必需的列: {missing_columns}, 实际列: {list(df.columns)}"
                 )
-                if len(df.columns) == len(expected_columns):
-                    df.columns = expected_columns
-                else:
-                    raise ValueError(
-                        f"会计科目映射文件格式错误: 期望{len(expected_columns)}列，实际{len(df.columns)}列"
-                    )
 
             # 过滤
             if customer_name:
                 df = df[df["客户名称"] == customer_name]
-            if match_type:
+            if match_type and "匹配方式" in df.columns:
                 df = df[df["匹配方式"] == match_type]
             if search:
-                search_mask = (
-                    df["对方账户名称"].str.contains(search, na=False)
-                    | df["关键字"].str.contains(search, na=False)
-                    | df["会计科目编码"].str.contains(search, na=False)
-                )
+                search_mask = pd.Series([False] * len(df), index=df.index)
+                if "对方账户名称" in df.columns:
+                    search_mask |= df["对方账户名称"].str.contains(search, na=False)
+                if "关键字" in df.columns:
+                    search_mask |= df["关键字"].str.contains(search, na=False)
+                if "会计科目编码" in df.columns:
+                    search_mask |= df["会计科目编码"].str.contains(search, na=False)
                 df = df[search_mask]
 
             # 转换为响应模型
             mappings = []
             for idx, row in df.iterrows():
+                # 安全获取列值的辅助函数
+                def get_value(col_name):
+                    if col_name in df.columns and pd.notna(row[col_name]):
+                        return str(row[col_name])
+                    return ""
+
                 mappings.append(
                     SubjectMappingResponse(
                         id=int(idx),
-                        customer_name=str(row["客户名称"]),
-                        match_type=str(row["匹配方式"]),
-                        counterparty_name=str(row["对方账户名称"])
-                        if pd.notna(row["对方账户名称"])
-                        else "",
-                        keywords=str(row["关键字"]) if pd.notna(row["关键字"]) else "",
-                        subject_code=str(row["会计科目编码"]),
+                        customer_name=get_value("客户名称"),
+                        match_type=get_value("匹配方式"),
+                        counterparty_name=get_value("对方账户名称"),
+                        keywords=get_value("关键字"),
+                        subject_code=get_value("会计科目编码"),
                     )
                 )
 
@@ -496,15 +483,19 @@ class MappingService:
             row = df.iloc[mapping_id]
             logger.info(f"成功更新会计科目映射ID: {mapping_id}")
 
+            # 安全获取列值的辅助函数
+            def get_value(col_name):
+                if col_name in df.columns and pd.notna(row[col_name]):
+                    return str(row[col_name])
+                return ""
+
             return SubjectMappingResponse(
                 id=mapping_id,
-                customer_name=str(row["客户名称"]),
-                match_type=str(row["匹配方式"]),
-                counterparty_name=str(row["对方账户名称"])
-                if pd.notna(row["对方账户名称"])
-                else "",
-                keywords=str(row["关键字"]) if pd.notna(row["关键字"]) else "",
-                subject_code=str(row["会计科目编码"]),
+                customer_name=get_value("客户名称"),
+                match_type=get_value("匹配方式"),
+                counterparty_name=get_value("对方账户名称"),
+                keywords=get_value("关键字"),
+                subject_code=get_value("会计科目编码"),
             )
 
         except HTTPException:
@@ -732,4 +723,6 @@ class MappingService:
 
 
 # 创建全局服务实例
-mapping_service = MappingService()
+from app.core.config import settings
+
+mapping_service = MappingService(data_dir=settings.data_dir)
