@@ -1,9 +1,8 @@
 """映射管理API端点"""
 from typing import Optional
-from urllib.parse import quote
+import io
 
 from fastapi import APIRouter, Depends, File, UploadFile, Query
-from fastapi.responses import StreamingResponse
 
 from app.schemas.mapping import (
     ColumnMappingCreate,
@@ -20,7 +19,7 @@ from app.services.mapping_service import mapping_service
 from app.api.dependencies import get_current_user
 from app.db.models import User
 from app.utils.logger import get_logger
-import io
+from app.utils.file_response import create_excel_download_response
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -183,15 +182,10 @@ async def export_column_mappings(
     导出列名映射到Excel文件
     """
     excel_data = mapping_service.export_column_mappings()
-
-    filename = "银行流水列名mapping.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        io.BytesIO(excel_data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f'attachment; filename="column_mapping.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
-        },
+    return create_excel_download_response(
+        content=excel_data,
+        filename="银行流水列名mapping.xlsx",
+        fallback_filename="column_mapping.xlsx"
     )
 
 
@@ -203,15 +197,10 @@ async def export_subject_mappings(
     导出会计科目映射到Excel文件
     """
     excel_data = mapping_service.export_subject_mappings()
-
-    filename = "会计科目mapping.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        io.BytesIO(excel_data),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f'attachment; filename="subject_mapping.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
-        },
+    return create_excel_download_response(
+        content=excel_data,
+        filename="会计科目mapping.xlsx",
+        fallback_filename="subject_mapping.xlsx"
     )
 
 
@@ -264,16 +253,11 @@ async def download_column_mapping_template(
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")
-    excel_bytes = output.getvalue()
 
-    filename = "银行流水列名mapping模板.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        io.BytesIO(excel_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f'attachment; filename="column_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
-        },
+    return create_excel_download_response(
+        content=output,
+        filename="银行流水列名mapping模板.xlsx",
+        fallback_filename="column_mapping_template.xlsx"
     )
 
 
@@ -295,14 +279,9 @@ async def download_subject_mapping_template(
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")
-    excel_bytes = output.getvalue()
 
-    filename = "会计科目mapping模板.xlsx"
-    encoded_filename = quote(filename)
-    return StreamingResponse(
-        io.BytesIO(excel_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": f'attachment; filename="subject_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
-        },
+    return create_excel_download_response(
+        content=output,
+        filename="会计科目mapping模板.xlsx",
+        fallback_filename="subject_mapping_template.xlsx"
     )
