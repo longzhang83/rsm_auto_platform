@@ -332,7 +332,7 @@ import {
   UploadFilled
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request from '@/utils/request'
+import request, { uploadFile } from '@/utils/request'
 
 // Tab状态
 const activeTab = ref('columns')
@@ -676,10 +676,17 @@ const submitImport = async () => {
       ? '/mappings/columns/import'
       : '/mappings/subjects/import'
 
-    // 注意：不要手动设置 Content-Type，让浏览器自动添加 boundary
-    const response = await request.post(endpoint, formData)
+    // 使用 uploadFile 函数上传文件，它会正确处理 FormData
+    const response = await uploadFile(endpoint, formData)
 
-    ElMessage.success(response.message || '导入成功')
+    // 解析响应
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || '导入失败')
+    }
+
+    const result = await response.json()
+    ElMessage.success(result.message || '导入成功')
     importDialogVisible.value = false
 
     // 刷新列表
