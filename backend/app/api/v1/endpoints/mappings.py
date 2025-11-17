@@ -31,17 +31,22 @@ router = APIRouter()
 async def get_column_mappings(
     customer_name: Optional[str] = Query(None, description="客户名称过滤"),
     bank_name: Optional[str] = Query(None, description="银行名称过滤"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     current_user: User = Depends(get_current_user),
 ):
     """
     获取列名映射列表
 
-    支持按客户名称和银行名称过滤
+    支持按客户名称和银行名称过滤，支持分页
     """
-    mappings = mapping_service.get_column_mappings(
-        customer_name=customer_name, bank_name=bank_name
+    mappings, total = mapping_service.get_column_mappings(
+        customer_name=customer_name,
+        bank_name=bank_name,
+        page=page,
+        page_size=page_size
     )
-    return ColumnMappingListResponse(mappings=mappings, total=len(mappings))
+    return ColumnMappingListResponse(mappings=mappings, total=total)
 
 
 @router.post("/columns", response_model=ColumnMappingResponse, status_code=201)
@@ -86,17 +91,23 @@ async def get_subject_mappings(
     customer_name: Optional[str] = Query(None, description="客户名称过滤"),
     match_type: Optional[str] = Query(None, description="匹配方式过滤"),
     search: Optional[str] = Query(None, description="搜索内容"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     current_user: User = Depends(get_current_user),
 ):
     """
     获取会计科目映射列表
 
-    支持按客户名称、匹配方式过滤，以及内容搜索
+    支持按客户名称、匹配方式过滤，以及内容搜索，支持分页
     """
-    mappings = mapping_service.get_subject_mappings(
-        customer_name=customer_name, match_type=match_type, search=search
+    mappings, total = mapping_service.get_subject_mappings(
+        customer_name=customer_name,
+        match_type=match_type,
+        search=search,
+        page=page,
+        page_size=page_size
     )
-    return SubjectMappingListResponse(mappings=mappings, total=len(mappings))
+    return SubjectMappingListResponse(mappings=mappings, total=total)
 
 
 @router.post("/subjects", response_model=SubjectMappingResponse, status_code=201)

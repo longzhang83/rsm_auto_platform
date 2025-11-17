@@ -39,23 +39,29 @@ class MappingService:
     # ==================== 列名映射 CRUD ====================
 
     def get_column_mappings(
-        self, customer_name: Optional[str] = None, bank_name: Optional[str] = None
-    ) -> List[ColumnMappingResponse]:
+        self,
+        customer_name: Optional[str] = None,
+        bank_name: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 10
+    ) -> Tuple[List[ColumnMappingResponse], int]:
         """
-        获取列名映射列表
+        获取列名映射列表（分页）
 
         Args:
             customer_name: 客户名称过滤（可选）
             bank_name: 银行名称过滤（可选）
+            page: 页码（从1开始）
+            page_size: 每页数量
 
         Returns:
-            列名映射列表
+            (列名映射列表, 总数)
         """
         try:
             column_mapping_path = self.data_dir / DEFAULT_COLUMN_MAPPING_FILE
             if not column_mapping_path.exists():
                 logger.info("列名映射文件不存在，返回空列表")
-                return []
+                return [], 0
 
             df = self._read_excel_file(column_mapping_path)
 
@@ -77,9 +83,17 @@ class MappingService:
             if bank_name:
                 df = df[df["银行名称"] == bank_name]
 
+            # 获取总数
+            total = len(df)
+
+            # 分页
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            df_page = df.iloc[start_idx:end_idx]
+
             # 转换为响应模型
             mappings = []
-            for idx, row in df.iterrows():
+            for idx, row in df_page.iterrows():
                 # 安全获取列值的辅助函数
                 def get_value(col_name):
                     if col_name in df.columns and pd.notna(row[col_name]):
@@ -105,8 +119,8 @@ class MappingService:
                     )
                 )
 
-            logger.info(f"成功获取 {len(mappings)} 条列名映射")
-            return mappings
+            logger.info(f"成功获取列名映射: 第{page}页, 共{total}条, 返回{len(mappings)}条")
+            return mappings, total
 
         except Exception as e:
             logger.error(f"获取列名映射失败: {e}")
@@ -317,23 +331,27 @@ class MappingService:
         customer_name: Optional[str] = None,
         match_type: Optional[str] = None,
         search: Optional[str] = None,
-    ) -> List[SubjectMappingResponse]:
+        page: int = 1,
+        page_size: int = 10
+    ) -> Tuple[List[SubjectMappingResponse], int]:
         """
-        获取会计科目映射列表
+        获取会计科目映射列表（分页）
 
         Args:
             customer_name: 客户名称过滤（可选）
             match_type: 匹配方式过滤（可选）
             search: 搜索内容（在对方账户名称、关键字和会计科目编码中搜索）
+            page: 页码（从1开始）
+            page_size: 每页数量
 
         Returns:
-            会计科目映射列表
+            (会计科目映射列表, 总数)
         """
         try:
             subject_mapping_path = self.data_dir / DEFAULT_SUBJECT_MAPPING_FILE
             if not subject_mapping_path.exists():
                 logger.info("会计科目映射文件不存在，返回空列表")
-                return []
+                return [], 0
 
             df = self._read_excel_file(subject_mapping_path)
 
@@ -361,9 +379,17 @@ class MappingService:
                     search_mask |= df["会计科目编码"].str.contains(search, na=False)
                 df = df[search_mask]
 
+            # 获取总数
+            total = len(df)
+
+            # 分页
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            df_page = df.iloc[start_idx:end_idx]
+
             # 转换为响应模型
             mappings = []
-            for idx, row in df.iterrows():
+            for idx, row in df_page.iterrows():
                 # 安全获取列值的辅助函数
                 def get_value(col_name):
                     if col_name in df.columns and pd.notna(row[col_name]):
@@ -382,8 +408,8 @@ class MappingService:
                     )
                 )
 
-            logger.info(f"成功获取 {len(mappings)} 条会计科目映射")
-            return mappings
+            logger.info(f"成功获取会计科目映射: 第{page}页, 共{total}条, 返回{len(mappings)}条")
+            return mappings, total
 
         except Exception as e:
             logger.error(f"获取会计科目映射失败: {e}")

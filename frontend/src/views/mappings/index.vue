@@ -91,6 +91,19 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- 分页组件 -->
+          <div class="pagination-container mt-4 flex justify-end">
+            <el-pagination
+              v-model:current-page="columnPagination.page"
+              v-model:page-size="columnPagination.pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="columnPagination.total"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleColumnSizeChange"
+              @current-change="handleColumnPageChange"
+            />
+          </div>
         </div>
       </el-tab-pane>
 
@@ -178,6 +191,19 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- 分页组件 -->
+          <div class="pagination-container mt-4 flex justify-end">
+            <el-pagination
+              v-model:current-page="subjectPagination.page"
+              v-model:page-size="subjectPagination.pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="subjectPagination.total"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSubjectSizeChange"
+              @current-change="handleSubjectPageChange"
+            />
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -443,6 +469,11 @@ const columnSearch = reactive({
   customer: '',
   bank: ''
 })
+const columnPagination = reactive({
+  page: 1,
+  pageSize: 10,
+  total: 0
+})
 
 // 会计科目映射相关状态
 const subjectMappings = ref([])
@@ -451,6 +482,11 @@ const subjectSearch = reactive({
   customer: '',
   matchType: '',
   keyword: ''
+})
+const subjectPagination = reactive({
+  page: 1,
+  pageSize: 10,
+  total: 0
 })
 
 // 列名映射抽屉
@@ -510,17 +546,33 @@ const fileList = ref([])
 const loadColumnMappings = async () => {
   try {
     columnLoading.value = true
-    const params = {}
+    const params = {
+      page: columnPagination.page,
+      page_size: columnPagination.pageSize
+    }
     if (columnSearch.customer) params.customer_name = columnSearch.customer
     if (columnSearch.bank) params.bank_name = columnSearch.bank
 
     const response = await request.get('/mappings/columns', { params })
     columnMappings.value = response.mappings
+    columnPagination.total = response.total
   } catch (error) {
     ElMessage.error('加载列名映射失败: ' + (error.message || '未知错误'))
   } finally {
     columnLoading.value = false
   }
+}
+
+// 列名映射分页处理
+const handleColumnPageChange = (page) => {
+  columnPagination.page = page
+  loadColumnMappings()
+}
+
+const handleColumnSizeChange = (size) => {
+  columnPagination.pageSize = size
+  columnPagination.page = 1  // 改变每页数量时重置到第一页
+  loadColumnMappings()
 }
 
 // 显示新增抽屉
@@ -637,18 +689,34 @@ const exportColumnMappings = async () => {
 const loadSubjectMappings = async () => {
   try {
     subjectLoading.value = true
-    const params = {}
+    const params = {
+      page: subjectPagination.page,
+      page_size: subjectPagination.pageSize
+    }
     if (subjectSearch.customer) params.customer_name = subjectSearch.customer
     if (subjectSearch.matchType) params.match_type = subjectSearch.matchType
     if (subjectSearch.keyword) params.search = subjectSearch.keyword
 
     const response = await request.get('/mappings/subjects', { params })
     subjectMappings.value = response.mappings
+    subjectPagination.total = response.total
   } catch (error) {
     ElMessage.error('加载会计科目映射失败: ' + (error.message || '未知错误'))
   } finally {
     subjectLoading.value = false
   }
+}
+
+// 会计科目映射分页处理
+const handleSubjectPageChange = (page) => {
+  subjectPagination.page = page
+  loadSubjectMappings()
+}
+
+const handleSubjectSizeChange = (size) => {
+  subjectPagination.pageSize = size
+  subjectPagination.page = 1  // 改变每页数量时重置到第一页
+  loadSubjectMappings()
 }
 
 const showSubjectCreateDialog = () => {
