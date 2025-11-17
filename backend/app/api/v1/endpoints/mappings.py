@@ -264,12 +264,12 @@ async def download_column_mapping_template(
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")
-    output.seek(0)
+    excel_bytes = output.getvalue()
 
     filename = "银行流水列名mapping模板.xlsx"
     encoded_filename = quote(filename)
     return StreamingResponse(
-        output,
+        io.BytesIO(excel_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="column_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
@@ -295,12 +295,12 @@ async def download_subject_mapping_template(
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")
-    output.seek(0)
+    excel_bytes = output.getvalue()
 
     filename = "会计科目mapping模板.xlsx"
     encoded_filename = quote(filename)
     return StreamingResponse(
-        output,
+        io.BytesIO(excel_bytes),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": f'attachment; filename="subject_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
