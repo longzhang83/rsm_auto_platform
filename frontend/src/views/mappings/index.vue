@@ -220,9 +220,15 @@
         <!-- 基本信息卡片 -->
         <el-card shadow="never" class="mb-4">
           <template #header>
-            <div class="flex items-center">
-              <el-icon class="mr-2"><InfoFilled /></el-icon>
-              <span class="font-semibold">基本信息</span>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <el-icon class="mr-2"><InfoFilled /></el-icon>
+                <span class="font-semibold">基本信息</span>
+              </div>
+              <!-- 模式标识 -->
+              <el-tag :type="isSingleColumnMode ? 'success' : 'warning'" size="small">
+                {{ isSingleColumnMode ? '单列金额模式' : '双列借贷模式' }}
+              </el-tag>
             </div>
           </template>
           <el-form
@@ -241,12 +247,13 @@
           </el-form>
         </el-card>
 
-        <!-- 字段映射配置卡片 -->
-        <el-card shadow="never" class="mb-4">
+        <!-- 字段映射配置卡片 - 单列金额模式 -->
+        <el-card shadow="never" class="mb-4" v-if="isSingleColumnMode">
           <template #header>
             <div class="flex items-center">
               <el-icon class="mr-2"><Document /></el-icon>
               <span class="font-semibold">字段映射配置</span>
+              <span class="ml-2 text-sm text-gray-500">（单列金额模式）</span>
             </div>
           </template>
           <el-form
@@ -263,14 +270,14 @@
             <el-form-item label="摘要列名">
               <el-input v-model="columnForm.summary" placeholder="Excel中摘要列的列名" />
             </el-form-item>
-            <el-form-item label="借方列名">
-              <el-input v-model="columnForm.debit" placeholder="Excel中借方列的列名" />
-            </el-form-item>
-            <el-form-item label="贷方列名">
-              <el-input v-model="columnForm.credit" placeholder="Excel中贷方列的列名" />
-            </el-form-item>
             <el-form-item label="金额列名">
-              <el-input v-model="columnForm.amount" placeholder="单列金额格式（可选）" />
+              <el-input v-model="columnForm.amount" placeholder="Excel中金额列的列名">
+                <template #append>
+                  <el-tooltip content="单列金额：正数为收入，负数为支出" placement="top">
+                    <el-icon><QuestionFilled /></el-icon>
+                  </el-tooltip>
+                </template>
+              </el-input>
             </el-form-item>
             <el-form-item label="银行账号">
               <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名" />
@@ -278,8 +285,37 @@
           </el-form>
         </el-card>
 
-        <!-- 付款人信息卡片 -->
-        <el-card shadow="never" class="mb-4">
+        <!-- 字段映射配置卡片 - 双列借贷模式 -->
+        <el-card shadow="never" class="mb-4" v-if="!isSingleColumnMode">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2"><Document /></el-icon>
+              <span class="font-semibold">字段映射配置</span>
+              <span class="ml-2 text-sm text-gray-500">（双列借贷模式）</span>
+            </div>
+          </template>
+          <el-form
+            :model="columnForm"
+            label-width="110px"
+            :disabled="columnDrawerMode === 'view'"
+          >
+            <el-form-item label="日期列名">
+              <el-input v-model="columnForm.date" placeholder="Excel中日期列的列名" />
+            </el-form-item>
+            <el-form-item label="摘要列名">
+              <el-input v-model="columnForm.summary" placeholder="Excel中摘要列的列名" />
+            </el-form-item>
+            <el-form-item label="借方列名">
+              <el-input v-model="columnForm.debit" placeholder="Excel中借方列的列名" />
+            </el-form-item>
+            <el-form-item label="贷方列名">
+              <el-input v-model="columnForm.credit" placeholder="Excel中贷方列的列名" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <!-- 付款人信息卡片 - 仅双列模式显示 -->
+        <el-card shadow="never" class="mb-4" v-if="!isSingleColumnMode">
           <template #header>
             <div class="flex items-center">
               <el-icon class="mr-2"><UserFilled /></el-icon>
@@ -300,8 +336,8 @@
           </el-form>
         </el-card>
 
-        <!-- 收款人信息卡片 -->
-        <el-card shadow="never" class="mb-4">
+        <!-- 收款人信息卡片 - 仅双列模式显示 -->
+        <el-card shadow="never" class="mb-4" v-if="!isSingleColumnMode">
           <template #header>
             <div class="flex items-center">
               <el-icon class="mr-2"><UserFilled /></el-icon>
@@ -441,7 +477,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   Search,
   Plus,
@@ -454,7 +490,8 @@ import {
   View,
   InfoFilled,
   Document,
-  UserFilled
+  UserFilled,
+  QuestionFilled
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request, { uploadFile, downloadFile } from '@/utils/request'
@@ -514,6 +551,20 @@ const columnRules = {
   customer_name: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
   bank_name: [{ required: true, message: '请输入银行名称', trigger: 'blur' }]
 }
+
+// 判断是单列金额模式还是双列借贷模式
+const isSingleColumnMode = computed(() => {
+  // 如果有金额字段的值，则为单列模式
+  if (columnForm.amount && columnForm.amount.trim()) {
+    return true
+  }
+  // 如果有借方或贷方字段的值，则为双列模式
+  if ((columnForm.debit && columnForm.debit.trim()) || (columnForm.credit && columnForm.credit.trim())) {
+    return false
+  }
+  // 默认返回单列模式（用于新建时）
+  return true
+})
 
 // 会计科目映射对话框
 const subjectDialogVisible = ref(false)
