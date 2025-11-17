@@ -560,6 +560,9 @@ class MappingService:
             content = await file.read()
             df = pd.read_excel(io.BytesIO(content))
 
+            # 清理列名（去除前后空格）
+            df.columns = df.columns.str.strip()
+
             # 验证列名
             expected_columns = [
                 "客户名称",
@@ -577,10 +580,15 @@ class MappingService:
                 "收款人名称",
             ]
 
-            if list(df.columns) != expected_columns:
+            # 检查是否包含所有必需列（不要求顺序）
+            missing_columns = set(expected_columns) - set(df.columns)
+            if missing_columns:
                 raise ValueError(
-                    f"列名不匹配，期望: {expected_columns}, 实际: {list(df.columns)}"
+                    f"缺少必需列: {list(missing_columns)}"
                 )
+
+            # 确保列的顺序与预期一致
+            df = df[expected_columns]
 
             # 保存文件
             column_mapping_path = self.data_dir / DEFAULT_COLUMN_MAPPING_FILE
@@ -608,13 +616,21 @@ class MappingService:
             content = await file.read()
             df = pd.read_excel(io.BytesIO(content))
 
+            # 清理列名（去除前后空格）
+            df.columns = df.columns.str.strip()
+
             # 验证列名
             expected_columns = ["客户名称", "匹配方式", "对方账户名称", "关键字", "银行账号", "会计科目编码"]
 
-            if list(df.columns) != expected_columns:
+            # 检查是否包含所有必需列（不要求顺序）
+            missing_columns = set(expected_columns) - set(df.columns)
+            if missing_columns:
                 raise ValueError(
-                    f"列名不匹配，期望: {expected_columns}, 实际: {list(df.columns)}"
+                    f"缺少必需列: {list(missing_columns)}"
                 )
+
+            # 确保列的顺序与预期一致
+            df = df[expected_columns]
 
             # 保存文件
             subject_mapping_path = self.data_dir / DEFAULT_SUBJECT_MAPPING_FILE

@@ -37,9 +37,6 @@
               <el-button :icon="Upload" @click="showColumnImportDialog">
                 导入Excel
               </el-button>
-              <el-button :icon="DocumentCopy" @click="downloadColumnTemplate">
-                下载模板
-              </el-button>
               <el-button type="primary" :icon="Plus" @click="showColumnCreateDialog">
                 新增映射
               </el-button>
@@ -129,9 +126,6 @@
               </el-button>
               <el-button :icon="Upload" @click="showSubjectImportDialog">
                 导入Excel
-              </el-button>
-              <el-button :icon="DocumentCopy" @click="downloadSubjectTemplate">
-                下载模板
               </el-button>
               <el-button type="primary" :icon="Plus" @click="showSubjectCreateDialog">
                 新增映射
@@ -332,7 +326,7 @@ import {
   UploadFilled
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import request, { uploadFile } from '@/utils/request'
+import request, { uploadFile, downloadFile } from '@/utils/request'
 
 // Tab状态
 const activeTab = ref('columns')
@@ -489,39 +483,21 @@ const deleteColumnMapping = async (row) => {
 
 const exportColumnMappings = async () => {
   try {
-    const response = await request.get('/mappings/columns/export', {
-      responseType: 'blob'
-    })
-    const url = window.URL.createObjectURL(new Blob([response]))
+    const blob = await downloadFile('/mappings/columns/export')
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', '银行流水列名mapping.xlsx')
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
     ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error('导出失败: ' + (error.message || '未知错误'))
   }
 }
 
-const downloadColumnTemplate = async () => {
-  try {
-    const response = await request.get('/mappings/columns/template', {
-      responseType: 'blob'
-    })
-    const url = window.URL.createObjectURL(new Blob([response]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', '银行流水列名mapping模板.xlsx')
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    ElMessage.success('模板下载成功')
-  } catch (error) {
-    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
-  }
-}
 
 // ==================== 会计科目映射方法 ====================
 
@@ -609,39 +585,21 @@ const deleteSubjectMapping = async (row) => {
 
 const exportSubjectMappings = async () => {
   try {
-    const response = await request.get('/mappings/subjects/export', {
-      responseType: 'blob'
-    })
-    const url = window.URL.createObjectURL(new Blob([response]))
+    const blob = await downloadFile('/mappings/subjects/export')
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.setAttribute('download', '会计科目mapping.xlsx')
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
     ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error('导出失败: ' + (error.message || '未知错误'))
   }
 }
 
-const downloadSubjectTemplate = async () => {
-  try {
-    const response = await request.get('/mappings/subjects/template', {
-      responseType: 'blob'
-    })
-    const url = window.URL.createObjectURL(new Blob([response]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', '会计科目mapping模板.xlsx')
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    ElMessage.success('模板下载成功')
-  } catch (error) {
-    ElMessage.error('下载失败: ' + (error.message || '未知错误'))
-  }
-}
 
 // ==================== Excel导入方法 ====================
 
