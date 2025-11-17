@@ -43,7 +43,7 @@
             </div>
           </div>
 
-          <!-- 列名映射表格 -->
+          <!-- 列名映射表格 - 简化版 -->
           <el-table
             :data="columnMappings"
             stripe
@@ -51,29 +51,38 @@
             v-loading="columnLoading"
             style="width: 100%"
           >
-            <el-table-column type="index" label="序号" width="60" />
-            <el-table-column prop="customer_name" label="客户名称" width="120" />
-            <el-table-column prop="bank_name" label="银行名称" width="120" />
-            <el-table-column prop="date" label="日期列名" width="100" />
-            <el-table-column prop="counterparty" label="对方户名" width="100" />
-            <el-table-column prop="summary" label="摘要列名" width="100" />
-            <el-table-column prop="debit" label="借方列名" width="100" />
-            <el-table-column prop="credit" label="贷方列名" width="100" />
-            <el-table-column prop="amount" label="金额列名" width="100" />
-            <el-table-column prop="bank_account" label="银行账号" width="100" />
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column type="index" label="序号" width="80" />
+            <el-table-column prop="customer_name" label="客户名称" min-width="150" />
+            <el-table-column prop="bank_name" label="银行名称" min-width="150" />
+            <el-table-column label="映射字段" width="120" align="center">
+              <template #default>
+                <el-tag type="info" size="small">13个字段</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="240" fixed="right">
               <template #default="{ row }">
                 <el-button
                   type="primary"
                   size="small"
+                  link
+                  :icon="View"
+                  @click="showColumnDetailDrawer(row)"
+                >
+                  详情
+                </el-button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  link
                   :icon="Edit"
-                  @click="showColumnEditDialog(row)"
+                  @click="showColumnEditDrawer(row)"
                 >
                   编辑
                 </el-button>
                 <el-button
                   type="danger"
                   size="small"
+                  link
                   :icon="Delete"
                   @click="deleteColumnMapping(row)"
                 >
@@ -173,53 +182,145 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- 列名映射编辑对话框 -->
-    <el-dialog
-      v-model="columnDialogVisible"
-      :title="columnDialogMode === 'create' ? '新增列名映射' : '编辑列名映射'"
-      width="600px"
+    <!-- 列名映射抽屉 - 详情/编辑 -->
+    <el-drawer
+      v-model="columnDrawerVisible"
+      :title="getColumnDrawerTitle()"
+      size="650px"
+      :close-on-click-modal="false"
+      destroy-on-close
     >
-      <el-form
-        ref="columnFormRef"
-        :model="columnForm"
-        :rules="columnRules"
-        label-width="120px"
-      >
-        <el-form-item label="客户名称" prop="customer_name">
-          <el-input v-model="columnForm.customer_name" placeholder="请输入客户名称" />
-        </el-form-item>
-        <el-form-item label="银行名称" prop="bank_name">
-          <el-input v-model="columnForm.bank_name" placeholder="请输入银行名称" />
-        </el-form-item>
-        <el-form-item label="日期列名" prop="date">
-          <el-input v-model="columnForm.date" placeholder="Excel中日期列的列名" />
-        </el-form-item>
-        <el-form-item label="对方户名" prop="counterparty">
-          <el-input v-model="columnForm.counterparty" placeholder="Excel中对方户名列的列名" />
-        </el-form-item>
-        <el-form-item label="摘要列名" prop="summary">
-          <el-input v-model="columnForm.summary" placeholder="Excel中摘要列的列名" />
-        </el-form-item>
-        <el-form-item label="借方列名" prop="debit">
-          <el-input v-model="columnForm.debit" placeholder="Excel中借方列的列名" />
-        </el-form-item>
-        <el-form-item label="贷方列名" prop="credit">
-          <el-input v-model="columnForm.credit" placeholder="Excel中贷方列的列名" />
-        </el-form-item>
-        <el-form-item label="金额列名" prop="amount">
-          <el-input v-model="columnForm.amount" placeholder="单列金额格式（可选）" />
-        </el-form-item>
-        <el-form-item label="银行账号" prop="bank_account">
-          <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名" />
-        </el-form-item>
-      </el-form>
+      <div class="drawer-content">
+        <!-- 基本信息卡片 -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2"><InfoFilled /></el-icon>
+              <span class="font-semibold">基本信息</span>
+            </div>
+          </template>
+          <el-form
+            ref="columnFormRef"
+            :model="columnForm"
+            :rules="columnRules"
+            label-width="110px"
+            :disabled="columnDrawerMode === 'view'"
+          >
+            <el-form-item label="客户名称" prop="customer_name">
+              <el-input v-model="columnForm.customer_name" placeholder="请输入客户名称" />
+            </el-form-item>
+            <el-form-item label="银行名称" prop="bank_name">
+              <el-input v-model="columnForm.bank_name" placeholder="请输入银行名称" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <!-- 字段映射配置卡片 -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2"><Document /></el-icon>
+              <span class="font-semibold">字段映射配置</span>
+            </div>
+          </template>
+          <el-form
+            :model="columnForm"
+            label-width="110px"
+            :disabled="columnDrawerMode === 'view'"
+          >
+            <el-form-item label="日期列名">
+              <el-input v-model="columnForm.date" placeholder="Excel中日期列的列名" />
+            </el-form-item>
+            <el-form-item label="对方户名">
+              <el-input v-model="columnForm.counterparty" placeholder="Excel中对方户名列的列名" />
+            </el-form-item>
+            <el-form-item label="摘要列名">
+              <el-input v-model="columnForm.summary" placeholder="Excel中摘要列的列名" />
+            </el-form-item>
+            <el-form-item label="借方列名">
+              <el-input v-model="columnForm.debit" placeholder="Excel中借方列的列名" />
+            </el-form-item>
+            <el-form-item label="贷方列名">
+              <el-input v-model="columnForm.credit" placeholder="Excel中贷方列的列名" />
+            </el-form-item>
+            <el-form-item label="金额列名">
+              <el-input v-model="columnForm.amount" placeholder="单列金额格式（可选）" />
+            </el-form-item>
+            <el-form-item label="银行账号">
+              <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <!-- 付款人信息卡片 -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2"><UserFilled /></el-icon>
+              <span class="font-semibold">付款人信息</span>
+            </div>
+          </template>
+          <el-form
+            :model="columnForm"
+            label-width="110px"
+            :disabled="columnDrawerMode === 'view'"
+          >
+            <el-form-item label="付款人账号">
+              <el-input v-model="columnForm.payer_account" placeholder="Excel中付款人账号列的列名" />
+            </el-form-item>
+            <el-form-item label="付款人名称">
+              <el-input v-model="columnForm.payer_name" placeholder="Excel中付款人名称列的列名" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <!-- 收款人信息卡片 -->
+        <el-card shadow="never" class="mb-4">
+          <template #header>
+            <div class="flex items-center">
+              <el-icon class="mr-2"><UserFilled /></el-icon>
+              <span class="font-semibold">收款人信息</span>
+            </div>
+          </template>
+          <el-form
+            :model="columnForm"
+            label-width="110px"
+            :disabled="columnDrawerMode === 'view'"
+          >
+            <el-form-item label="收款人账号">
+              <el-input v-model="columnForm.payee_account" placeholder="Excel中收款人账号列的列名" />
+            </el-form-item>
+            <el-form-item label="收款人名称">
+              <el-input v-model="columnForm.payee_name" placeholder="Excel中收款人名称列的列名" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </div>
+
       <template #footer>
-        <el-button @click="columnDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitColumnForm" :loading="columnSubmitting">
-          确定
-        </el-button>
+        <div class="flex justify-end gap-2">
+          <el-button @click="columnDrawerVisible = false">
+            {{ columnDrawerMode === 'view' ? '关闭' : '取消' }}
+          </el-button>
+          <el-button
+            v-if="columnDrawerMode === 'view'"
+            type="primary"
+            :icon="Edit"
+            @click="switchToEditMode"
+          >
+            编辑
+          </el-button>
+          <el-button
+            v-if="columnDrawerMode === 'edit' || columnDrawerMode === 'create'"
+            type="primary"
+            @click="submitColumnDrawerForm"
+            :loading="columnSubmitting"
+          >
+            保存
+          </el-button>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- 会计科目映射编辑对话框 -->
     <el-dialog
@@ -323,7 +424,11 @@ import {
   Download,
   Upload,
   DocumentCopy,
-  UploadFilled
+  UploadFilled,
+  View,
+  InfoFilled,
+  Document,
+  UserFilled
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request, { uploadFile, downloadFile } from '@/utils/request'
@@ -348,12 +453,13 @@ const subjectSearch = reactive({
   keyword: ''
 })
 
-// 列名映射对话框
-const columnDialogVisible = ref(false)
-const columnDialogMode = ref('create') // 'create' | 'edit'
+// 列名映射抽屉
+const columnDrawerVisible = ref(false)
+const columnDrawerMode = ref('create') // 'create' | 'edit' | 'view'
 const columnFormRef = ref(null)
 const columnSubmitting = ref(false)
 const columnForm = reactive({
+  id: null,
   customer_name: '',
   bank_name: '',
   date: '',
@@ -369,7 +475,8 @@ const columnForm = reactive({
   payee_name: ''
 })
 const columnRules = {
-  customer_name: [{ required: true, message: '请输入客户名称', trigger: 'blur' }]
+  customer_name: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
+  bank_name: [{ required: true, message: '请输入银行名称', trigger: 'blur' }]
 }
 
 // 会计科目映射对话框
@@ -416,31 +523,57 @@ const loadColumnMappings = async () => {
   }
 }
 
+// 显示新增抽屉
 const showColumnCreateDialog = () => {
-  columnDialogMode.value = 'create'
+  columnDrawerMode.value = 'create'
   resetColumnForm()
-  columnDialogVisible.value = true
+  columnDrawerVisible.value = true
 }
 
-const showColumnEditDialog = (row) => {
-  columnDialogMode.value = 'edit'
+// 显示详情抽屉（查看模式）
+const showColumnDetailDrawer = (row) => {
+  columnDrawerMode.value = 'view'
   Object.assign(columnForm, row)
-  columnDialogVisible.value = true
+  columnDrawerVisible.value = true
+}
+
+// 显示编辑抽屉（编辑模式）
+const showColumnEditDrawer = (row) => {
+  columnDrawerMode.value = 'edit'
+  Object.assign(columnForm, row)
+  columnDrawerVisible.value = true
+}
+
+// 切换到编辑模式
+const switchToEditMode = () => {
+  columnDrawerMode.value = 'edit'
+}
+
+// 获取抽屉标题
+const getColumnDrawerTitle = () => {
+  if (columnDrawerMode.value === 'create') return '新增列名映射'
+  if (columnDrawerMode.value === 'edit') return '编辑列名映射'
+  return '列名映射详情'
 }
 
 const resetColumnForm = () => {
   Object.keys(columnForm).forEach(key => {
-    columnForm[key] = ''
+    if (key === 'id') {
+      columnForm[key] = null
+    } else {
+      columnForm[key] = ''
+    }
   })
   columnFormRef.value?.resetFields()
 }
 
-const submitColumnForm = async () => {
+// 提交抽屉表单
+const submitColumnDrawerForm = async () => {
   try {
     await columnFormRef.value.validate()
     columnSubmitting.value = true
 
-    if (columnDialogMode.value === 'create') {
+    if (columnDrawerMode.value === 'create') {
       await request.post('/mappings/columns', columnForm)
       ElMessage.success('创建成功')
     } else {
@@ -448,7 +581,7 @@ const submitColumnForm = async () => {
       ElMessage.success('更新成功')
     }
 
-    columnDialogVisible.value = false
+    columnDrawerVisible.value = false
     loadColumnMappings()
   } catch (error) {
     if (error.message) {
@@ -691,5 +824,48 @@ onMounted(() => {
   padding: 10px;
   background: #f5f7fa;
   border-radius: 4px;
+}
+
+/* 抽屉样式 */
+.drawer-content {
+  padding: 0 20px 20px 20px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.drawer-content .el-card {
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.drawer-content .el-card:last-child {
+  margin-bottom: 0;
+}
+
+.drawer-content :deep(.el-card__header) {
+  background-color: #f5f7fa;
+  padding: 12px 20px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.drawer-content :deep(.el-card__body) {
+  padding: 20px;
+}
+
+.drawer-content .el-form-item {
+  margin-bottom: 18px;
+}
+
+.drawer-content .el-form-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 表格操作按钮样式 */
+.el-table .el-button.is-link {
+  margin-right: 8px;
+}
+
+.el-table .el-button.is-link:last-child {
+  margin-right: 0;
 }
 </style>
