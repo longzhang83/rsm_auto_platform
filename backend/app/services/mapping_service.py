@@ -609,7 +609,7 @@ class MappingService:
             df = pd.read_excel(io.BytesIO(content))
 
             # 验证列名
-            expected_columns = ["客户名称", "匹配方式", "对方账户名称", "关键字", "会计科目编码"]
+            expected_columns = ["客户名称", "匹配方式", "对方账户名称", "关键字", "银行账号", "会计科目编码"]
 
             if list(df.columns) != expected_columns:
                 raise ValueError(
@@ -682,7 +682,7 @@ class MappingService:
             if not subject_mapping_path.exists():
                 # 创建空模板
                 df = pd.DataFrame(
-                    columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "会计科目编码"]
+                    columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "银行账号", "会计科目编码"]
                 )
             else:
                 df = self._read_excel_file(subject_mapping_path)

@@ -164,7 +164,7 @@ async def import_subject_mappings(
     从Excel文件导入会计科目映射
 
     Excel文件格式要求：
-    - 列名：客户名称, 匹配方式, 对方账户名称, 关键字, 会计科目编码
+    - 列名：客户名称, 匹配方式, 对方账户名称, 关键字, 银行账号, 会计科目编码
     """
     imported_count, errors = await mapping_service.import_subject_mappings(file)
     return MappingImportResponse(
@@ -273,11 +273,12 @@ async def download_subject_mapping_template(
     """
     import pandas as pd
 
-    df = pd.DataFrame(columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "会计科目编码"])
+    df = pd.DataFrame(columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "银行账号", "会计科目编码"])
 
     # 添加示例数据
-    df.loc[0] = ["示例客户", "对方账户名称", "ABC公司", "", "1122"]
-    df.loc[1] = ["示例客户", "摘要关键字", "", "工资", "5501"]
+    df.loc[0] = ["示例客户", "对方账户名称", "ABC公司", "", "", "1122"]
+    df.loc[1] = ["示例客户", "摘要关键字", "", "工资", "", "5501"]
+    df.loc[2] = ["示例客户", "银行账号", "", "", "1234567890", "1002"]
 
     output = io.BytesIO()
     df.to_excel(output, index=False, engine="openpyxl")
