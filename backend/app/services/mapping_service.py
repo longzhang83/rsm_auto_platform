@@ -77,6 +77,35 @@ class MappingService:
                     f"列名映射文件缺少必需的列: {missing_columns}, 实际列: {list(df.columns)}"
                 )
 
+            # 确保所有可选列都存在（向后兼容）
+            all_columns = [
+                "客户名称",
+                "银行名称",
+                "日期",
+                "对方户名",
+                "摘要",
+                "借方",
+                "贷方",
+                "金额",
+                "银行账号",
+                "付款人账号",
+                "付款人名称",
+                "收款人账号",
+                "收款人名称",
+            ]
+
+            # 添加缺失的列并填充空字符串
+            added_columns = []
+            for col in all_columns:
+                if col not in df.columns:
+                    df[col] = ""
+                    added_columns.append(col)
+
+            # 保存更新后的文件（如果添加了新列）
+            if added_columns:
+                self._write_excel_file(df, column_mapping_path)
+                logger.info(f"更新列名映射文件，添加缺失列: {added_columns}")
+
             # 过滤（模糊搜索）
             if customer_name:
                 df = df[df["客户名称"].str.contains(customer_name, na=False, case=False)]
@@ -230,6 +259,16 @@ class MappingService:
 
             if mapping_id >= len(df):
                 raise HTTPException(status_code=404, detail=f"映射ID {mapping_id} 不存在")
+
+            # 确保所有列都存在（向后兼容）
+            all_columns = [
+                "客户名称", "银行名称", "日期", "对方户名", "摘要",
+                "借方", "贷方", "金额", "银行账号",
+                "付款人账号", "付款人名称", "收款人账号", "收款人名称",
+            ]
+            for col in all_columns:
+                if col not in df.columns:
+                    df[col] = ""
 
             # 更新字段
             update_dict = mapping.dict(exclude_unset=True)
@@ -812,6 +851,19 @@ class MappingService:
                 )
             else:
                 df = self._read_excel_file(column_mapping_path)
+
+            # 确保所有列都存在（向后兼容）
+            all_columns = [
+                "客户名称", "银行名称", "日期", "对方户名", "摘要",
+                "借方", "贷方", "金额", "银行账号",
+                "付款人账号", "付款人名称", "收款人账号", "收款人名称",
+            ]
+            for col in all_columns:
+                if col not in df.columns:
+                    df[col] = ""
+
+            # 按标准列顺序重新排列（确保导出的列顺序一致）
+            df = df[all_columns]
 
             # 导出到内存
             output = io.BytesIO()
