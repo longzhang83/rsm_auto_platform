@@ -1,5 +1,6 @@
 """映射管理API端点"""
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, UploadFile, Query
 from fastapi.responses import StreamingResponse
@@ -183,10 +184,14 @@ async def export_column_mappings(
     """
     excel_data = mapping_service.export_column_mappings()
 
+    filename = "银行流水列名mapping.xlsx"
+    encoded_filename = quote(filename)
     return StreamingResponse(
         io.BytesIO(excel_data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=银行流水列名mapping.xlsx"},
+        headers={
+            "Content-Disposition": f'attachment; filename="column_mapping.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
+        },
     )
 
 
@@ -199,10 +204,14 @@ async def export_subject_mappings(
     """
     excel_data = mapping_service.export_subject_mappings()
 
+    filename = "会计科目mapping.xlsx"
+    encoded_filename = quote(filename)
     return StreamingResponse(
         io.BytesIO(excel_data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=会计科目mapping.xlsx"},
+        headers={
+            "Content-Disposition": f'attachment; filename="subject_mapping.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
+        },
     )
 
 
@@ -257,10 +266,14 @@ async def download_column_mapping_template(
     df.to_excel(output, index=False, engine="openpyxl")
     output.seek(0)
 
+    filename = "银行流水列名mapping模板.xlsx"
+    encoded_filename = quote(filename)
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=银行流水列名mapping模板.xlsx"},
+        headers={
+            "Content-Disposition": f'attachment; filename="column_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
+        },
     )
 
 
@@ -284,8 +297,12 @@ async def download_subject_mapping_template(
     df.to_excel(output, index=False, engine="openpyxl")
     output.seek(0)
 
+    filename = "会计科目mapping模板.xlsx"
+    encoded_filename = quote(filename)
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=会计科目mapping模板.xlsx"},
+        headers={
+            "Content-Disposition": f'attachment; filename="subject_mapping_template.xlsx"; filename*=UTF-8\'\'{encoded_filename}'
+        },
     )
