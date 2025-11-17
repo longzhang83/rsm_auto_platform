@@ -377,6 +377,7 @@ class MappingService:
                         match_type=get_value("匹配方式"),
                         counterparty_name=get_value("对方账户名称"),
                         keywords=get_value("关键字"),
+                        bank_account=get_value("银行账号"),
                         subject_code=get_value("会计科目编码"),
                     )
                 )
@@ -406,7 +407,7 @@ class MappingService:
             # 如果文件不存在，创建新文件
             if not subject_mapping_path.exists():
                 df = pd.DataFrame(
-                    columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "会计科目编码"]
+                    columns=["客户名称", "匹配方式", "对方账户名称", "关键字", "银行账号", "会计科目编码"]
                 )
             else:
                 df = self._read_excel_file(subject_mapping_path)
@@ -417,6 +418,7 @@ class MappingService:
                 "匹配方式": mapping.match_type,
                 "对方账户名称": mapping.counterparty_name or "",
                 "关键字": mapping.keywords or "",
+                "银行账号": mapping.bank_account or "",
                 "会计科目编码": mapping.subject_code,
             }
 
@@ -469,6 +471,7 @@ class MappingService:
                 "match_type": "匹配方式",
                 "counterparty_name": "对方账户名称",
                 "keywords": "关键字",
+                "bank_account": "银行账号",
                 "subject_code": "会计科目编码",
             }
 
@@ -495,6 +498,7 @@ class MappingService:
                 match_type=get_value("匹配方式"),
                 counterparty_name=get_value("对方账户名称"),
                 keywords=get_value("关键字"),
+                bank_account=get_value("银行账号"),
                 subject_code=get_value("会计科目编码"),
             )
 

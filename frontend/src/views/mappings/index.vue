@@ -152,6 +152,7 @@
             <el-table-column prop="match_type" label="匹配方式" width="150" />
             <el-table-column prop="counterparty_name" label="对方账户名称" width="200" />
             <el-table-column prop="keywords" label="摘要关键字" width="200" />
+            <el-table-column prop="bank_account" label="银行账号" width="200" />
             <el-table-column prop="subject_code" label="会计科目编码" width="150" />
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
@@ -267,11 +268,11 @@
         </el-form-item>
         <el-form-item
           label="银行账号"
-          prop="counterparty_name"
+          prop="bank_account"
           v-if="subjectForm.match_type === '银行账号'"
         >
           <el-input
-            v-model="subjectForm.counterparty_name"
+            v-model="subjectForm.bank_account"
             placeholder="请输入银行账号"
           />
         </el-form-item>
@@ -387,6 +388,7 @@ const subjectForm = reactive({
   match_type: '',
   counterparty_name: '',
   keywords: '',
+  bank_account: '',
   subject_code: ''
 })
 const subjectRules = {

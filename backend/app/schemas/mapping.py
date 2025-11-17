@@ -68,6 +68,7 @@ class SubjectMappingBase(BaseModel):
     match_type: str = Field(..., description="匹配方式（对方账户名称/摘要关键字/银行账号）")
     counterparty_name: Optional[str] = Field(default="", description="对方账户名称")
     keywords: Optional[str] = Field(default="", description="摘要关键字")
+    bank_account: Optional[str] = Field(default="", description="银行账号")
     subject_code: str = Field(..., description="会计科目编码")
 
     @validator("customer_name")
@@ -106,6 +107,7 @@ class SubjectMappingUpdate(BaseModel):
     match_type: Optional[str] = Field(None, description="匹配方式")
     counterparty_name: Optional[str] = Field(None, description="对方账户名称")
     keywords: Optional[str] = Field(None, description="摘要关键字")
+    bank_account: Optional[str] = Field(None, description="银行账号")
     subject_code: Optional[str] = Field(None, description="会计科目编码")
 
 
