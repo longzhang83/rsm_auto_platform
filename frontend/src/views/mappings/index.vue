@@ -264,9 +264,6 @@
             <el-form-item label="日期列名">
               <el-input v-model="columnForm.date" placeholder="Excel中日期列的列名" />
             </el-form-item>
-            <el-form-item label="对方户名">
-              <el-input v-model="columnForm.counterparty" placeholder="Excel中对方户名列的列名" />
-            </el-form-item>
             <el-form-item label="摘要列名">
               <el-input v-model="columnForm.summary" placeholder="Excel中摘要列的列名" />
             </el-form-item>
@@ -279,8 +276,12 @@
                 </template>
               </el-input>
             </el-form-item>
-            <el-form-item label="银行账号">
-              <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名" />
+            <!-- 有银行账号时显示 -->
+            <el-form-item label="银行账号" v-if="hasBankAccount || columnDrawerMode === 'create'">
+              <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名（可选）" />
+            </el-form-item>
+            <el-form-item label="对方户名" v-if="hasBankAccount || columnDrawerMode === 'create'">
+              <el-input v-model="columnForm.counterparty" placeholder="Excel中对方户名列的列名（可选）" />
             </el-form-item>
           </el-form>
         </el-card>
@@ -311,15 +312,23 @@
             <el-form-item label="贷方列名">
               <el-input v-model="columnForm.credit" placeholder="Excel中贷方列的列名" />
             </el-form-item>
+            <!-- 有银行账号时显示 -->
+            <el-form-item label="银行账号" v-if="hasBankAccount || columnDrawerMode === 'create'">
+              <el-input v-model="columnForm.bank_account" placeholder="Excel中银行账号列的列名（可选）" />
+            </el-form-item>
+            <el-form-item label="对方户名" v-if="hasBankAccount || columnDrawerMode === 'create'">
+              <el-input v-model="columnForm.counterparty" placeholder="Excel中对方户名列的列名（可选）" />
+            </el-form-item>
           </el-form>
         </el-card>
 
-        <!-- 付款人信息卡片 - 仅双列模式显示 -->
-        <el-card shadow="never" class="mb-4" v-if="!isSingleColumnMode">
+        <!-- 收付款信息卡片 - 仅在没有银行账号时显示 -->
+        <el-card shadow="never" class="mb-4" v-if="!hasBankAccount || columnDrawerMode === 'create'">
           <template #header>
             <div class="flex items-center">
               <el-icon class="mr-2"><UserFilled /></el-icon>
-              <span class="font-semibold">付款人信息</span>
+              <span class="font-semibold">收付款信息</span>
+              <span class="ml-2 text-sm text-gray-500">（无银行账号时使用）</span>
             </div>
           </template>
           <el-form
@@ -327,33 +336,19 @@
             label-width="110px"
             :disabled="columnDrawerMode === 'view'"
           >
+            <el-divider content-position="left">付款人信息</el-divider>
             <el-form-item label="付款人账号">
-              <el-input v-model="columnForm.payer_account" placeholder="Excel中付款人账号列的列名" />
+              <el-input v-model="columnForm.payer_account" placeholder="Excel中付款人账号列的列名（可选）" />
             </el-form-item>
             <el-form-item label="付款人名称">
-              <el-input v-model="columnForm.payer_name" placeholder="Excel中付款人名称列的列名" />
+              <el-input v-model="columnForm.payer_name" placeholder="Excel中付款人名称列的列名（可选）" />
             </el-form-item>
-          </el-form>
-        </el-card>
-
-        <!-- 收款人信息卡片 - 仅双列模式显示 -->
-        <el-card shadow="never" class="mb-4" v-if="!isSingleColumnMode">
-          <template #header>
-            <div class="flex items-center">
-              <el-icon class="mr-2"><UserFilled /></el-icon>
-              <span class="font-semibold">收款人信息</span>
-            </div>
-          </template>
-          <el-form
-            :model="columnForm"
-            label-width="110px"
-            :disabled="columnDrawerMode === 'view'"
-          >
+            <el-divider content-position="left">收款人信息</el-divider>
             <el-form-item label="收款人账号">
-              <el-input v-model="columnForm.payee_account" placeholder="Excel中收款人账号列的列名" />
+              <el-input v-model="columnForm.payee_account" placeholder="Excel中收款人账号列的列名（可选）" />
             </el-form-item>
             <el-form-item label="收款人名称">
-              <el-input v-model="columnForm.payee_name" placeholder="Excel中收款人名称列的列名" />
+              <el-input v-model="columnForm.payee_name" placeholder="Excel中收款人名称列的列名（可选）" />
             </el-form-item>
           </el-form>
         </el-card>
@@ -564,6 +559,11 @@ const isSingleColumnMode = computed(() => {
   }
   // 默认返回单列模式（用于新建时）
   return true
+})
+
+// 判断是否有银行账号（用于决定是否显示收付款信息）
+const hasBankAccount = computed(() => {
+  return columnForm.bank_account && columnForm.bank_account.trim() !== ''
 })
 
 // 会计科目映射对话框
