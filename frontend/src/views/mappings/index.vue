@@ -14,16 +14,16 @@
             <div class="flex items-center gap-3">
               <el-input
                 v-model="columnSearch.customer"
-                placeholder="搜索客户名称"
+                placeholder="客户名称（支持模糊搜索）"
                 clearable
-                style="width: 200px"
+                style="width: 220px"
                 @clear="loadColumnMappings"
               />
               <el-input
                 v-model="columnSearch.bank"
-                placeholder="搜索银行名称"
+                placeholder="银行名称（支持模糊搜索）"
                 clearable
-                style="width: 200px"
+                style="width: 220px"
                 @clear="loadColumnMappings"
               />
               <el-button type="primary" :icon="Search" @click="loadColumnMappings">
@@ -115,9 +115,9 @@
             <div class="flex items-center gap-3">
               <el-input
                 v-model="subjectSearch.customer"
-                placeholder="搜索客户名称"
+                placeholder="客户名称（支持模糊搜索）"
                 clearable
-                style="width: 200px"
+                style="width: 220px"
                 @clear="loadSubjectMappings"
               />
               <el-select
@@ -133,9 +133,9 @@
               </el-select>
               <el-input
                 v-model="subjectSearch.keyword"
-                placeholder="搜索关键字"
+                placeholder="关键字（支持模糊搜索）"
                 clearable
-                style="width: 200px"
+                style="width: 220px"
                 @clear="loadSubjectMappings"
               />
               <el-button type="primary" :icon="Search" @click="loadSubjectMappings">

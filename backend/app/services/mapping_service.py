@@ -77,11 +77,11 @@ class MappingService:
                     f"列名映射文件缺少必需的列: {missing_columns}, 实际列: {list(df.columns)}"
                 )
 
-            # 过滤
+            # 过滤（模糊搜索）
             if customer_name:
-                df = df[df["客户名称"] == customer_name]
+                df = df[df["客户名称"].str.contains(customer_name, na=False, case=False)]
             if bank_name:
-                df = df[df["银行名称"] == bank_name]
+                df = df[df["银行名称"].str.contains(bank_name, na=False, case=False)]
 
             # 获取总数
             total = len(df)
@@ -366,17 +366,20 @@ class MappingService:
 
             # 过滤
             if customer_name:
-                df = df[df["客户名称"] == customer_name]
+                # 客户名称模糊搜索
+                df = df[df["客户名称"].str.contains(customer_name, na=False, case=False)]
             if match_type and "匹配方式" in df.columns:
+                # 匹配方式精确匹配
                 df = df[df["匹配方式"] == match_type]
             if search:
+                # 在对方账户名称、关键字、会计科目编码中模糊搜索
                 search_mask = pd.Series([False] * len(df), index=df.index)
                 if "对方账户名称" in df.columns:
-                    search_mask |= df["对方账户名称"].str.contains(search, na=False)
+                    search_mask |= df["对方账户名称"].str.contains(search, na=False, case=False)
                 if "关键字" in df.columns:
-                    search_mask |= df["关键字"].str.contains(search, na=False)
+                    search_mask |= df["关键字"].str.contains(search, na=False, case=False)
                 if "会计科目编码" in df.columns:
-                    search_mask |= df["会计科目编码"].str.contains(search, na=False)
+                    search_mask |= df["会计科目编码"].str.contains(search, na=False, case=False)
                 df = df[search_mask]
 
             # 获取总数
