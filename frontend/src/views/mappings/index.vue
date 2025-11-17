@@ -676,9 +676,8 @@ const submitImport = async () => {
       ? '/mappings/columns/import'
       : '/mappings/subjects/import'
 
-    const response = await request.post(endpoint, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    // 注意：不要手动设置 Content-Type，让浏览器自动添加 boundary
+    const response = await request.post(endpoint, formData)
 
     ElMessage.success(response.message || '导入成功')
     importDialogVisible.value = false

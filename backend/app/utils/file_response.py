@@ -89,14 +89,15 @@ def create_file_download_response(
     else:
         file_bytes = content
 
-    # 创建新的BytesIO对象用于StreamingResponse
-    file_stream = io.BytesIO(file_bytes)
-
     # 生成Content-Disposition头
     content_disposition = create_content_disposition_header(filename, fallback_filename)
 
+    # 使用异步生成器流式传输文件
+    async def generate():
+        yield file_bytes
+
     return StreamingResponse(
-        file_stream,
+        generate(),
         media_type=media_type,
         headers={"Content-Disposition": content_disposition}
     )
