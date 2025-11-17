@@ -164,11 +164,11 @@
             style="width: 100%"
           >
             <el-table-column type="index" label="序号" width="60" />
-            <el-table-column prop="customer_name" label="客户名称" width="150" />
-            <el-table-column prop="match_type" label="匹配方式" width="150" />
-            <el-table-column prop="counterparty_name" label="对方账户名称" width="200" />
-            <el-table-column prop="keywords" label="摘要关键字" width="200" />
-            <el-table-column prop="bank_account" label="银行账号" width="200" />
+            <el-table-column prop="customer_name" label="客户名称" width="100" />
+            <el-table-column prop="match_type" label="匹配方式" width="120" />
+            <el-table-column prop="counterparty_name" label="对方账户名称" width="280" />
+            <el-table-column prop="keywords" label="摘要关键字" width="100" />
+            <el-table-column prop="bank_account" label="银行账号" width="250" />
             <el-table-column prop="subject_code" label="会计科目编码" width="150" />
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="{ row }">
