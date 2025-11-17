@@ -412,6 +412,44 @@ class MappingService:
             else:
                 df = self._read_excel_file(subject_mapping_path)
 
+            # 检查是否已存在相同的映射（根据匹配方式检查对应字段）
+            if mapping.match_type == "对方账户名称":
+                # 检查 客户名称 + 匹配方式 + 对方账户名称
+                existing = df[
+                    (df["客户名称"] == mapping.customer_name)
+                    & (df["匹配方式"] == mapping.match_type)
+                    & (df["对方账户名称"] == (mapping.counterparty_name or ""))
+                ]
+                if not existing.empty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"客户'{mapping.customer_name}'的对方账户名称'{mapping.counterparty_name}'映射已存在",
+                    )
+            elif mapping.match_type == "摘要关键字":
+                # 检查 客户名称 + 匹配方式 + 关键字
+                existing = df[
+                    (df["客户名称"] == mapping.customer_name)
+                    & (df["匹配方式"] == mapping.match_type)
+                    & (df["关键字"] == (mapping.keywords or ""))
+                ]
+                if not existing.empty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"客户'{mapping.customer_name}'的摘要关键字'{mapping.keywords}'映射已存在",
+                    )
+            elif mapping.match_type == "银行账号":
+                # 检查 客户名称 + 匹配方式 + 银行账号
+                existing = df[
+                    (df["客户名称"] == mapping.customer_name)
+                    & (df["匹配方式"] == mapping.match_type)
+                    & (df["银行账号"] == (mapping.bank_account or ""))
+                ]
+                if not existing.empty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"客户'{mapping.customer_name}'的银行账号'{mapping.bank_account}'映射已存在",
+                    )
+
             # 添加新行
             new_row = {
                 "客户名称": mapping.customer_name,
@@ -588,14 +626,42 @@ class MappingService:
                 )
 
             # 确保列的顺序与预期一致
-            df = df[expected_columns]
+            df_import = df[expected_columns]
 
-            # 保存文件
+            # 智能合并：读取现有数据，按唯一标识合并
             column_mapping_path = self.data_dir / DEFAULT_COLUMN_MAPPING_FILE
-            self._write_excel_file(df, column_mapping_path)
 
-            logger.info(f"成功导入 {len(df)} 条列名映射")
-            return len(df), []
+            if column_mapping_path.exists():
+                # 读取现有数据
+                df_existing = self._read_excel_file(column_mapping_path)
+
+                # 合并策略：按 客户名称 + 银行名称 去重
+                # 创建唯一标识列
+                df_existing['_unique_key'] = df_existing['客户名称'].astype(str) + '|' + df_existing['银行名称'].astype(str)
+                df_import['_unique_key'] = df_import['客户名称'].astype(str) + '|' + df_import['银行名称'].astype(str)
+
+                # 先移除现有数据中与导入数据重复的行
+                df_existing = df_existing[~df_existing['_unique_key'].isin(df_import['_unique_key'])]
+
+                # 合并数据：现有数据（去重后） + 导入数据
+                df_merged = pd.concat([df_existing, df_import], ignore_index=True)
+
+                # 移除临时列
+                df_merged = df_merged.drop(columns=['_unique_key'])
+
+                updated_count = len(df_import['_unique_key'].isin(df_existing['_unique_key']))
+                new_count = len(df_import) - updated_count
+
+                logger.info(f"列名映射合并完成: 新增 {new_count} 条, 更新 {updated_count} 条")
+            else:
+                # 文件不存在，直接使用导入数据
+                df_merged = df_import
+                logger.info(f"成功导入 {len(df_merged)} 条列名映射")
+
+            # 保存合并后的文件
+            self._write_excel_file(df_merged, column_mapping_path)
+
+            return len(df_import), []
 
         except Exception as e:
             logger.error(f"导入列名映射失败: {e}")
@@ -630,14 +696,58 @@ class MappingService:
                 )
 
             # 确保列的顺序与预期一致
-            df = df[expected_columns]
+            df_import = df[expected_columns]
 
-            # 保存文件
+            # 创建唯一标识：根据匹配方式选择对应的匹配值字段
+            def create_unique_key(row):
+                customer = str(row['客户名称'])
+                match_type = str(row['匹配方式'])
+
+                if match_type == '对方账户名称':
+                    match_value = str(row['对方账户名称'])
+                elif match_type == '摘要关键字':
+                    match_value = str(row['关键字'])
+                elif match_type == '银行账号':
+                    match_value = str(row['银行账号'])
+                else:
+                    match_value = ''
+
+                return f"{customer}|{match_type}|{match_value}"
+
+            # 智能合并：读取现有数据，按唯一标识合并
             subject_mapping_path = self.data_dir / DEFAULT_SUBJECT_MAPPING_FILE
-            self._write_excel_file(df, subject_mapping_path)
 
-            logger.info(f"成功导入 {len(df)} 条会计科目映射")
-            return len(df), []
+            if subject_mapping_path.exists():
+                # 读取现有数据
+                df_existing = self._read_excel_file(subject_mapping_path)
+
+                # 创建唯一标识列
+                df_existing['_unique_key'] = df_existing.apply(create_unique_key, axis=1)
+                df_import['_unique_key'] = df_import.apply(create_unique_key, axis=1)
+
+                # 先移除现有数据中与导入数据重复的行（这些将被更新）
+                df_existing_filtered = df_existing[~df_existing['_unique_key'].isin(df_import['_unique_key'])]
+
+                # 合并数据：现有数据（去重后） + 导入数据
+                df_merged = pd.concat([df_existing_filtered, df_import], ignore_index=True)
+
+                # 移除临时列
+                df_merged = df_merged.drop(columns=['_unique_key'])
+
+                # 计算更新和新增数量
+                updated_count = df_existing['_unique_key'].isin(df_import['_unique_key']).sum()
+                new_count = len(df_import) - updated_count
+
+                logger.info(f"会计科目映射合并完成: 新增 {new_count} 条, 更新 {updated_count} 条")
+            else:
+                # 文件不存在，直接使用导入数据
+                df_merged = df_import
+                logger.info(f"成功导入 {len(df_merged)} 条会计科目映射")
+
+            # 保存合并后的文件
+            self._write_excel_file(df_merged, subject_mapping_path)
+
+            return len(df_import), []
 
         except Exception as e:
             logger.error(f"导入会计科目映射失败: {e}")
