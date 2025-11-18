@@ -15,6 +15,7 @@ from pathlib import Path
 from app.schemas.voucher import VoucherGenerateResponse, VoucherGenerateStartResponse
 from app.services.voucher_service import VoucherService
 from app.services.dashboard_service import DashboardService
+from app.services.template_service import template_service
 from app.db.database import get_db
 from app.api.dependencies import get_current_user
 from app.db.models import User
@@ -322,52 +323,40 @@ async def download_template(
     - **template_type**: 模板类型
       - expense: 费用报销表模板
       - employee: 人员列表模板
-      - subject: 科目映射模板
-    """
-    # 定义模板文件映射 - 使用 data 目录中的实际文件
-    template_files = {
-        "expense": "Expense.xlsx",  # 费用报销表模板
-        "employee": "人员列表.xlsx",  # 人员列表模板
-        "subject": "科目映射.csv",  # 科目映射CSV模板
-    }
+      - subject: 科目映射模板（费用清单使用）
 
+    注意：所有模板都是动态生成的，确保格式正确且兼容性良好
+    """
     # 检查模板类型是否有效
-    if template_type not in template_files:
+    valid_types = ["expense", "employee", "subject"]
+    if template_type not in valid_types:
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的模板类型: {template_type}，支持的类型: {', '.join(template_files.keys())}"
+            detail=f"不支持的模板类型: {template_type}，支持的类型: {', '.join(valid_types)}"
         )
 
-    # 获取模板文件路径（data 目录在项目根目录下）
-    project_root = Path(__file__).parent.parent.parent.parent.parent
-    template_path = project_root / "data" / template_files[template_type]
-
-    # 检查文件是否存在
-    if not template_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"模板文件不存在: {template_files[template_type]}，请联系管理员上传模板文件"
-        )
-
-    # 读取文件内容
-    with open(template_path, "rb") as f:
-        file_content = f.read()
-
-    # 根据文件类型使用相应的工具函数返回响应
-    filename = template_files[template_type]
-
+    # 根据模板类型动态生成模板文件
     if template_type == "subject":
-        # CSV 文件使用 create_csv_download_response（自动添加 UTF-8 BOM）
+        # 科目映射 CSV 模板（费用清单转凭证使用）
+        csv_content = template_service.generate_subject_mapping_template()
         return create_csv_download_response(
-            content=file_content,
-            filename=filename,
+            content=csv_content,
+            filename="科目映射.csv",
             fallback_filename="subject_mapping.csv"
         )
-    else:
-        # Excel 文件使用 create_excel_download_response
-        fallback_name = f"{template_type}_template.xlsx"
+    elif template_type == "expense":
+        # 费用报销表 Excel 模板
+        excel_bytes = template_service.generate_expense_template()
         return create_excel_download_response(
-            content=file_content,
-            filename=filename,
-            fallback_filename=fallback_name
+            content=excel_bytes,
+            filename="Expense.xlsx",
+            fallback_filename="expense_template.xlsx"
+        )
+    elif template_type == "employee":
+        # 人员列表 Excel 模板
+        excel_bytes = template_service.generate_employee_template()
+        return create_excel_download_response(
+            content=excel_bytes,
+            filename="人员列表.xlsx",
+            fallback_filename="employee_template.xlsx"
         )
