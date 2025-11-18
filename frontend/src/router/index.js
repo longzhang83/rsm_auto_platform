@@ -63,16 +63,16 @@ const router = createRouter({
           path: 'expense',
           name: 'Expense',
           meta: { title: '费用管理', icon: 'Tickets', requiresAuth: true, alwaysShow: true },
-          redirect: '/expense-to-voucher',
+          redirect: '/expense/expense-to-voucher',
           children: [
             {
-              path: '/expense-to-voucher',
+              path: 'expense-to-voucher',
               name: 'ExpenseToVoucher',
               component: () => import('@/views/tools/expense-to-voucher/index.vue'),
               meta: { title: '费用清单转凭证', icon: 'DocumentCopy', requiresAuth: true }
             },
             {
-              path: '/summary-translate',
+              path: 'summary-translate',
               name: 'SummaryTranslate',
               component: () => import('@/views/tools/summary-translate/index.vue'),
               meta: { title: '摘要翻译', icon: 'Document', requiresAuth: true }
@@ -83,16 +83,16 @@ const router = createRouter({
           path: 'bank',
           name: 'Bank',
           meta: { title: '银行流水管理', icon: 'CreditCard', requiresAuth: true, alwaysShow: true },
-          redirect: '/bank-to-voucher',
+          redirect: '/bank/bank-to-voucher',
           children: [
             {
-              path: '/bank-to-voucher',
+              path: 'bank-to-voucher',
               name: 'BankToVoucher',
               component: () => import('@/views/tools/bank-to-voucher/index.vue'),
               meta: { title: '凭证生成', icon: 'Document', requiresAuth: true }
             },
             {
-              path: '/mappings',
+              path: 'mappings',
               name: 'Mappings',
               component: () => import('@/views/mappings/index.vue'),
               meta: { title: '映射管理', icon: 'Connection', requiresAuth: true }
@@ -109,16 +109,16 @@ const router = createRouter({
           path: 'system',
           name: 'System',
           meta: { title: '系统管理', icon: 'Setting', requiresAuth: true, alwaysShow: true },
-          redirect: '/settings',
+          redirect: '/system/settings',
           children: [
             {
-              path: '/settings',
+              path: 'settings',
               name: 'Settings',
               component: () => import('@/views/settings/index.vue'),
               meta: { title: '系统设置', icon: 'Tools', requiresAuth: true }
             },
             {
-              path: '/admin',
+              path: 'admin',
               name: 'Admin',
               component: () => import('@/views/admin/index.vue'),
               meta: { title: '管理后台', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
