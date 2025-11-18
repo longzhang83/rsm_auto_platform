@@ -44,7 +44,7 @@
             </el-form-item>
 
             <el-form-item>
-              <el-button type="primary" @click="saveBasicSettings">保存设置</el-button>
+              <el-button type="primary" @click="saveBasicSettings" :disabled="!isAdmin">保存设置</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -58,48 +58,69 @@
             </div>
           </template>
 
-          <el-form :model="settings.api" label-width="120px" class="settings-form">
-            <el-form-item label="智谱AI密钥">
+          <el-form :model="settings.api" label-width="150px" class="settings-form">
+            <el-form-item label="单个API密钥">
               <el-input
                 v-model="settings.api.zhipuApiKey"
                 type="password"
                 show-password
-                placeholder="请输入智谱AI API密钥"
+                placeholder="单个API密钥（可选）"
               />
             </el-form-item>
 
+            <el-form-item label="多个API密钥">
+              <el-input
+                v-model="settings.api.zhipuApiKeys"
+                type="textarea"
+                :rows="3"
+                placeholder="多个API密钥，用逗号分隔（推荐用于负载均衡）"
+              />
+              <div class="text-gray-500 text-xs mt-1">支持多个密钥，系统会自动负载均衡</div>
+            </el-form-item>
+
             <el-form-item label="翻译模型">
-              <el-select v-model="settings.api.translateModel" style="width: 200px">
+              <el-select v-model="settings.api.zhipuModel" style="width: 200px">
                 <el-option label="glm-4.5-flash" value="glm-4.5-flash" />
                 <el-option label="glm-4" value="glm-4" />
                 <el-option label="glm-3-turbo" value="glm-3-turbo" />
               </el-select>
             </el-form-item>
 
-            <el-form-item label="请求频率限制">
+            <el-form-item label="单账号速率限制">
               <el-input-number
-                v-model="settings.api.requestsPerSecond"
+                v-model="settings.api.zhipuRps"
                 :min="0.1"
-                :max="2"
+                :max="30"
+                :step="0.1"
+                controls-position="right"
+              />
+              <span class="ml-2 text-gray-500">请求/秒/账号</span>
+            </el-form-item>
+
+            <el-form-item label="翻译并发数">
+              <el-input-number
+                v-model="settings.api.translationMaxWorkers"
+                :min="1"
+                :max="50"
+                controls-position="right"
+              />
+              <span class="ml-2 text-gray-500">个</span>
+            </el-form-item>
+
+            <el-form-item label="翻译总速率">
+              <el-input-number
+                v-model="settings.api.translationRequestsPerSecond"
+                :min="0.1"
+                :max="100"
                 :step="0.1"
                 controls-position="right"
               />
               <span class="ml-2 text-gray-500">请求/秒</span>
             </el-form-item>
 
-            <el-form-item label="并发数">
-              <el-input-number
-                v-model="settings.api.maxWorkers"
-                :min="1"
-                :max="10"
-                controls-position="right"
-              />
-              <span class="ml-2 text-gray-500">个</span>
-            </el-form-item>
-
             <el-form-item>
-              <el-button type="primary" @click="saveApiSettings">保存设置</el-button>
-              <el-button @click="testApiConnection">测试连接</el-button>
+              <el-button type="primary" @click="saveApiSettings" :disabled="!isAdmin">保存设置</el-button>
+              <el-button @click="testApiConnection" :disabled="!isAdmin">测试连接</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -149,7 +170,7 @@
             </el-form-item>
 
             <el-form-item>
-              <el-button type="primary" @click="saveFileSettings">保存设置</el-button>
+              <el-button type="primary" @click="saveFileSettings" :disabled="!isAdmin">保存设置</el-button>
             </el-form-item>
           </el-form>
         </el-card>
@@ -168,28 +189,33 @@
 
           <div class="system-info">
             <div class="info-item">
-              <span class="label">版本号</span>
-              <span class="value">v1.0.0</span>
+              <span class="label">应用名称</span>
+              <span class="value">{{ systemInfo.app_name || '-' }}</span>
             </div>
 
             <div class="info-item">
-              <span class="label">构建时间</span>
-              <span class="value">2025-01-15 10:30:00</span>
+              <span class="label">版本号</span>
+              <span class="value">{{ systemInfo.app_version || 'v1.0.0' }}</span>
             </div>
 
             <div class="info-item">
               <span class="label">运行环境</span>
-              <span class="value">Production</span>
+              <span class="value">{{ systemInfo.environment || 'Production' }}</span>
             </div>
 
             <div class="info-item">
-              <span class="label">数据库版本</span>
-              <span class="value">MySQL 8.0</span>
+              <span class="label">Python版本</span>
+              <span class="value">{{ systemInfo.python_version || '-' }}</span>
+            </div>
+
+            <div class="info-item">
+              <span class="label">数据库</span>
+              <span class="value">{{ systemInfo.database || '-' }}</span>
             </div>
 
             <div class="info-item">
               <span class="label">缓存系统</span>
-              <span class="value">Redis 7.0</span>
+              <span class="value">{{ systemInfo.cache_system || '-' }}</span>
             </div>
           </div>
         </el-card>
@@ -263,91 +289,335 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import request from '@/utils/request'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+const loading = ref(false)
+const systemInfo = ref({})
 
 // 设置数据
 const settings = reactive({
   basic: {
-    systemName: '容诚税务师事务所自动化工具平台',
-    companyName: '容诚税务师事务所',
-    defaultPreparer: 'cissy',
+    systemName: '',
+    companyName: '',
+    defaultPreparer: '',
     defaultVoucherCategory: '记',
-    defaultCreditAccount: '224104'
+    defaultCreditAccount: ''
   },
   api: {
     zhipuApiKey: '',
-    translateModel: 'glm-4.5-flash',
-    requestsPerSecond: 0.6,
-    maxWorkers: 3
+    zhipuApiKeys: '',
+    zhipuModel: 'glm-4.5-flash',
+    zhipuRps: 18.0,
+    translationMaxWorkers: 12,
+    translationRequestsPerSecond: 30.0
   },
   file: {
-    maxFileSize: 10,
-    savePath: 'D:\\data\\output',
-    autoCleanup: true,
-    cleanupPeriod: 'weekly'
+    maxFileSize: 50,
+    allowedExtensions: ['.xlsx', '.xls', '.csv']
+  },
+  email: {
+    smtpServer: '',
+    smtpPort: 587,
+    smtpUsername: '',
+    smtpPassword: '',
+    emailFromName: '',
+    allowedEmailDomains: '',
+    verificationCodeExpiry: 300
+  },
+  wework: {
+    weworkEnabled: false,
+    weworkCorpId: '',
+    weworkAgentId: '',
+    weworkSecret: '',
+    weworkCallbackUrl: ''
+  },
+  log: {
+    logLevel: 'INFO',
+    logEnableConsole: true,
+    logEnableFile: true,
+    logEnableJson: false,
+    logColoredConsole: true,
+    logMaxFileSize: 10485760,
+    logBackupCount: 5,
+    logRetentionDays: 30
   }
 })
 
+// 检查是否为管理员
+const isAdmin = computed(() => authStore.user?.is_admin || false)
+
+// 加载系统设置
+const loadSettings = async () => {
+  loading.value = true
+  try {
+    const data = await request.get('/settings')
+
+    // 更新设置数据
+    if (data.basic) {
+      settings.basic.systemName = data.basic.system_name
+      settings.basic.companyName = data.basic.company_name
+      settings.basic.defaultPreparer = data.basic.default_preparer
+      settings.basic.defaultVoucherCategory = data.basic.default_voucher_category
+      settings.basic.defaultCreditAccount = data.basic.default_credit_account
+    }
+
+    if (data.api) {
+      settings.api.zhipuApiKey = data.api.zhipu_api_key || ''
+      settings.api.zhipuApiKeys = data.api.zhipu_api_keys || ''
+      settings.api.zhipuModel = data.api.zhipu_model || 'glm-4.5-flash'
+      settings.api.zhipuRps = data.api.zhipu_rps
+      settings.api.translationMaxWorkers = data.api.translation_max_workers
+      settings.api.translationRequestsPerSecond = data.api.translation_requests_per_second
+    }
+
+    if (data.file) {
+      settings.file.maxFileSize = data.file.max_file_size / (1024 * 1024) // 转换为MB
+      settings.file.allowedExtensions = data.file.allowed_extensions || []
+    }
+
+    if (data.email) {
+      settings.email.smtpServer = data.email.smtp_server
+      settings.email.smtpPort = data.email.smtp_port
+      settings.email.smtpUsername = data.email.smtp_username || ''
+      settings.email.smtpPassword = data.email.smtp_password || ''
+      settings.email.emailFromName = data.email.email_from_name
+      settings.email.allowedEmailDomains = data.email.allowed_email_domains
+      settings.email.verificationCodeExpiry = data.email.verification_code_expiry
+    }
+
+    if (data.wework) {
+      settings.wework.weworkEnabled = data.wework.wework_enabled
+      settings.wework.weworkCorpId = data.wework.wework_corp_id || ''
+      settings.wework.weworkAgentId = data.wework.wework_agent_id || ''
+      settings.wework.weworkSecret = data.wework.wework_secret || ''
+      settings.wework.weworkCallbackUrl = data.wework.wework_callback_url || ''
+    }
+
+    if (data.log) {
+      settings.log.logLevel = data.log.log_level
+      settings.log.logEnableConsole = data.log.log_enable_console
+      settings.log.logEnableFile = data.log.log_enable_file
+      settings.log.logEnableJson = data.log.log_enable_json
+      settings.log.logColoredConsole = data.log.log_colored_console
+      settings.log.logMaxFileSize = data.log.log_max_file_size
+      settings.log.logBackupCount = data.log.log_backup_count
+      settings.log.logRetentionDays = data.log.log_retention_days
+    }
+  } catch (error) {
+    console.error('加载设置失败:', error)
+    ElMessage.error('加载设置失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载系统信息
+const loadSystemInfo = async () => {
+  try {
+    const data = await request.get('/settings/info')
+    systemInfo.value = data
+  } catch (error) {
+    console.error('加载系统信息失败:', error)
+  }
+}
+
 // 保存设置
-const saveBasicSettings = () => {
-  ElMessage.success('基本设置已保存')
+const saveBasicSettings = async () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以修改设置')
+    return
+  }
+
+  try {
+    await request.put('/settings', {
+      basic: {
+        system_name: settings.basic.systemName,
+        company_name: settings.basic.companyName,
+        default_preparer: settings.basic.defaultPreparer,
+        default_voucher_category: settings.basic.defaultVoucherCategory,
+        default_credit_account: settings.basic.defaultCreditAccount
+      }
+    })
+    ElMessage.success('基本设置已保存')
+  } catch (error) {
+    console.error('保存基本设置失败:', error)
+    ElMessage.error('保存基本设置失败')
+  }
 }
 
-const saveApiSettings = () => {
-  ElMessage.success('API设置已保存')
+const saveApiSettings = async () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以修改设置')
+    return
+  }
+
+  try {
+    await request.put('/settings', {
+      api: {
+        zhipu_api_key: settings.api.zhipuApiKey || null,
+        zhipu_api_keys: settings.api.zhipuApiKeys || null,
+        zhipu_model: settings.api.zhipuModel || null,
+        zhipu_rps: settings.api.zhipuRps,
+        translation_max_workers: settings.api.translationMaxWorkers,
+        translation_requests_per_second: settings.api.translationRequestsPerSecond
+      }
+    })
+    ElMessage.success('API设置已保存')
+  } catch (error) {
+    console.error('保存API设置失败:', error)
+    ElMessage.error('保存API设置失败')
+  }
 }
 
-const saveFileSettings = () => {
-  ElMessage.success('文件设置已保存')
+const saveFileSettings = async () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以修改设置')
+    return
+  }
+
+  try {
+    await request.put('/settings', {
+      file: {
+        max_file_size: settings.file.maxFileSize * 1024 * 1024, // 转换为字节
+        allowed_extensions: settings.file.allowedExtensions
+      }
+    })
+    ElMessage.success('文件设置已保存')
+  } catch (error) {
+    console.error('保存文件设置失败:', error)
+    ElMessage.error('保存文件设置失败')
+  }
 }
 
 // 测试API连接
-const testApiConnection = () => {
-  if (!settings.api.zhipuApiKey) {
+const testApiConnection = async () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以测试API')
+    return
+  }
+
+  const apiKey = settings.api.zhipuApiKey || settings.api.zhipuApiKeys?.split(',')[0]
+  if (!apiKey) {
     ElMessage.warning('请先配置API密钥')
     return
   }
 
-  ElMessage.loading('正在测试连接...')
-  setTimeout(() => {
-    ElMessage.success('连接测试成功')
-  }, 2000)
+  const loadingMsg = ElMessage.loading('正在测试连接...')
+  try {
+    const result = await request.post('/settings/test-api', {
+      api_key: apiKey.trim(),
+      model: settings.api.zhipuModel
+    })
+
+    loadingMsg.close()
+    if (result.success) {
+      ElMessage.success(`连接测试成功 (延迟: ${result.latency}秒)`)
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    loadingMsg.close()
+    console.error('测试API连接失败:', error)
+    ElMessage.error('测试API连接失败')
+  }
 }
 
 // 选择保存路径
 const selectSavePath = () => {
-  ElMessage.info('文件夹选择功能开发中...')
+  ElMessage.info('文件路径在服务器上配置，无需客户端选择')
 }
 
 // 快速操作
-const exportSettings = () => {
-  ElMessage.info('导出设置功能开发中...')
+const exportSettings = async () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以导出设置')
+    return
+  }
+
+  try {
+    const result = await request.post('/settings/export')
+
+    // 下载JSON文件
+    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `settings-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+
+    ElMessage.success('设置导出成功')
+  } catch (error) {
+    console.error('导出设置失败:', error)
+    ElMessage.error('导出设置失败')
+  }
 }
 
 const importSettings = () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以导入设置')
+    return
+  }
+
   ElMessage.info('导入设置功能开发中...')
 }
 
 const clearCache = () => {
-  ElMessageBox.confirm('确定要清理系统缓存吗？', '提示', {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以清理缓存')
+    return
+  }
+
+  ElMessageBox.confirm('确定要清理翻译缓存吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
-    ElMessage.success('缓存清理完成')
+  }).then(async () => {
+    try {
+      const result = await request.post('/settings/clear-cache')
+      if (result.success) {
+        ElMessage.success(`缓存清理完成，共清理 ${result.cleared_items} 条缓存`)
+      } else {
+        ElMessage.error(result.message)
+      }
+    } catch (error) {
+      console.error('清理缓存失败:', error)
+      ElMessage.error('清理缓存失败')
+    }
+  }).catch(() => {
+    // 用户取消
   })
 }
 
 const resetSettings = () => {
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以重置设置')
+    return
+  }
+
   ElMessageBox.confirm('确定要重置所有设置吗？此操作不可恢复。', '警告', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
+    loadSettings()
     ElMessage.success('设置已重置')
+  }).catch(() => {
+    // 用户取消
   })
 }
+
+// 组件挂载时加载数据
+onMounted(() => {
+  loadSettings()
+  loadSystemInfo()
+})
 </script>
 
 <style scoped>
