@@ -595,7 +595,7 @@ const downloadTemplate = async (type) => {
   const templates = {
     expense: 'Expense.xlsx',
     employee: '人员列表.xlsx',
-    subject: '会计科目mapping.xlsx',
+    subject: '科目映射.csv',
   }
 
   try {
