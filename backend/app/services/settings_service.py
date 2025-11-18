@@ -71,7 +71,7 @@ class SettingsService:
             ),
             file=FileSettings(
                 max_file_size=settings.max_file_size,
-                allowed_extensions=settings.allowed_extensions,
+                allowed_extensions=settings.get_allowed_extensions_list(),
             ),
             log=LogSettings(
                 log_level=settings.log_level,

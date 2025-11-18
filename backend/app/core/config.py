@@ -1,23 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Optional, Any
+from typing import Optional
 
 try:
     from pydantic_settings import BaseSettings
-    from pydantic import field_validator, BeforeValidator
 except ImportError:
-    from pydantic import BaseSettings, validator as field_validator
-    BeforeValidator = None  # Fallback for older versions
-
-
-def parse_comma_separated_list(v: Any) -> list[str]:
-    """解析逗号分隔的字符串为列表"""
-    if isinstance(v, str):
-        return [item.strip() for item in v.split(',') if item.strip()]
-    if isinstance(v, list):
-        return v
-    return [str(v)]
+    from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -63,10 +52,11 @@ class Settings(BaseSettings):
 
     # 文件上传配置
     max_file_size: int = 50 * 1024 * 1024  # 50MB
-    allowed_extensions: Annotated[
-        list[str],
-        BeforeValidator(parse_comma_separated_list)
-    ] = [".xlsx", ".xls", ".csv"]
+    allowed_extensions: str = ".xlsx,.xls,.csv"  # 逗号分隔的文件扩展名
+
+    def get_allowed_extensions_list(self) -> list[str]:
+        """获取允许的文件扩展名列表"""
+        return [ext.strip() for ext in self.allowed_extensions.split(',') if ext.strip()]
 
     # 邮件配置（用于注册验证码）
     smtp_server: str = "smtp.qq.com"  # SMTP服务器地址

@@ -19,7 +19,7 @@ def validate_file_upload(
     if max_size is None:
         max_size = settings.max_file_size
     if allowed_extensions is None:
-        allowed_extensions = settings.allowed_extensions
+        allowed_extensions = settings.get_allowed_extensions_list()
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="文件名不能为空")

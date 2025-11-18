@@ -4,12 +4,15 @@
 当在 `.env` 文件中使用逗号分隔的格式配置 `ALLOWED_EXTENSIONS` 时，Pydantic Settings 会尝试将其解析为 JSON 数组，导致 `JSONDecodeError`。
 
 ```bash
-# 这种格式会导致错误
+# 这种格式在使用 list[str] 类型时会导致错误
 ALLOWED_EXTENSIONS=.xlsx,.xls,.csv
 ```
 
 ## 解决方案
-使用 Pydantic v2 的 `BeforeValidator` 在类型验证之前拦截并解析逗号分隔的字符串。
+**将 `allowed_extensions` 字段类型改为 `str`，与 `allowed_email_domains` 保持一致**。这样完全避开 Pydantic Settings 对列表类型的 JSON 解析问题。
+
+- 存储：使用字符串类型，存储逗号分隔的值
+- 使用：通过 `settings.get_allowed_extensions_list()` 方法获取列表
 
 ## 测试步骤
 
@@ -65,60 +68,63 @@ curl http://localhost:8888/docs
 
 ## 支持的配置格式
 
-修复后，`ALLOWED_EXTENSIONS` 支持两种格式：
+修复后，`ALLOWED_EXTENSIONS` 使用逗号分隔字符串格式：
 
-### 格式 1: 逗号分隔字符串（推荐）
 ```bash
 ALLOWED_EXTENSIONS=.xlsx,.xls,.csv
-```
-
-### 格式 2: JSON 数组
-```bash
-ALLOWED_EXTENSIONS=[".xlsx",".xls",".csv"]
 ```
 
 ## 技术细节
 
 修复通过以下方式实现：
 
-1. **定义解析函数**：
+### 1. 字段定义（与 `allowed_email_domains` 保持一致）
+
 ```python
-def parse_comma_separated_list(v: Any) -> list[str]:
-    if isinstance(v, str):
-        return [item.strip() for item in v.split(',') if item.strip()]
-    if isinstance(v, list):
-        return v
-    return [str(v)]
+class Settings(BaseSettings):
+    # 使用字符串类型存储逗号分隔的值
+    allowed_extensions: str = ".xlsx,.xls,.csv"
+
+    def get_allowed_extensions_list(self) -> list[str]:
+        """获取允许的文件扩展名列表"""
+        return [ext.strip() for ext in self.allowed_extensions.split(',') if ext.strip()]
 ```
 
-2. **使用 BeforeValidator 注解**：
-```python
-from typing import Annotated
-from pydantic import BeforeValidator
+### 2. 使用示例
 
-allowed_extensions: Annotated[
-    list[str],
-    BeforeValidator(parse_comma_separated_list)
-] = [".xlsx", ".xls", ".csv"]
+```python
+from app.core.config import settings
+
+# 在代码中需要列表时
+extensions = settings.get_allowed_extensions_list()  # [".xlsx", ".xls", ".csv"]
+
+# 保存回环境变量时
+env_value = ",".join(extensions)  # ".xlsx,.xls,.csv"
 ```
 
-这样可以在 Pydantic Settings 尝试 JSON 解析之前就处理字符串值。
+### 3. 为什么这样修复
+
+- **简单可靠**：字符串类型不会触发 Pydantic Settings 的 JSON 解析
+- **与项目一致**：`allowed_email_domains` 也使用相同的模式
+- **兼容性好**：不依赖特定的 Pydantic 版本或 Python 版本
+- **易于维护**：逻辑清晰，易于理解
 
 ## 兼容性说明
 
-- Pydantic v2.x: 完全支持
-- Pydantic v1.x: 有回退处理（如果需要）
+- **所有 Pydantic 版本**：完全兼容（不依赖特定版本特性）
+- **所有 Python 版本**：完全兼容（包括 Python 3.14+）
+- **项目一致性**：与 `allowed_email_domains` 使用相同模式
 
-## 如果仍然报错
+## 相关代码修改
 
-如果在 Python 3.14 上仍有问题，可能是 Pydantic 版本兼容性问题。请检查：
+本次修复涉及以下文件：
 
-```bash
-python3 --version
-pip list | grep pydantic
-```
+1. **backend/app/core/config.py**
+   - 将 `allowed_extensions` 类型从 `list[str]` 改为 `str`
+   - 添加 `get_allowed_extensions_list()` 方法
 
-如需更新 Pydantic：
-```bash
-pip install --upgrade pydantic pydantic-settings
-```
+2. **backend/app/api/deps.py**
+   - 使用 `settings.get_allowed_extensions_list()` 获取列表
+
+3. **backend/app/services/settings_service.py**
+   - 使用 `settings.get_allowed_extensions_list()` 获取列表
