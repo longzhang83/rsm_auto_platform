@@ -311,6 +311,36 @@
                 type="primary"
                 plain
                 size="small"
+                @click="downloadTemplate('expense')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><Document /></el-icon>
+                  <span class="template-text">费用报销表模板</span>
+                </span>
+              </el-button>
+            </div>
+
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
+                @click="downloadTemplate('employee')"
+                class="template-btn w-full"
+              >
+                <span class="template-btn-content">
+                  <el-icon class="template-icon"><User /></el-icon>
+                  <span class="template-text">人员列表模板</span>
+                </span>
+              </el-button>
+            </div>
+
+            <div class="template-button-container">
+              <el-button
+                type="primary"
+                plain
+                size="small"
                 @click="downloadTemplate('subject')"
                 class="template-btn w-full"
               >
@@ -322,11 +352,9 @@
             </div>
 
             <div class="template-info mt-4 text-sm text-gray-500">
-              <p>其他模板文件说明：</p>
-              <ul class="mt-2 space-y-1">
-                <li>• 费用报销表：请参考实际业务数据格式</li>
-                <li>• 人员列表：可选文件，用于匹配员工信息</li>
-                <li>• 翻译映射：系统会自动生成并缓存</li>
+              <p class="font-semibold mb-1">提示：</p>
+              <ul class="space-y-1">
+                <li>• 翻译映射由系统自动生成和缓存</li>
               </ul>
             </div>
           </div>
@@ -565,11 +593,12 @@ const handleReset = () => {
 // 下载模板
 const downloadTemplate = async (type) => {
   const templates = {
-    subject: '科目映射.csv',
+    expense: 'Expense.xlsx',
+    employee: '人员列表.xlsx',
+    subject: '会计科目mapping.xlsx',
   }
 
   try {
-    // 只支持科目映射模板（使用 data 目录中的实际文件）
     if (!templates[type]) {
       ElMessage.warning('该模板暂不支持下载')
       return

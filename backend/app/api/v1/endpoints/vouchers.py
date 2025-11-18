@@ -318,12 +318,16 @@ async def download_template(
     """
     下载模板文件
 
-    - **template_type**: 模板类型 (subject - 科目映射模板)
+    - **template_type**: 模板类型
+      - expense: 费用报销表模板
+      - employee: 人员列表模板
+      - subject: 科目映射模板
     """
     # 定义模板文件映射 - 使用 data 目录中的实际文件
     template_files = {
-        "subject": "科目映射.csv",  # 科目映射CSV模板
-        "subject_excel": "会计科目mapping.xlsx",  # 科目映射Excel模板
+        "expense": "Expense.xlsx",  # 费用报销表模板
+        "employee": "人员列表.xlsx",  # 人员列表模板
+        "subject": "会计科目mapping.xlsx",  # 科目映射Excel模板
     }
 
     # 检查模板类型是否有效
@@ -341,7 +345,7 @@ async def download_template(
     if not template_path.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"模板文件不存在: {template_files[template_type]}"
+            detail=f"模板文件不存在: {template_files[template_type]}，请联系管理员上传模板文件"
         )
 
     # 返回文件
