@@ -19,6 +19,7 @@ from app.db.database import get_db
 from app.api.dependencies import get_current_user
 from app.db.models import User
 from app.core.progress_manager import progress_manager
+from app.utils.file_response import create_excel_download_response, create_csv_download_response
 
 router = APIRouter()
 voucher_service = VoucherService()
@@ -348,9 +349,25 @@ async def download_template(
             detail=f"模板文件不存在: {template_files[template_type]}，请联系管理员上传模板文件"
         )
 
-    # 返回文件
-    return FileResponse(
-        path=str(template_path),
-        filename=template_files[template_type],
-        media_type="application/octet-stream",
-    )
+    # 读取文件内容
+    with open(template_path, "rb") as f:
+        file_content = f.read()
+
+    # 根据文件类型使用相应的工具函数返回响应
+    filename = template_files[template_type]
+
+    if template_type == "subject":
+        # CSV 文件使用 create_csv_download_response（自动添加 UTF-8 BOM）
+        return create_csv_download_response(
+            content=file_content,
+            filename=filename,
+            fallback_filename="subject_mapping.csv"
+        )
+    else:
+        # Excel 文件使用 create_excel_download_response
+        fallback_name = f"{template_type}_template.xlsx"
+        return create_excel_download_response(
+            content=file_content,
+            filename=filename,
+            fallback_filename=fallback_name
+        )
