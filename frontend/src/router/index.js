@@ -60,22 +60,44 @@ const router = createRouter({
           meta: { title: '工作台', icon: 'Odometer', requiresAuth: true }
         },
         {
-          path: 'expense-to-voucher',
-          name: 'ExpenseToVoucher',
-          component: () => import('@/views/tools/expense-to-voucher/index.vue'),
-          meta: { title: '费用清单转凭证', icon: 'DocumentCopy', requiresAuth: true }
+          path: 'expense',
+          name: 'Expense',
+          meta: { title: '费用管理', icon: 'Tickets', requiresAuth: true, alwaysShow: true },
+          redirect: '/expense-to-voucher',
+          children: [
+            {
+              path: '/expense-to-voucher',
+              name: 'ExpenseToVoucher',
+              component: () => import('@/views/tools/expense-to-voucher/index.vue'),
+              meta: { title: '费用清单转凭证', icon: 'DocumentCopy', requiresAuth: true }
+            },
+            {
+              path: '/summary-translate',
+              name: 'SummaryTranslate',
+              component: () => import('@/views/tools/summary-translate/index.vue'),
+              meta: { title: '摘要翻译', icon: 'Document', requiresAuth: true }
+            }
+          ]
         },
         {
-          path: 'summary-translate',
-          name: 'SummaryTranslate',
-          component: () => import('@/views/tools/summary-translate/index.vue'),
-          meta: { title: '摘要翻译', icon: 'Document', requiresAuth: true }
-        },
-        {
-          path: 'bank-to-voucher',
-          name: 'BankToVoucher',
-          component: () => import('@/views/tools/bank-to-voucher/index.vue'),
-          meta: { title: '银行流水转凭证', icon: 'CreditCard', requiresAuth: true }
+          path: 'bank',
+          name: 'Bank',
+          meta: { title: '银行流水管理', icon: 'CreditCard', requiresAuth: true, alwaysShow: true },
+          redirect: '/bank-to-voucher',
+          children: [
+            {
+              path: '/bank-to-voucher',
+              name: 'BankToVoucher',
+              component: () => import('@/views/tools/bank-to-voucher/index.vue'),
+              meta: { title: '凭证生成', icon: 'Document', requiresAuth: true }
+            },
+            {
+              path: '/mappings',
+              name: 'Mappings',
+              component: () => import('@/views/mappings/index.vue'),
+              meta: { title: '映射管理', icon: 'Connection', requiresAuth: true }
+            }
+          ]
         },
         {
           path: 'history',
@@ -84,28 +106,30 @@ const router = createRouter({
           meta: { title: '处理记录', icon: 'Clock', requiresAuth: true }
         },
         {
-          path: 'settings',
-          name: 'Settings',
-          component: () => import('@/views/settings/index.vue'),
-          meta: { title: '系统设置', icon: 'Setting', requiresAuth: true }
+          path: 'system',
+          name: 'System',
+          meta: { title: '系统管理', icon: 'Setting', requiresAuth: true, alwaysShow: true },
+          redirect: '/settings',
+          children: [
+            {
+              path: '/settings',
+              name: 'Settings',
+              component: () => import('@/views/settings/index.vue'),
+              meta: { title: '系统设置', icon: 'Tools', requiresAuth: true }
+            },
+            {
+              path: '/admin',
+              name: 'Admin',
+              component: () => import('@/views/admin/index.vue'),
+              meta: { title: '管理后台', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
+            }
+          ]
         },
         {
           path: 'profile',
           name: 'Profile',
           component: () => import('@/views/profile/index.vue'),
-          meta: { title: '个人资料', icon: 'User', requiresAuth: true }
-        },
-        {
-          path: 'admin',
-          name: 'Admin',
-          component: () => import('@/views/admin/index.vue'),
-          meta: { title: '管理后台', icon: 'Setting', requiresAuth: true, requiresAdmin: true }
-        },
-        {
-          path: 'mappings',
-          name: 'Mappings',
-          component: () => import('@/views/mappings/index.vue'),
-          meta: { title: '映射管理', icon: 'Connection', requiresAuth: true }
+          meta: { title: '个人中心', icon: 'User', requiresAuth: true }
         }
       ]
     },
