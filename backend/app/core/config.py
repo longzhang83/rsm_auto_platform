@@ -5,8 +5,9 @@ from typing import Optional
 
 try:
     from pydantic_settings import BaseSettings
+    from pydantic import field_validator
 except ImportError:
-    from pydantic import BaseSettings
+    from pydantic import BaseSettings, validator as field_validator
 
 
 class Settings(BaseSettings):
@@ -77,6 +78,15 @@ class Settings(BaseSettings):
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"
     default_credit_account: str = "224104"
+
+    @field_validator('allowed_extensions', mode='before')
+    @classmethod
+    def parse_allowed_extensions(cls, v):
+        """解析允许的文件扩展名，支持逗号分隔的字符串或JSON数组"""
+        if isinstance(v, str):
+            # 如果是逗号分隔的字符串，分割成列表
+            return [ext.strip() for ext in v.split(',') if ext.strip()]
+        return v
 
     class Config:
         # 从当前文件位置计算项目根目录的.env文件路径
