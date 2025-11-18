@@ -8,8 +8,9 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
+from pathlib import Path
 
 from app.schemas.voucher import VoucherGenerateResponse, VoucherGenerateStartResponse
 from app.services.voucher_service import VoucherService
@@ -306,4 +307,46 @@ async def download_voucher_result(
         io.BytesIO(zip_bytes),
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@router.get("/templates/{template_type}")
+async def download_template(
+    template_type: str,
+    _: User = Depends(get_current_user),
+):
+    """
+    下载模板文件
+
+    - **template_type**: 模板类型 (subject - 科目映射模板)
+    """
+    # 定义模板文件映射 - 使用 data 目录中的实际文件
+    template_files = {
+        "subject": "科目映射.csv",  # 科目映射CSV模板
+        "subject_excel": "会计科目mapping.xlsx",  # 科目映射Excel模板
+    }
+
+    # 检查模板类型是否有效
+    if template_type not in template_files:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的模板类型: {template_type}，支持的类型: {', '.join(template_files.keys())}"
+        )
+
+    # 获取模板文件路径（data 目录在项目根目录下）
+    project_root = Path(__file__).parent.parent.parent.parent.parent
+    template_path = project_root / "data" / template_files[template_type]
+
+    # 检查文件是否存在
+    if not template_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"模板文件不存在: {template_files[template_type]}"
+        )
+
+    # 返回文件
+    return FileResponse(
+        path=str(template_path),
+        filename=template_files[template_type],
+        media_type="application/octet-stream",
     )
