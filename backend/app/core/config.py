@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional, Any
 
 try:
     from pydantic_settings import BaseSettings
-    from pydantic import field_validator
+    from pydantic import field_validator, BeforeValidator
 except ImportError:
     from pydantic import BaseSettings, validator as field_validator
+    BeforeValidator = None  # Fallback for older versions
+
+
+def parse_comma_separated_list(v: Any) -> list[str]:
+    """解析逗号分隔的字符串为列表"""
+    if isinstance(v, str):
+        return [item.strip() for item in v.split(',') if item.strip()]
+    if isinstance(v, list):
+        return v
+    return [str(v)]
 
 
 class Settings(BaseSettings):
@@ -53,7 +63,10 @@ class Settings(BaseSettings):
 
     # 文件上传配置
     max_file_size: int = 50 * 1024 * 1024  # 50MB
-    allowed_extensions: list[str] = [".xlsx", ".xls", ".csv"]
+    allowed_extensions: Annotated[
+        list[str],
+        BeforeValidator(parse_comma_separated_list)
+    ] = [".xlsx", ".xls", ".csv"]
 
     # 邮件配置（用于注册验证码）
     smtp_server: str = "smtp.qq.com"  # SMTP服务器地址
@@ -78,15 +91,6 @@ class Settings(BaseSettings):
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"
     default_credit_account: str = "224104"
-
-    @field_validator('allowed_extensions', mode='before')
-    @classmethod
-    def parse_allowed_extensions(cls, v):
-        """解析允许的文件扩展名，支持逗号分隔的字符串或JSON数组"""
-        if isinstance(v, str):
-            # 如果是逗号分隔的字符串，分割成列表
-            return [ext.strip() for ext in v.split(',') if ext.strip()]
-        return v
 
     class Config:
         # 从当前文件位置计算项目根目录的.env文件路径
