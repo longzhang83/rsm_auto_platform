@@ -97,11 +97,21 @@ const resolvePath = (routePath) => {
 
   // For nested routes, construct the proper path
   if (routePath) {
-    // If basePath exists, concatenate basePath and routePath
-    if (props.basePath && props.basePath !== '/') {
-      return props.basePath + '/' + routePath
+    // If routePath starts with '/', it's an absolute path
+    if (routePath.startsWith('/')) {
+      return routePath
     }
-    // Otherwise, just add leading slash
+
+    // If basePath exists and is not root, concatenate properly
+    if (props.basePath && props.basePath !== '/') {
+      // Remove trailing slash from basePath if exists
+      const cleanBasePath = props.basePath.endsWith('/')
+        ? props.basePath.slice(0, -1)
+        : props.basePath
+      return cleanBasePath + '/' + routePath
+    }
+
+    // Otherwise, add leading slash for root level routes
     return '/' + routePath
   }
 
@@ -114,19 +124,161 @@ const resolvePath = (routePath) => {
   @apply !important;
 }
 
+/* 一级菜单项样式 */
 .el-menu-item {
-  @apply text-gray-300 hover:text-white hover:bg-gray-700;
+  margin: 4px 8px;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  height: 48px;
+  line-height: 48px;
+  color: var(--neutral-700);
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.el-menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--primary-600);
+  border-radius: 0 2px 2px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.el-menu-item:hover {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+  transform: translateX(4px);
+}
+
+.el-menu-item:hover::before {
+  height: 20px;
 }
 
 .el-menu-item.is-active {
-  @apply bg-gray-700 text-white border-r-2 border-brand-500;
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%) !important;
+  color: white;
+  box-shadow: 0 4px 16px rgba(0, 149, 215, 0.25);
+  border-color: var(--primary-500);
+  transform: translateX(4px);
 }
 
+.el-menu-item.is-active::before {
+  height: 24px;
+  background: white;
+}
+
+/* 子菜单标题样式 */
 .el-sub-menu :deep(.el-sub-menu__title) {
-  @apply text-gray-300 hover:text-white hover:bg-gray-700;
+  margin: 4px 8px;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  height: 48px;
+  line-height: 48px;
+  color: var(--neutral-700);
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.el-sub-menu :deep(.el-sub-menu__title::before) {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--primary-600);
+  border-radius: 0 2px 2px 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.el-sub-menu :deep(.el-sub-menu__title:hover) {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+  transform: translateX(4px);
+}
+
+.el-sub-menu :deep(.el-sub-menu__title:hover::before) {
+  height: 20px;
 }
 
 .el-sub-menu.is-opened :deep(.el-sub-menu__title) {
-  @apply text-white bg-gray-700;
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+}
+
+.el-sub-menu.is-opened :deep(.el-sub-menu__title::before) {
+  height: 20px;
+}
+
+/* 嵌套子菜单项样式（二级及以下） */
+.el-sub-menu :deep(.el-menu-item) {
+  margin: 2px 8px 2px 16px;
+  border-radius: 8px;
+  height: 40px;
+  line-height: 40px;
+  font-size: 14px;
+  padding-left: 40px !important;
+  background: transparent;
+}
+
+.el-sub-menu :deep(.el-menu-item::before) {
+  display: none;
+}
+
+.el-sub-menu :deep(.el-menu-item:hover) {
+  background: var(--primary-50) !important;
+  color: var(--primary-600);
+  transform: translateX(2px);
+}
+
+.el-sub-menu :deep(.el-menu-item.is-active) {
+  background: linear-gradient(135deg, var(--primary-100) 0%, var(--primary-200) 100%) !important;
+  color: var(--primary-700);
+  font-weight: 600;
+  box-shadow: none;
+  border-left: 3px solid var(--primary-600);
+  transform: translateX(0);
+}
+
+/* 嵌套子菜单容器 */
+.el-sub-menu :deep(.el-menu) {
+  background-color: var(--neutral-50);
+  border-radius: 8px;
+  margin: 4px 8px;
+  padding: 4px 0;
+}
+
+/* 图标样式 */
+.el-menu-item :deep(.el-icon),
+.el-sub-menu :deep(.el-sub-menu__title .el-icon) {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  transition: all 0.2s ease;
+}
+
+.el-menu-item:hover :deep(.el-icon),
+.el-sub-menu :deep(.el-sub-menu__title:hover .el-icon) {
+  transform: scale(1.1);
+}
+
+/* 嵌套菜单的展开箭头 */
+.el-sub-menu :deep(.el-sub-menu__icon-arrow) {
+  transition: transform 0.3s ease;
+}
+
+.el-sub-menu.is-opened :deep(.el-sub-menu__icon-arrow) {
+  transform: rotate(180deg);
 }
 </style>
