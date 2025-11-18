@@ -38,28 +38,8 @@ class TemplateService:
             格式：科目,编码
         """
         try:
-            # 创建示例数据
-            data = {
-                "科目": [
-                    "差旅费交通-管理费用",
-                    "住宿费-管理费用",
-                    "餐饮费-管理费用",
-                    "招待费-管理费用",
-                    "办公费-管理费用",
-                    "其他-管理费用",
-                ],
-                "编码": [
-                    "66021301",
-                    "66021302",
-                    "66021303",
-                    "660226",
-                    "660202",
-                    "660225",
-                ],
-            }
 
-            df = pd.DataFrame(data)
-
+            df = self._read_csv_file(self.data_dir / "科目映射.csv")
             # 导出为 CSV 字符串
             csv_buffer = io.StringIO()
             df.to_csv(csv_buffer, index=False, encoding="utf-8")
@@ -181,6 +161,26 @@ class TemplateService:
             raise ValueError(f"无法读取 Excel 文件 {file_path}: {last_error}")
 
         return df
+
+    def _read_csv_file(self, file_path: Path) -> pd.DataFrame:
+        """
+        读取 CSV 文件
+
+        Args:
+            file_path: CSV 文件路径
+
+        Returns:
+            DataFrame
+
+        Raises:
+            ValueError: 文件无法读取
+        """
+        try:
+            df = pd.read_csv(file_path, encoding="utf-8")
+            return df
+        except Exception as e:
+            raise ValueError(f"无法读取 CSV 文件 {file_path}: {e}")
+
 
 
 # 创建全局服务实例

@@ -195,7 +195,7 @@ class VoucherService:
             )
             if target_sheet is None:
                 raise ValueError("费用工作簿中未找到任何工作表")
-            df = excel.parse(sheet_name=target_sheet, header=1)
+            df = excel.parse(sheet_name=target_sheet, header=0)
             excel.close()
             return (expense_period or str(target_sheet)).strip(), df
         except Exception as exc_openpyxl:

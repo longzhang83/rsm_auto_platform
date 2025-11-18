@@ -20,9 +20,10 @@ class WeWorkService:
     """企业微信认证服务类"""
 
     # 企业微信API配置
-    TOKEN_URL = "https://qyapi.weixin.qq.com/cgi-bin/gettoken"
-    USER_INFO_URL = "https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo"
-    USER_DETAIL_URL = "https://qyapi.weixin.qq.com/cgi-bin/user/get"
+    BASE_URL = "https://qyapi.weixin.qq.com"
+    TOKEN_URL = f"{BASE_URL}/cgi-bin/gettoken"
+    USER_INFO_URL = f"{BASE_URL}/cgi-bin/auth/getuserinfo"
+    USER_DETAIL_URL = f"{BASE_URL}/cgi-bin/user/get"
 
     # 缓存access_token（实际应用中应使用Redis等缓存服务）
     _access_token_cache: Optional[Dict[str, str]] = None
