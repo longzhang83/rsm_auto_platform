@@ -35,7 +35,7 @@
             class="sidebar-menu"
             router
           >
-            <sidebar-item v-for="route in menuRoutes" :key="route.path" :item="route" :base-path="route.path" />
+            <sidebar-item v-for="route in menuRoutes" :key="route.path" :item="route" :base-path="'/'" />
           </el-menu>
         </div>
       </el-scrollbar>

@@ -27,7 +27,7 @@
         :key="child.path"
         :is-nest="true"
         :item="child"
-        :base-path="resolvePath(child.path)"
+        :base-path="resolvePath(item.path)"
       />
     </el-sub-menu>
   </div>
@@ -97,6 +97,11 @@ const resolvePath = (routePath) => {
 
   // For nested routes, construct the proper path
   if (routePath) {
+    // If basePath exists, concatenate basePath and routePath
+    if (props.basePath && props.basePath !== '/') {
+      return props.basePath + '/' + routePath
+    }
+    // Otherwise, just add leading slash
     return '/' + routePath
   }
 
