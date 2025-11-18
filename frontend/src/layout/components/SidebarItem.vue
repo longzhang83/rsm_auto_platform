@@ -73,9 +73,10 @@ const hasOneShowingChild = (children = [], parent) => {
     return true
   }
 
-  // 没有子路由则显示父路由
+  // 没有子路由则显示父路由本身
   if (showingChildren.length === 0) {
-    onlyOneChild.value = { ...parent, path: '', noShowingChildren: true }
+    // 保留原始路径，不要设置为空字符串
+    onlyOneChild.value = { ...parent, noShowingChildren: true }
     return true
   }
 
