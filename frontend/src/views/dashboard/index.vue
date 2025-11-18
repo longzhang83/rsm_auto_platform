@@ -59,7 +59,7 @@
         <!-- 费用清单转凭证 -->
         <div
           class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
-          @click="navigateToTool('/expense-to-voucher')"
+          @click="navigateToTool('/expense/expense-to-voucher')"
         >
           <div class="flex items-start justify-between mb-6">
             <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
@@ -90,7 +90,7 @@
         <!-- 摘要翻译 -->
         <div
           class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
-          @click="navigateToTool('/summary-translate')"
+          @click="navigateToTool('/expense/summary-translate')"
         >
           <div class="flex items-start justify-between mb-6">
             <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
@@ -121,7 +121,7 @@
         <!-- 银行流水转凭证 -->
         <div
           class="enhanced-tool-card bg-white rounded-2xl p-8 cursor-pointer group"
-          @click="navigateToTool('/bank-to-voucher')"
+          @click="navigateToTool('/bank/bank-to-voucher')"
         >
           <div class="flex items-start justify-between mb-6">
             <div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-110">
