@@ -290,7 +290,7 @@
 
 <script setup>
 import { reactive, ref, onMounted, computed } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import request from '@/utils/request'
 import { useAuthStore } from '@/stores/auth'
 
@@ -506,21 +506,25 @@ const testApiConnection = async () => {
     return
   }
 
-  const loadingMsg = ElMessage.loading('正在测试连接...')
+  const loadingInstance = ElLoading.service({
+    lock: true,
+    text: '正在测试连接...',
+    background: 'rgba(0, 0, 0, 0.7)'
+  })
   try {
     const result = await request.post('/settings/test-api', {
       api_key: apiKey.trim(),
       model: settings.api.zhipuModel
     })
 
-    loadingMsg.close()
+    loadingInstance.close()
     if (result.success) {
       ElMessage.success(`连接测试成功 (延迟: ${result.latency}秒)`)
     } else {
       ElMessage.error(result.message)
     }
   } catch (error) {
-    loadingMsg.close()
+    loadingInstance.close()
     console.error('测试API连接失败:', error)
     ElMessage.error('测试API连接失败')
   }
