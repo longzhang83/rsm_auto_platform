@@ -377,7 +377,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { uploadFile } from '@/utils/request'
+import { uploadFile, downloadFile } from '@/utils/request'
 import TranslationProgress from '@/components/TranslationProgress.vue'
 import { generateVouchers, translationService } from '@/utils/translationService'
 
@@ -606,9 +606,8 @@ const downloadTemplate = async (type) => {
 
     ElMessage.info(`正在下载 ${templates[type]}...`)
 
-    // 调用后端 API 下载模板
-    const response = await uploadFile(`/api/v1/vouchers/templates/${type}`, null, 'GET')
-    const blob = await response.blob()
+    // 调用后端 API 下载模板 - 使用 downloadFile 函数
+    const blob = await downloadFile(`/vouchers/templates/${type}`)
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
