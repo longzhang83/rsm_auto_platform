@@ -311,36 +311,6 @@
                 type="primary"
                 plain
                 size="small"
-                @click="downloadTemplate('expense')"
-                class="template-btn w-full"
-              >
-                <span class="template-btn-content">
-                  <el-icon class="template-icon"><Document /></el-icon>
-                  <span class="template-text">费用报销表模板</span>
-                </span>
-              </el-button>
-            </div>
-
-            <div class="template-button-container">
-              <el-button
-                type="primary"
-                plain
-                size="small"
-                @click="downloadTemplate('employee')"
-                class="template-btn w-full"
-              >
-                <span class="template-btn-content">
-                  <el-icon class="template-icon"><User /></el-icon>
-                  <span class="template-text">人员列表模板</span>
-                </span>
-              </el-button>
-            </div>
-
-            <div class="template-button-container">
-              <el-button
-                type="primary"
-                plain
-                size="small"
                 @click="downloadTemplate('subject')"
                 class="template-btn w-full"
               >
@@ -351,19 +321,13 @@
               </el-button>
             </div>
 
-            <div class="template-button-container">
-              <el-button
-                type="primary"
-                plain
-                size="small"
-                @click="downloadTemplate('translation')"
-                class="template-btn w-full"
-              >
-                <span class="template-btn-content">
-                  <el-icon class="template-icon"><ChatDotRound /></el-icon>
-                  <span class="template-text">翻译映射模板</span>
-                </span>
-              </el-button>
+            <div class="template-info mt-4 text-sm text-gray-500">
+              <p>其他模板文件说明：</p>
+              <ul class="mt-2 space-y-1">
+                <li>• 费用报销表：请参考实际业务数据格式</li>
+                <li>• 人员列表：可选文件，用于匹配员工信息</li>
+                <li>• 翻译映射：系统会自动生成并缓存</li>
+              </ul>
             </div>
           </div>
         </el-card>
@@ -601,75 +565,25 @@ const handleReset = () => {
 // 下载模板
 const downloadTemplate = async (type) => {
   const templates = {
-    expense: '费用报销表模板.xlsx',
-    employee: '人员列表模板.xlsx',
-    subject: '科目映射模板.csv',
-    translation: '翻译映射模板.csv'
+    subject: '科目映射.csv',
   }
 
   try {
-    ElMessage.info(`正在准备下载 ${templates[type]}...`)
-
-    // 模拟文件下载
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // 创建示例内容
-    let content, mimeType, fileName
-
-    switch(type) {
-      case 'expense':
-        // 创建Excel费用报销表模板
-        content = `费用报销表模板,日期,费用类型,金额,报销人,部门,备注
-        2025-01-15,交通费,150,张三,销售部,客户拜访交通费
-        2025-01-16,餐饮费,200,李四,市场部,客户聚餐
-        2025-01-17,住宿费,300,王五,技术部,出差住宿`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '费用报销表模板.csv'
-        break
-
-      case 'employee':
-        // 创建人员列表模板
-        content = `员工编号,姓名,部门,职位,邮箱
-        E001,张三,销售部,销售经理,zhangsan@company.com
-        E002,李四,市场部,市场专员,lisi@company.com
-        E003,王五,技术部,开发工程师,wangwu@company.com`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '人员列表模板.csv'
-        break
-
-      case 'subject':
-        // 创建科目映射模板
-        content = `科目名称,科目编码,科目类型
-        管理费用,6601,损益类
-        销售费用,6602,损益类
-        财务费用,6603,损益类
-        银行存款,1002,资产类
-        应收账款,1122,资产类`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '科目映射模板.csv'
-        break
-
-      case 'translation':
-        // 创建翻译映射模板
-        content = `中文摘要,英文翻译
-        办公用品费,Office Supplies
-        交通费,Transportation Fee
-        餐饮费,Meal Expense
-        住宿费,Accommodation Fee
-        客户拜访费,Client Visit Expense`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '翻译映射模板.csv'
-        break
+    // 只支持科目映射模板（使用 data 目录中的实际文件）
+    if (!templates[type]) {
+      ElMessage.warning('该模板暂不支持下载')
+      return
     }
 
-    // 创建Blob对象
-    const blob = new Blob(['\uFEFF' + content], { type: mimeType })
+    ElMessage.info(`正在下载 ${templates[type]}...`)
 
-    // 创建下载链接
+    // 调用后端 API 下载模板
+    const response = await uploadFile(`/api/v1/vouchers/templates/${type}`, null, 'GET')
+    const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = fileName
+    link.download = templates[type]
     document.body.appendChild(link)
     link.click()
 
