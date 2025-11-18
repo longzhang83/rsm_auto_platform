@@ -261,22 +261,22 @@
           <div class="help-content">
             <div class="help-item mb-4">
               <h4 class="font-semibold text-gray-700 mb-2">文件格式要求</h4>
-              <ul class="text-sm text-gray-600 space-y-1">
-                <li>• 费用报销表：Excel格式，包含费用明细</li>
-                <li>• 人员列表：Excel格式，包含员工信息</li>
-                <li>• 科目映射：CSV格式，科目名称与编码对应</li>
-                <li>• 翻译映射：CSV格式，中英文摘要对应</li>
-              </ul>
+              <ol class="text-sm text-gray-600 space-y-1">
+                <li>费用报销表：Excel格式，包含费用明细</li>
+                <li>人员列表：Excel格式，包含员工信息</li>
+                <li>科目映射：CSV格式，科目名称与编码对应</li>
+                <li>翻译映射：CSV格式，中英文摘要对应</li>
+              </ol>
             </div>
 
             <div class="help-item mb-4">
               <h4 class="font-semibold text-gray-700 mb-2">处理流程</h4>
               <ol class="text-sm text-gray-600 space-y-1">
-                <li>1. 上传费用报销表（必填）</li>
-                <li>2. 上传可选的辅助文件</li>
-                <li>3. 配置凭证参数</li>
-                <li>4. 点击生成凭证</li>
-                <li>5. 下载处理结果</li>
+                <li>上传费用报销表（必填）</li>
+                <li>上传可选的辅助文件</li>
+                <li>配置凭证参数</li>
+                <li>点击生成凭证</li>
+                <li>下载处理结果</li>
               </ol>
             </div>
 
