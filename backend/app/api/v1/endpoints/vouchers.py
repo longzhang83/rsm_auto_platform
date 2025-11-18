@@ -327,7 +327,7 @@ async def download_template(
     template_files = {
         "expense": "Expense.xlsx",  # 费用报销表模板
         "employee": "人员列表.xlsx",  # 人员列表模板
-        "subject": "会计科目mapping.xlsx",  # 科目映射Excel模板
+        "subject": "科目映射.csv",  # 科目映射CSV模板
     }
 
     # 检查模板类型是否有效
