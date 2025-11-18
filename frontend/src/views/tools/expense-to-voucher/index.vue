@@ -599,62 +599,10 @@ const downloadTemplate = async (type) => {
   }
 
   try {
-    ElMessage.info(`正在准备下载 ${templates[type]}...`)
+    ElMessage.info(`正在下载 ${templates[type]}...`)
 
-    // 模拟文件下载
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // 创建示例内容
-    let content, mimeType, fileName
-
-    switch(type) {
-      case 'expense':
-        // 创建Excel费用报销表模板
-        content = `费用报销表模板,日期,费用类型,金额,报销人,部门,备注
-        2025-01-15,交通费,150,张三,销售部,客户拜访交通费
-        2025-01-16,餐饮费,200,李四,市场部,客户聚餐
-        2025-01-17,住宿费,300,王五,技术部,出差住宿`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '费用报销表模板.csv'
-        break
-
-      case 'employee':
-        // 创建人员列表模板
-        content = `员工编号,姓名,部门,职位,邮箱
-        E001,张三,销售部,销售经理,zhangsan@company.com
-        E002,李四,市场部,市场专员,lisi@company.com
-        E003,王五,技术部,开发工程师,wangwu@company.com`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '人员列表模板.csv'
-        break
-
-      case 'subject':
-        // 创建科目映射模板
-        content = `科目名称,科目编码,科目类型
-        管理费用,6601,损益类
-        销售费用,6602,损益类
-        财务费用,6603,损益类
-        银行存款,1002,资产类
-        应收账款,1122,资产类`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '科目映射模板.csv'
-        break
-
-      case 'translation':
-        // 创建翻译映射模板
-        content = `中文摘要,英文翻译
-        办公用品费,Office Supplies
-        交通费,Transportation Fee
-        餐饮费,Meal Expense
-        住宿费,Accommodation Fee
-        客户拜访费,Client Visit Expense`
-        mimeType = 'text/csv;charset=utf-8'
-        fileName = '翻译映射模板.csv'
-        break
-    }
-
-    // 创建Blob对象
-    const blob = new Blob(['\uFEFF' + content], { type: mimeType })
+    // 调用后端 API 下载模板
+    const blob = await downloadFile(`/vouchers/templates/${type}`)
 
     // 创建下载链接
     const url = window.URL.createObjectURL(blob)
