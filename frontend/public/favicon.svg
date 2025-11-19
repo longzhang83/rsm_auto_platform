@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <!-- 背景渐变 -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0095D7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0074B3;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8F5FC;stop-opacity:1" />
+    </linearGradient>
+    <!-- 阴影效果 -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.3"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- 圆角矩形背景 -->
+  <rect width="128" height="128" rx="24" fill="url(#bgGradient)"/>
+
+  <!-- 装饰性图形 - 抽象的文档/账本元素 -->
+  <g opacity="0.15">
+    <rect x="20" y="30" width="40" height="4" rx="2" fill="white"/>
+    <rect x="20" y="40" width="30" height="4" rx="2" fill="white"/>
+    <rect x="20" y="50" width="35" height="4" rx="2" fill="white"/>
+  </g>
+
+  <!-- RSM 文字 -->
+  <g filter="url(#shadow)">
+    <!-- R -->
+    <path d="M 30 65 L 30 95 M 30 65 L 42 65 C 47 65 50 68 50 73 C 50 78 47 81 42 81 L 30 81 M 42 81 L 50 95"
+          stroke="url(#textGradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- S -->
+    <path d="M 67 68 C 64 66 60 65 57 67 C 54 69 54 71 57 73 L 63 77 C 66 79 66 81 63 83 C 60 85 56 84 54 82"
+          stroke="url(#textGradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- M -->
+    <path d="M 72 95 L 72 65 L 82 80 L 92 65 L 92 95"
+          stroke="url(#textGradient)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- 底部小字提示（可选） -->
+  <text x="64" y="115" font-family="Arial, sans-serif" font-size="10" fill="white" fill-opacity="0.8" text-anchor="middle" font-weight="500">
+    容诚税务
+  </text>
+
+  <!-- 右上角装饰点 -->
+  <circle cx="104" cy="24" r="3" fill="white" opacity="0.6"/>
+  <circle cx="112" cy="32" r="2" fill="white" opacity="0.4"/>
+</svg>
