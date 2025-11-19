@@ -14,7 +14,13 @@
       </app-link>
     </template>
 
-    <el-sub-menu v-else ref="subMenu" :index="resolvePath(item.path)" popper-append-to-body>
+    <el-sub-menu
+      v-else
+      ref="subMenu"
+      :index="resolvePath(item.path)"
+      :class="{ 'is-active': isChildActive }"
+      popper-append-to-body
+    >
       <template #title>
         <el-icon v-if="item.meta?.icon">
           <component :is="item.meta.icon" />
@@ -34,9 +40,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { isExternal } from '@/utils/validate'
 import AppLink from './Link.vue'
+
+const route = useRoute()
 
 const props = defineProps({
   item: {
@@ -56,6 +65,34 @@ const props = defineProps({
 const subMenu = ref(null)
 
 const onlyOneChild = ref(null)
+
+// 判断当前子菜单是否包含激活的路由
+const isChildActive = computed(() => {
+  if (!props.item.children) return false
+
+  const currentPath = route.path
+
+  // 递归检查所有子路由
+  const checkChildren = (children, basePath) => {
+    return children.some(child => {
+      const childPath = resolvePath(child.path)
+
+      // 检查当前路径是否匹配
+      if (currentPath === childPath || currentPath.startsWith(childPath + '/')) {
+        return true
+      }
+
+      // 递归检查子路由
+      if (child.children && child.children.length > 0) {
+        return checkChildren(child.children, childPath)
+      }
+
+      return false
+    })
+  }
+
+  return checkChildren(props.item.children, resolvePath(props.item.path))
+})
 
 const hasOneShowingChild = (children = [], parent) => {
   const showingChildren = children.filter(item => {
@@ -252,6 +289,35 @@ const resolvePath = (routePath) => {
   transform: translateX(0);
 }
 
+/* 当子菜单项激活时，父级菜单标题也应该高亮（展开状态） */
+.el-sub-menu.is-active:not(.is-opened) :deep(.el-sub-menu__title) {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%) !important;
+  color: white !important;
+  border-color: var(--primary-500);
+  box-shadow: 0 4px 16px rgba(0, 149, 215, 0.25);
+  transform: translateX(4px);
+}
+
+.el-sub-menu.is-active:not(.is-opened) :deep(.el-sub-menu__title::before) {
+  height: 24px;
+  background: white;
+}
+
+.el-sub-menu.is-active:not(.is-opened) :deep(.el-sub-menu__title .el-icon) {
+  color: white !important;
+}
+
+/* 当子菜单打开且有激活项时，保持较浅的高亮 */
+.el-sub-menu.is-active.is-opened :deep(.el-sub-menu__title) {
+  background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%) !important;
+  color: var(--primary-700);
+  border-color: var(--primary-200);
+}
+
+.el-sub-menu.is-active.is-opened :deep(.el-sub-menu__title .el-icon) {
+  color: var(--primary-700);
+}
+
 /* 嵌套子菜单容器 */
 .el-sub-menu :deep(.el-menu) {
   background-color: var(--neutral-50);
@@ -328,6 +394,23 @@ const resolvePath = (routePath) => {
   > .el-menu-item .el-icon,
   > .el-sub-menu > .el-sub-menu__title .el-icon {
     margin-right: 0 !important;
+  }
+
+  /* 收缩状态下，激活的子菜单的父级菜单高亮显示 */
+  > .el-sub-menu.is-active > .el-sub-menu__title {
+    background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 16px rgba(0, 149, 215, 0.25);
+    border-color: var(--primary-500);
+  }
+
+  > .el-sub-menu.is-active > .el-sub-menu__title::before {
+    height: 24px;
+    background: white;
+  }
+
+  > .el-sub-menu.is-active > .el-sub-menu__title .el-icon {
+    color: white !important;
   }
 }
 
