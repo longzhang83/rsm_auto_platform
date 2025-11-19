@@ -282,4 +282,25 @@ const resolvePath = (routePath) => {
 .el-sub-menu.is-opened :deep(.el-sub-menu__icon-arrow) {
   transform: rotate(180deg);
 }
+
+/* 收缩状态下隐藏所有文本和标签 */
+:deep(.el-menu--collapse) {
+  .el-menu-item span,
+  .el-menu-item .el-tag,
+  .el-sub-menu__title span {
+    display: none !important;
+  }
+
+  .el-sub-menu__icon-arrow {
+    display: none !important;
+  }
+
+  /* 收缩时菜单项居中显示图标 */
+  .el-menu-item,
+  .el-sub-menu__title {
+    padding: 0 !important;
+    text-align: center;
+    justify-content: center;
+  }
+}
 </style>
