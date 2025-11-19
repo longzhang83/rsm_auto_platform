@@ -283,24 +283,51 @@ const resolvePath = (routePath) => {
   transform: rotate(180deg);
 }
 
-/* 收缩状态下隐藏所有文本和标签 */
+/* 收缩状态下隐藏所有文本和标签 - 针对多级菜单优化 */
 :deep(.el-menu--collapse) {
+  /* 隐藏一级菜单项的文本和标签 */
   .el-menu-item span,
-  .el-menu-item .el-tag,
-  .el-sub-menu__title span {
+  .el-menu-item .el-tag {
     display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
   }
 
+  /* 隐藏子菜单标题的文本内容 */
+  .el-sub-menu__title span {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* 隐藏子菜单的展开箭头 */
   .el-sub-menu__icon-arrow {
     display: none !important;
   }
 
   /* 收缩时菜单项居中显示图标 */
-  .el-menu-item,
+  .el-menu-item {
+    padding: 0 !important;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
   .el-sub-menu__title {
     padding: 0 !important;
-    text-align: center;
-    justify-content: center;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* 收缩时图标不需要右边距 */
+  .el-menu-item .el-icon,
+  .el-sub-menu__title .el-icon {
+    margin-right: 0 !important;
   }
 }
 </style>

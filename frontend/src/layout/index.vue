@@ -761,6 +761,25 @@ const handleLogout = () => {
   /* 菜单样式已移至 SidebarItem.vue 组件中以支持多层级嵌套 */
 }
 
+/* 收缩状态下的菜单整体样式优化 */
+.sidebar-container.is-collapse .sidebar-menu {
+  width: 100%;
+}
+
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-menu-item),
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-sub-menu__title) {
+  overflow: hidden !important;
+}
+
+/* 强制隐藏收缩状态下的所有文本节点 */
+.sidebar-container.is-collapse .sidebar-menu :deep(span:not(.el-icon)) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 /* 简洁用户下拉菜单样式 */
 .user-dropdown {
   border: 1px solid var(--neutral-200);
