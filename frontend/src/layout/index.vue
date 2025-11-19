@@ -771,13 +771,28 @@ const handleLogout = () => {
   overflow: hidden !important;
 }
 
-/* 强制隐藏收缩状态下的所有文本节点 */
-.sidebar-container.is-collapse .sidebar-menu :deep(span:not(.el-icon)) {
+/* 强制隐藏收缩状态下的所有文本节点（仅限侧边栏内部，不影响弹出菜单） */
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-menu-item > span:not(.el-icon)),
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-sub-menu__title > span:not(.el-icon)) {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* 确保收缩状态下弹出的子菜单内容正常显示 */
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-menu--popup) {
+  min-width: 200px;
+}
+
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-menu--popup .el-menu-item span),
+.sidebar-container.is-collapse .sidebar-menu :deep(.el-menu--popup .el-sub-menu__title span) {
+  display: inline !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: auto !important;
+  height: auto !important;
 }
 
 /* 简洁用户下拉菜单样式 */
@@ -874,5 +889,35 @@ const handleLogout = () => {
 
 .user-dropdown :deep(.el-dropdown-menu__item:hover .el-icon) {
   color: var(--primary-600);
+}
+</style>
+
+<style>
+/* 全局样式：确保收缩菜单弹出的子菜单内容正常显示 */
+/* 弹出菜单通过 popper-append-to-body 添加到 body 下，需要全局样式 */
+.el-menu--collapse + .el-menu--popup,
+.el-menu--popup.el-popper {
+  min-width: 200px !important;
+}
+
+.el-menu--popup .el-menu-item,
+.el-menu--popup .el-sub-menu__title {
+  padding-left: 20px !important;
+}
+
+.el-menu--popup .el-menu-item span,
+.el-menu--popup .el-sub-menu__title span,
+.el-menu--popup .el-menu-item .el-tag {
+  display: inline !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.el-menu--popup .el-menu-item .el-icon,
+.el-menu--popup .el-sub-menu__title .el-icon {
+  margin-right: 8px !important;
 }
 </style>

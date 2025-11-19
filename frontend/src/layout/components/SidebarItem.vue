@@ -285,30 +285,30 @@ const resolvePath = (routePath) => {
 
 /* 收缩状态下隐藏所有文本和标签 - 针对多级菜单优化 */
 :deep(.el-menu--collapse) {
-  /* 隐藏一级菜单项的文本和标签 */
-  .el-menu-item span,
-  .el-menu-item .el-tag {
+  /* 隐藏一级菜单项的文本和标签（仅限垂直菜单，不影响弹出菜单） */
+  > .el-menu-item > span:not(.el-icon),
+  > .el-menu-item .el-tag {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
   }
 
-  /* 隐藏子菜单标题的文本内容 */
-  .el-sub-menu__title span {
+  /* 隐藏子菜单标题的文本内容（仅限垂直菜单主体） */
+  > .el-sub-menu > .el-sub-menu__title > span:not(.el-icon) {
     display: none !important;
     width: 0 !important;
     height: 0 !important;
     overflow: hidden !important;
   }
 
-  /* 隐藏子菜单的展开箭头 */
-  .el-sub-menu__icon-arrow {
+  /* 隐藏子菜单的展开箭头（仅限垂直菜单主体） */
+  > .el-sub-menu > .el-sub-menu__title .el-sub-menu__icon-arrow {
     display: none !important;
   }
 
   /* 收缩时菜单项居中显示图标 */
-  .el-menu-item {
+  > .el-menu-item {
     padding: 0 !important;
     text-align: center !important;
     display: flex !important;
@@ -316,7 +316,7 @@ const resolvePath = (routePath) => {
     justify-content: center !important;
   }
 
-  .el-sub-menu__title {
+  > .el-sub-menu > .el-sub-menu__title {
     padding: 0 !important;
     text-align: center !important;
     display: flex !important;
@@ -325,9 +325,25 @@ const resolvePath = (routePath) => {
   }
 
   /* 收缩时图标不需要右边距 */
-  .el-menu-item .el-icon,
-  .el-sub-menu__title .el-icon {
+  > .el-menu-item .el-icon,
+  > .el-sub-menu > .el-sub-menu__title .el-icon {
     margin-right: 0 !important;
   }
+}
+
+/* 弹出子菜单的样式（Element Plus会将其添加到body下） */
+.el-menu--popup.el-menu--popup-right-start {
+  margin-left: 5px;
+}
+
+/* 确保弹出的子菜单内容正常显示 */
+.el-menu--popup .el-menu-item span,
+.el-menu--popup .el-sub-menu__title span {
+  display: inline !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 </style>
