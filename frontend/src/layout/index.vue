@@ -207,7 +207,7 @@ const toggleTheme = () => {
 
 // 导航到系统设置
 const navigateToSettings = () => {
-  router.push('/settings')
+  router.push('/system/settings')
 }
 
 // 导航到个人中心/账户设置
