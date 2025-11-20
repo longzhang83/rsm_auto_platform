@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     app_name: str = "Accounting Voucher Generation API"
     app_version: str = "1.0.0"
     debug: bool = False
-    environment: str = "production"  # development, production, testing
+    environment: str = "development"  # development, production, testing
 
     # 服务器配置
     host: str = "localhost"
@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     default_preparer: str = "cissy"
     default_voucher_category: str = "记"
     default_credit_account: str = "224104"
+
+    # CORS配置
+    allowed_cors_origins: str = "https://app.rsmcn.cloud"  # 生产环境允许的域名（多个用逗号分隔）
 
     class Config:
         # 从当前文件位置计算项目根目录的.env文件路径

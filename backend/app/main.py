@@ -77,24 +77,19 @@ app = FastAPI(
 # 配置CORS
 if settings.environment == "development":
     # 开发环境：允许Vue开发服务器（支持3000和3001端口）
-    cors_origins = [
-        "http://localhost:3000",
-        "http://app.rsmcn.cloud",
-        "https://app.rsmcn.cloud",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ]
+    cors_origins = ["http://localhost:3000", "http://localhost:3001"]
 else:
-    # 生产环境：允许来自nginx的请求
-    cors_origins = ["*"]
+    # 生产环境：从配置读取允许的域名
+    cors_origins = [origin.strip() for origin in settings.allowed_cors_origins.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 # 包含API路由
