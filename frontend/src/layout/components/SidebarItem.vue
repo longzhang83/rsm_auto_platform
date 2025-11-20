@@ -1,5 +1,5 @@
 <template>
-  <div v-if="!item.meta?.hidden">
+  <div v-if="shouldShowItem">
     <template v-if="hasOneShowingChild(item.children, item) && (!onlyOneChild.children || onlyOneChild.noShowingChildren) && !item.meta?.alwaysShow">
       <app-link v-if="onlyOneChild.meta" :to="resolvePath(onlyOneChild.path)">
         <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{ 'submenu-title-noDropdown': !isNest }">
@@ -42,10 +42,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import { isExternal } from '@/utils/validate'
 import AppLink from './Link.vue'
 
 const route = useRoute()
+const authStore = useAuthStore()
 
 const props = defineProps({
   item: {
@@ -65,6 +67,21 @@ const props = defineProps({
 const subMenu = ref(null)
 
 const onlyOneChild = ref(null)
+
+// 判断是否应该显示该菜单项
+const shouldShowItem = computed(() => {
+  // 如果设置了 hidden，则不显示
+  if (props.item.meta?.hidden) {
+    return false
+  }
+
+  // 如果设置了 requiresAdmin，只有管理员才能看到
+  if (props.item.meta?.requiresAdmin) {
+    return authStore.user?.is_admin === true
+  }
+
+  return true
+})
 
 // 判断当前子菜单是否包含激活的路由
 const isChildActive = computed(() => {

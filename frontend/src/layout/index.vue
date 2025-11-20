@@ -86,7 +86,7 @@
             <button class="action-btn theme-btn" title="主题切换（开发中）">
               <el-icon><Sunny /></el-icon>
             </button>
-            <button class="action-btn settings-btn" @click="navigateToSettings">
+            <button v-if="authStore.user?.is_admin" class="action-btn settings-btn" @click="navigateToSettings">
               <el-icon><Setting /></el-icon>
             </button>
           </div>

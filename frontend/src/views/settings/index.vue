@@ -670,6 +670,18 @@ onMounted(() => {
 
 .quick-actions .el-button {
   justify-content: flex-start;
+  height: auto;
+  padding: 12px 16px;
+}
+
+.quick-actions :deep(.el-button__content) {
+  display: flex;
+  align-items: center;
+}
+
+.quick-actions :deep(.el-icon) {
+  margin-right: 8px !important;
+  margin-left: 0 !important;
 }
 
 .help-links {

@@ -108,14 +108,14 @@ const router = createRouter({
         {
           path: 'system',
           name: 'System',
-          meta: { title: '系统管理', icon: 'Setting', requiresAuth: true, alwaysShow: true },
+          meta: { title: '系统管理', icon: 'Setting', requiresAuth: true, alwaysShow: true, requiresAdmin: true },
           redirect: '/system/settings',
           children: [
             {
               path: 'settings',
               name: 'Settings',
               component: () => import('@/views/settings/index.vue'),
-              meta: { title: '系统设置', icon: 'Tools', requiresAuth: true }
+              meta: { title: '系统设置', icon: 'Tools', requiresAuth: true, requiresAdmin: true }
             },
             {
               path: 'admin',
@@ -129,7 +129,7 @@ const router = createRouter({
           path: 'profile',
           name: 'Profile',
           component: () => import('@/views/profile/index.vue'),
-          meta: { title: '个人中心', icon: 'User', requiresAuth: true }
+          meta: { title: '个人中心', icon: 'User', requiresAuth: true, hidden: true }
         }
       ]
     },
@@ -153,7 +153,13 @@ router.beforeEach(async (to, from, next) => {
   // 检查路由是否需要认证
   if (to.meta.requiresAuth) {
     if (authStore.isLoggedIn) {
-      next()
+      // 检查是否需要管理员权限
+      if (to.meta.requiresAdmin && !authStore.user?.is_admin) {
+        // 非管理员访问管理员页面，重定向到首页
+        next('/')
+      } else {
+        next()
+      }
     } else {
       next({
         path: '/login',
