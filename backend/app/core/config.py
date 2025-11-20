@@ -16,10 +16,10 @@ class Settings(BaseSettings):
     app_name: str = "Accounting Voucher Generation API"
     app_version: str = "1.0.0"
     debug: bool = False
-    environment: str = "development"  # development, production, testing
+    environment: str = "production"  # development, production, testing
 
     # 服务器配置
-    host: str = "0.0.0.0"
+    host: str = "localhost"
     port: int = 8888
 
     # 数据目录配置

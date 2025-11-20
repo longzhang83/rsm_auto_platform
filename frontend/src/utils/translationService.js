@@ -99,8 +99,8 @@ export class TranslationService {
         try {
           console.log(`建立SSE连接，任务ID: ${taskId}, 重连次数: ${retryCount}`)
 
-          // 直接连接后端SSE，避免Vite代理问题
-          this.currentEventSource = new EventSource(`http://localhost:8888/api/v1/progress/${taskId}`)
+          // 使用相对URL连接后端SSE，通过Vite代理
+          this.currentEventSource = new EventSource(`/api/v1/progress/${taskId}`)
 
           // 设置超时
           timeoutId = setTimeout(() => {
