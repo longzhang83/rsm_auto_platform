@@ -229,25 +229,25 @@
             </div>
           </template>
 
-          <div class="quick-actions space-y-3">
-            <el-button type="primary" plain class="w-full" @click="exportSettings">
-              <el-icon class="mr-2"><Download /></el-icon>
-              导出设置
+          <div class="quick-actions">
+            <el-button type="primary" plain class="w-full action-btn" @click="exportSettings">
+              <el-icon><Download /></el-icon>
+              <span>导出设置</span>
             </el-button>
 
-            <el-button type="success" plain class="w-full" @click="importSettings">
-              <el-icon class="mr-2"><Upload /></el-icon>
-              导入设置
+            <el-button type="success" plain class="w-full action-btn" @click="importSettings">
+              <el-icon><Upload /></el-icon>
+              <span>导入设置</span>
             </el-button>
 
-            <el-button type="warning" plain class="w-full" @click="clearCache">
-              <el-icon class="mr-2"><Delete /></el-icon>
-              清理缓存
+            <el-button type="warning" plain class="w-full action-btn" @click="clearCache">
+              <el-icon><Delete /></el-icon>
+              <span>清理缓存</span>
             </el-button>
 
-            <el-button type="danger" plain class="w-full" @click="resetSettings">
-              <el-icon class="mr-2"><RefreshLeft /></el-icon>
-              重置设置
+            <el-button type="danger" plain class="w-full action-btn" @click="resetSettings">
+              <el-icon><RefreshLeft /></el-icon>
+              <span>重置设置</span>
             </el-button>
           </div>
         </el-card>
@@ -668,20 +668,41 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.quick-actions .el-button {
-  justify-content: flex-start;
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quick-actions .action-btn {
   height: auto;
   padding: 12px 16px;
-}
-
-.quick-actions :deep(.el-button__content) {
   display: flex;
-  align-items: center;
+  justify-content: flex-start;
+  margin: 0 !important;
 }
 
-.quick-actions :deep(.el-icon) {
+.quick-actions .action-btn :deep(.el-button__content) {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  width: 100% !important;
+}
+
+.quick-actions .action-btn :deep(.el-icon) {
+  width: 16px !important;
+  height: 16px !important;
   margin-right: 8px !important;
-  margin-left: 0 !important;
+  font-size: 16px !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.quick-actions .action-btn :deep(span) {
+  flex: 1 !important;
+  text-align: left !important;
 }
 
 .help-links {
