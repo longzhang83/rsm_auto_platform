@@ -384,6 +384,7 @@ When you encounter these keywords, immediately check the relevant documentation:
 - "file" → Check file operation patterns in DEVELOPMENT_PATTERNS.md
 - "progress" → Check progress callback patterns in TROUBLESHOOTING_GUIDE.md
 - "encoding" → Always specify encoding='utf-8' for text operations
+- "download" or "下载" → Use utility functions from `backend/app/utils/file_response.py` (see File Download section below)
 
 ### Key Entry Points
 1. **Backend Server**: `backend/app/main.py`
@@ -444,5 +445,47 @@ curl "http://localhost:8888/api/v1/logs/search?query=error&level=ERROR"
 - ✅ Wrap callbacks with exception handling to prevent interruption
 - ✅ Verify math formulas before debugging complex issues (see `docs/MEMORY_CHECKLIST.md`)
 - ❌ Don't assume SSE issues are concurrency problems - check the math first
+
+**File Download (Excel, CSV, ZIP)**:
+- ✅ **ALWAYS** use utility functions from `backend/app/utils/file_response.py`:
+  - `create_excel_download_response(content, filename, fallback_filename=None)` - For Excel files
+  - `create_csv_download_response(content, filename, fallback_filename=None)` - For CSV files
+  - `create_zip_download_response(content, filename, fallback_filename=None)` - For ZIP files
+- ✅ These functions handle:
+  - Correct MIME types automatically
+  - Chinese filename encoding (RFC 6266 and RFC 5987 compliant)
+  - ASCII fallback filenames for compatibility
+  - StreamingResponse generation
+- ✅ **Backend Example**:
+  ```python
+  from app.utils.file_response import create_excel_download_response
+
+  # Generate Excel in memory
+  excel_buffer = io.BytesIO()
+  df.to_excel(excel_buffer, index=False, engine="openpyxl")
+  excel_bytes = excel_buffer.getvalue()
+
+  # Return download response
+  return create_excel_download_response(
+      content=excel_bytes,
+      filename="凭证.xlsx",
+      fallback_filename="vouchers.xlsx"
+  )
+  ```
+- ✅ **Frontend Example** (Vue.js):
+  ```javascript
+  const blob = await downloadFile(downloadUrl)
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'vouchers.xlsx'  // Match backend filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+  ```
+- ❌ Never manually construct Content-Disposition headers
+- ❌ Never hardcode MIME types - use utility functions
+- ❌ Never use `urllib.parse.quote()` directly - utility handles encoding
 
 This codebase demonstrates modern Python web development with FastAPI, Vue.js, enterprise-grade logging, and clean architecture principles.

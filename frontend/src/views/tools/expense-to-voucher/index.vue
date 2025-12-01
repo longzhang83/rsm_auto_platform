@@ -539,7 +539,7 @@ const handleSubmit = async () => {
           const url = window.URL.createObjectURL(blob)
           const link = document.createElement('a')
           link.href = url
-          link.download = 'vouchers_bundle.zip'
+          link.download = 'vouchers.xlsx'  // 直接下载 Excel，不再是 ZIP
           document.body.appendChild(link)
           link.click()
           link.remove()

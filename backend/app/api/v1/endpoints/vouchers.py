@@ -5,7 +5,6 @@ import base64
 import io
 import json
 import time
-import urllib.parse
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -88,17 +87,11 @@ async def generate_vouchers(
             user_id=current_user.id,
         )
 
-        # 生成文件名（使用 UTF-8 编码）
-        filename = "vouchers.xlsx"
-        encoded_filename = urllib.parse.quote(filename)
-
-        headers = {
-            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
-        }
-        return StreamingResponse(
-            zip_buffer,  # 现在是 excel_buffer
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers=headers,
+        # 使用工具函数创建 Excel 下载响应
+        return create_excel_download_response(
+            content=zip_buffer,  # 现在是 excel_buffer
+            filename="vouchers.xlsx",
+            fallback_filename="vouchers.xlsx"
         )
 
     except HTTPException as e:
@@ -312,13 +305,11 @@ async def download_voucher_result(
     # 解码Base64
     excel_bytes = base64.b64decode(excel_bytes_b64)
 
-    # 使用 UTF-8 编码文件名
-    encoded_filename = urllib.parse.quote(filename)
-
-    return StreamingResponse(
-        io.BytesIO(excel_bytes),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"},
+    # 使用工具函数创建 Excel 下载响应
+    return create_excel_download_response(
+        content=excel_bytes,
+        filename=filename,
+        fallback_filename="vouchers.xlsx"
     )
 
 
