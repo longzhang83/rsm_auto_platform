@@ -117,26 +117,27 @@ class VoucherService:
         credit_account_value = credit_account or self.settings.default_credit_account
 
         try:
+            # 处理翻译映射文件（在内存中）
+            if translation_file:
+                validate_file_upload(translation_file)
+                mapping_bytes = await translation_file.read()
+                if not mapping_bytes:
+                    raise HTTPException(
+                        status_code=400, detail="翻译映射文件为空，请重新上传"
+                    )
+            else:
+                default_mapping_path = self.settings.translation_mapping_path
+                if default_mapping_path.exists():
+                    mapping_bytes = default_mapping_path.read_bytes()
+                else:
+                    mapping_bytes = "source,target\n".encode("utf-8-sig")
+
+            # 为了兼容现有的 VoucherConfig，我们需要创建一个临时的 mapping_path
+            # 但这次我们使用 return_bytes=True 来避免实际保存文件
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmp_path = Path(tmpdir)
-                output_dir = tmp_path / "output"
                 mapping_path = tmp_path / "translation_mapping.csv"
-
-                # 处理翻译映射文件
-                if translation_file:
-                    validate_file_upload(translation_file)
-                    mapping_bytes = await translation_file.read()
-                    if not mapping_bytes:
-                        raise HTTPException(
-                            status_code=400, detail="翻译映射文件为空，请重新上传"
-                        )
-                    mapping_path.write_bytes(mapping_bytes)
-                else:
-                    default_mapping_path = self.settings.translation_mapping_path
-                    if default_mapping_path.exists():
-                        mapping_path.write_bytes(default_mapping_path.read_bytes())
-                    else:
-                        mapping_path.write_text("source,target\n", encoding="utf-8-sig")
+                mapping_path.write_bytes(mapping_bytes)
 
                 # 配置凭证生成器
                 config = VoucherConfig(
@@ -145,16 +146,17 @@ class VoucherService:
                     voucher_category=voucher_category_value,
                     credit_account_default=credit_account_value,
                     voucher_start_sequence=start_seq,
-                    output_dir=output_dir,
+                    output_dir=tmp_path / "output",  # 这个路径不会被使用
                     translation_mapping_path=mapping_path,
                 )
 
-                # 生成凭证
-                df_out = generate_vouchers(
+                # 生成凭证（内存模式）
+                df_out, excel_bytes, csv_bytes = generate_vouchers(
                     config,
                     expense_df=expense_df,
                     employee_df=employee_df,
                     subject_df=subject_df,
+                    return_bytes=True,
                 )
 
                 if df_out.empty:
@@ -166,9 +168,10 @@ class VoucherService:
                 voucher_count = len(df_out)
                 print(f"成功生成 {voucher_count} 条凭证记录")
 
-                # 创建ZIP文件
-                zip_buffer = self._create_result_zip(output_dir, mapping_path)
-                return zip_buffer, voucher_count
+            # 直接返回 Excel bytes（不打包 ZIP）
+            excel_buffer = io.BytesIO(excel_bytes)
+            excel_buffer.seek(0)
+            return excel_buffer, voucher_count
 
         except HTTPException:
             raise
@@ -240,8 +243,28 @@ class VoucherService:
                     detail=f"Excel 解析失败（尝试了.xlsx和.xls格式）：openpyxl: {exc_openpyxl}; xlrd: {exc_xlrd}",
                 ) from exc_xlrd
 
+    def _create_result_zip_from_bytes(
+        self, excel_bytes: bytes, mapping_bytes: bytes
+    ) -> BinaryIO:
+        """从字节数据在内存中创建结果ZIP文件（只包含Excel）"""
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(
+            zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
+            # 添加 Excel 文件
+            if excel_bytes:
+                archive.writestr("vouchers.xlsx", excel_bytes)
+
+            # 添加翻译映射文件（如果不是空的）
+            mapping_content = mapping_bytes.decode("utf-8-sig").strip()
+            if mapping_content and mapping_content != "source,target":
+                archive.writestr("translation_mapping.csv", mapping_bytes)
+
+        zip_buffer.seek(0)
+        return zip_buffer
+
     def _create_result_zip(self, output_dir: Path, mapping_path: Path) -> BinaryIO:
-        """创建结果ZIP文件"""
+        """创建结果ZIP文件（向后兼容，保留原有方法）"""
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(
             zip_buffer, mode="w", compression=zipfile.ZIP_DEFLATED

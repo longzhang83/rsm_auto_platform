@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
@@ -355,7 +356,8 @@ def generate_vouchers(
     expense_df: Optional[pd.DataFrame] = None,
     employee_df: Optional[pd.DataFrame] = None,
     subject_df: Optional[pd.DataFrame] = None,
-) -> pd.DataFrame:
+    return_bytes: bool = False,
+) -> Union[pd.DataFrame, Tuple[pd.DataFrame, bytes, bytes]]:
     cfg = config.resolved()
 
     # 初始化多账户翻译服务（如果可用）
@@ -559,17 +561,40 @@ def generate_vouchers(
 
             voucher_rows.append(credit_line)
 
-    output_dir = cfg.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     df_out = pd.DataFrame(voucher_rows, columns=OUTPUT_COLUMNS)
     if df_out.empty:
+        if return_bytes:
+            return df_out, b"", b""
         return df_out
 
-    df_out.to_csv(output_dir / "vouchers.csv", index=False, encoding="utf-8-sig")
-    try:
-        df_out.to_excel(output_dir / "vouchers.xlsx", index=False, engine="openpyxl")
-    except ModuleNotFoundError:
-        pass
+    if return_bytes:
+        # 在内存中生成 Excel
+        excel_buffer = io.BytesIO()
+        try:
+            with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+                df_out.to_excel(writer, index=False)
+            excel_bytes = excel_buffer.getvalue()
+        except ModuleNotFoundError:
+            excel_bytes = b""
+        finally:
+            excel_buffer.close()
 
-    return df_out
+        # 在内存中生成 CSV
+        csv_buffer = io.StringIO()
+        df_out.to_csv(csv_buffer, index=False, encoding="utf-8-sig")
+        csv_bytes = csv_buffer.getvalue().encode("utf-8-sig")
+        csv_buffer.close()
+
+        return df_out, excel_bytes, csv_bytes
+    else:
+        # 原有的文件保存逻辑（向后兼容）
+        output_dir = cfg.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        df_out.to_csv(output_dir / "vouchers.csv", index=False, encoding="utf-8-sig")
+        try:
+            df_out.to_excel(output_dir / "vouchers.xlsx", index=False, engine="openpyxl")
+        except ModuleNotFoundError:
+            pass
+
+        return df_out

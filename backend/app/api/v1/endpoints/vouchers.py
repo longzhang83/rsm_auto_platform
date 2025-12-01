@@ -5,6 +5,7 @@ import base64
 import io
 import json
 import time
+import urllib.parse
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -87,10 +88,16 @@ async def generate_vouchers(
             user_id=current_user.id,
         )
 
-        headers = {"Content-Disposition": "attachment; filename=vouchers_bundle.zip"}
+        # 生成文件名（使用 UTF-8 编码）
+        filename = "vouchers.xlsx"
+        encoded_filename = urllib.parse.quote(filename)
+
+        headers = {
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+        }
         return StreamingResponse(
-            zip_buffer,
-            media_type="application/zip",
+            zip_buffer,  # 现在是 excel_buffer
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers=headers,
         )
 
@@ -201,16 +208,16 @@ async def start_voucher_generation(
                 expense_sheet=expense_sheet,
             )
 
-            progress_manager.update_progress(current_task_id, 90.0, "正在打包结果...")
+            progress_manager.update_progress(current_task_id, 90.0, "正在准备下载...")
 
-            # 读取ZIP内容并Base64编码
-            zip_bytes = zip_buffer.read()
-            zip_bytes_b64 = base64.b64encode(zip_bytes).decode("ascii")
+            # 读取Excel内容并Base64编码
+            excel_bytes = zip_buffer.read()  # 现在是 excel_buffer
+            excel_bytes_b64 = base64.b64encode(excel_bytes).decode("ascii")
 
             # 存储结果
             result_data = {
-                "zip_bytes_b64": zip_bytes_b64,
-                "filename": "vouchers_bundle.zip",
+                "excel_bytes_b64": excel_bytes_b64,
+                "filename": "vouchers.xlsx",
             }
             progress_manager.store_result(
                 current_task_id, json.dumps(result_data).encode("utf-8")
@@ -299,16 +306,19 @@ async def download_voucher_result(
         raise HTTPException(status_code=404, detail="任务结果不存在")
 
     result_data = json.loads(result_bytes.decode("utf-8"))
-    zip_bytes_b64 = result_data.get("zip_bytes_b64")
-    filename = result_data.get("filename", "vouchers_bundle.zip")
+    excel_bytes_b64 = result_data.get("excel_bytes_b64")
+    filename = result_data.get("filename", "vouchers.xlsx")
 
     # 解码Base64
-    zip_bytes = base64.b64decode(zip_bytes_b64)
+    excel_bytes = base64.b64decode(excel_bytes_b64)
+
+    # 使用 UTF-8 编码文件名
+    encoded_filename = urllib.parse.quote(filename)
 
     return StreamingResponse(
-        io.BytesIO(zip_bytes),
-        media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        io.BytesIO(excel_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"},
     )
 
 
