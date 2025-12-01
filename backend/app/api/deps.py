@@ -14,8 +14,6 @@ def validate_file_upload(
     allowed_extensions: Optional[list[str]] = None,
 ) -> None:
     """验证文件上传"""
-    print(f"验证文件: {file.filename}")
-
     if max_size is None:
         max_size = settings.max_file_size
     if allowed_extensions is None:
@@ -24,17 +22,21 @@ def validate_file_upload(
     if not file.filename:
         raise HTTPException(status_code=400, detail="文件名不能为空")
 
-    # 检查文件扩展名 - 更宽松的验证
-    file_ext = Path(file.filename).suffix.lower()
-    print(f"文件扩展名: {file_ext}, 允许的扩展名: {allowed_extensions}")
+    # 提取并清理文件扩展名
+    raw_file_ext = Path(file.filename).suffix
+    file_ext = raw_file_ext.strip().lower()
 
-    if file_ext and file_ext not in allowed_extensions:
+    # 清理允许的扩展名（去除空白字符并转为小写）
+    cleaned_allowed_extensions = [ext.strip().lower() for ext in allowed_extensions]
+
+    if file_ext and file_ext not in cleaned_allowed_extensions:
+        # 构建更清晰的错误消息
+        allowed_exts_str = ', '.join(f"'{ext}'" for ext in cleaned_allowed_extensions)
+        error_msg = f"不支持的文件类型: '{file_ext}'. 支持的类型: {allowed_exts_str}"
         raise HTTPException(
             status_code=400,
-            detail=f"不支持的文件类型: {file_ext}. 支持的类型: {', '.join(allowed_extensions)}",
+            detail=error_msg,
         )
-
-    print("文件验证成功")
     # 这里可以添加文件大小检查，需要在读取文件后进行
 
 

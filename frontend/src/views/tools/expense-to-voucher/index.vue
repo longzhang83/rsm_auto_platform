@@ -533,10 +533,9 @@ const handleSubmit = async () => {
       },
       onComplete: async (downloadResult) => {
         // 自动下载生成的文件
-        const downloadUrl = `/api/v1/vouchers/download/${downloadResult.task_id}`
+        const downloadUrl = `/vouchers/download/${downloadResult.task_id}`
         try {
-          const response = await uploadFile(downloadUrl, null, 'GET')
-          const blob = await response.blob()
+          const blob = await downloadFile(downloadUrl)
           const url = window.URL.createObjectURL(blob)
           const link = document.createElement('a')
           link.href = url

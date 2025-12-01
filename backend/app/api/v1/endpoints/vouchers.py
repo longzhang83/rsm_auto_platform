@@ -284,13 +284,13 @@ async def download_voucher_result(
     下载凭证生成结果
     """
     # 获取任务状态
-    task_info = progress_manager.get_task(task_id)
+    task_info = progress_manager.get_progress(task_id)
     if not task_info:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    if task_info["status"] != "completed":
+    if task_info.percentage < 100.0:
         raise HTTPException(
-            status_code=400, detail=f"任务尚未完成，当前状态: {task_info['status']}"
+            status_code=400, detail=f"任务尚未完成，当前进度: {task_info.percentage}%"
         )
 
     # 获取结果
