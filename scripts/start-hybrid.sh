@@ -12,21 +12,21 @@ if ! command -v uv &> /dev/null; then
     exit 1
 fi
 
-# 检查 Python 3.11
-if ! command -v python3.11 &> /dev/null; then
-    echo "❌ Python 3.11 未安装"
+# 检查 Python 3.12
+if ! command -v python3.12 &> /dev/null; then
+    echo "❌ Python 3.12 未安装"
     exit 1
 fi
 
 # 设置 Python 版本
-export PYTHON_EXE=python3.11
+export PYTHON_EXE=python3.12
 
 echo "使用 Python: $($PYTHON_EXE --version)"
 
 # 检查端口
-if netstat -tuln | grep -q \:8888 \; then
-    echo "⚠️ 端口 8888 被占用，停止现有进程..."
-    pkill -f \uvicorn.*8888\ || true
+if netstat -tuln | grep -q \:7777 \; then
+    echo "⚠️ 端口 7777 被占用，停止现有进程..."
+    pkill -f \uvicorn.*7777\ || true
     sleep 2
 fi
 
@@ -47,7 +47,7 @@ fi
 
 # 启动后端服务
 echo "启动后端服务..."
-nohup uv run python3.11 -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8888 > logs/backend.log 2>&1 &
+nohup uv run python3.12 -m uvicorn backend.app.main:app --host localhost --port 7777 > logs/backend.log 2>&1 &
 BACKEND_PID=$!
 
 # 等待后端启动
@@ -55,7 +55,7 @@ echo "等待后端服务启动..."
 sleep 10
 
 # 测试后端
-if curl -f http://localhost:8888/health > /dev/null 2>&1; then
+if curl -f http://localhost:7777/health > /dev/null 2>&1; then
     echo "✅ 后端服务启动成功 (PID: $BACKEND_PID)"
 else
     echo "❌ 后端服务启动失败"
