@@ -18,5 +18,5 @@ uv sync
 echo "Installing core business logic..."
 uv pip install -e ../
 
-echo "Starting server on http://localhost:8888"
-uv run uvicorn app.main:app  --port 8888
+echo "Starting server on http://localhost:7777"
+uv run uvicorn app.main:app  --port 7777
