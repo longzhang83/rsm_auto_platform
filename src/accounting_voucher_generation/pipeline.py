@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import io
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -16,6 +17,7 @@ except ImportError:  # pragma: no cover
 from .multi_account_translator import (
     batch_translate_texts,
     configure_translation_service,
+    get_translation_service,
     translate_text,
 )
 
@@ -88,6 +90,39 @@ OUTPUT_COLUMNS = list(OUTPUT_SCHEMA.values()) + ADDITIONAL_OUTPUT_COLUMNS
 def _coerce_path(value: Path | str) -> Path:
     path = Path(value)
     return path.expanduser().resolve()
+
+
+def _normalize_translation_source(source: str) -> str:
+    source = source.strip()
+    if source.startswith("zh:") and "->en" in source:
+        return source[3:].replace("->en", "").strip()
+    if source.startswith("en:") and "->zh" in source:
+        return source[3:].replace("->zh", "").strip()
+    if "->en" in source:
+        return source.replace("->en", "").strip()
+    if "->zh" in source:
+        return source.replace("->zh", "").strip()
+    return source
+
+
+def _load_translation_cache(mapping_path: Path) -> Dict[str, str]:
+    cache: Dict[str, str] = {}
+    if not mapping_path.exists():
+        return cache
+
+    try:
+        with mapping_path.open("r", newline="", encoding="utf-8-sig") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) < 2 or row[0].strip() == "source":
+                    continue
+                source = _normalize_translation_source(row[0])
+                target = row[1].strip()
+                if source and target:
+                    cache[source] = target
+    except Exception as exc:
+        print(f"加载翻译缓存失败: {exc}")
+    return cache
 
 
 @dataclass
@@ -359,6 +394,7 @@ def generate_vouchers(
     return_bytes: bool = False,
 ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, bytes, bytes]]:
     cfg = config.resolved()
+    translation_service_ready = get_translation_service() is not None
 
     # 初始化多账户翻译服务（如果可用）
     if MULTI_ACCOUNT_AVAILABLE and cfg.zhipuai_api_keys:
@@ -368,10 +404,12 @@ def generate_vouchers(
                 cache_path=cfg.translation_mapping_path,
                 max_workers=cfg.translation_max_workers,
             )
+            translation_service_ready = True
             print(f"已初始化多账户翻译服务，共 {len(cfg.zhipuai_api_keys)} 个API密钥")
         except Exception as e:
             print(f"初始化多账户翻译服务失败: {e}")
-            print("将使用原有的翻译服务")
+            print("将仅使用翻译缓存，未命中项保留中文摘要")
+            translation_service_ready = get_translation_service() is not None
 
     if expense_df is None:
         expense_df, sheet_name = load_expense_data(cfg)
@@ -388,7 +426,9 @@ def generate_vouchers(
 
     voucher_rows: List[Dict[str, object]] = []
     voucher_seq = cfg.voucher_start_sequence
-    translation_cache: Dict[str, str] = {}
+    translation_cache: Dict[str, str] = _load_translation_cache(
+        cfg.translation_mapping_path
+    )
 
     unique_descriptions: set[str] = set()
     for _, row in expense_df.iterrows():
@@ -402,14 +442,20 @@ def generate_vouchers(
             if chinese_desc:
                 unique_descriptions.add(chinese_desc)
 
-    prefetched_translations = batch_translate_texts(
-        unique_descriptions,
-        max_workers=cfg.translation_max_workers,
-        requests_per_second=cfg.translation_requests_per_second,
-        progress_description="\u7ffb\u8bd1\u6458\u8981",
-        mapping_path=cfg.translation_mapping_path,
-    )
-    translation_cache.update(prefetched_translations)
+    descriptions_to_translate = [
+        description
+        for description in unique_descriptions
+        if description not in translation_cache
+    ]
+    if descriptions_to_translate and translation_service_ready:
+        prefetched_translations = batch_translate_texts(
+            descriptions_to_translate,
+            max_workers=cfg.translation_max_workers,
+            requests_per_second=cfg.translation_requests_per_second,
+            progress_description="\u7ffb\u8bd1\u6458\u8981",
+            mapping_path=cfg.translation_mapping_path,
+        )
+        translation_cache.update(prefetched_translations)
 
     def _derive_period() -> Tuple[int, int]:
         if raw_period and len(raw_period) == 6 and raw_period.isdigit():
@@ -443,12 +489,9 @@ def generate_vouchers(
             if not chinese_desc:
                 continue
 
-            if chinese_desc not in translation_cache:
-                translation_cache[chinese_desc] = translate_text(
-                    chinese_desc,
-                    mapping_path=cfg.translation_mapping_path,
-                )
-            english_desc = translation_cache[chinese_desc]
+            if chinese_desc not in translation_cache and translation_service_ready:
+                translation_cache[chinese_desc] = translate_text(chinese_desc)
+            english_desc = translation_cache.get(chinese_desc, "")
 
             summary = _compose_summary(
                 name_value, chinese_desc, english_name_value, english_desc

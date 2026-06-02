@@ -25,6 +25,17 @@ class VoucherService:
     def __init__(self):
         self.settings = settings
 
+    def _get_zhipuai_api_keys(self) -> list[str]:
+        if self.settings.zhipuai_api_keys:
+            return [
+                key.strip()
+                for key in self.settings.zhipuai_api_keys.split(",")
+                if key.strip()
+            ]
+        if self.settings.zhipuai_api_key:
+            return [self.settings.zhipuai_api_key.strip()]
+        return []
+
     async def generate_vouchers(
         self,
         expense_file: UploadFile,
@@ -148,6 +159,11 @@ class VoucherService:
                     voucher_start_sequence=start_seq,
                     output_dir=tmp_path / "output",  # 这个路径不会被使用
                     translation_mapping_path=mapping_path,
+                    translation_max_workers=self.settings.translation_max_workers,
+                    translation_requests_per_second=(
+                        self.settings.translation_requests_per_second
+                    ),
+                    zhipuai_api_keys=self._get_zhipuai_api_keys(),
                 )
 
                 # 生成凭证（内存模式）
