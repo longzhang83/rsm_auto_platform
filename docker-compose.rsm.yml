@@ -1,0 +1,55 @@
+name: rsm-auto-platform
+
+services:
+  backend:
+    container_name: rsm-auto-platform-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:18888:8888"
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=production
+      - SERVE_FRONTEND=false
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8888/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+  nginx:
+    container_name: rsm-auto-platform-nginx
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/nginx:alpine
+    ports:
+      - "18080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -9,6 +9,19 @@ except ImportError:
     from pydantic import BaseSettings
 
 
+def _find_project_root() -> Path:
+    """Find the runtime project root in both source and Docker layouts."""
+    current_file = Path(__file__).resolve()
+    for parent in current_file.parents:
+        if (parent / "data").exists():
+            return parent
+        if (parent / "backend").exists() and (parent / "src").exists():
+            return parent
+        if (parent / "app").exists() and (parent / "src").exists():
+            return parent
+    return Path.cwd().resolve()
+
+
 class Settings(BaseSettings):
     """应用配置"""
 
@@ -23,8 +36,8 @@ class Settings(BaseSettings):
     port: int = 8888
 
     # 数据目录配置
-    # 从 backend/app/core/config.py 回到项目根目录
-    base_dir: Path = Path(__file__).resolve().parent.parent.parent.parent
+    # 支持源码布局 backend/app/core/config.py 和 Docker 布局 /app/app/core/config.py
+    base_dir: Path = _find_project_root()
     data_dir: Path = base_dir / "data"
     output_dir: Path = data_dir / "output"
 

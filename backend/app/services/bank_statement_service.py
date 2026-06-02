@@ -19,6 +19,7 @@ from accounting_voucher_generation.bank_statement_pipeline import (
 )
 from app.utils.logger import get_logger
 from app.core.progress_manager import progress_manager
+from app.core.config import settings
 
 logger = get_logger(__name__)
 
@@ -523,5 +524,5 @@ class BankStatementService:
             raise HTTPException(status_code=500, detail=f"预览数据失败: {str(e)}")
 
 
-# 创建服务实例，使用正确的数据目录路径
-bank_statement_service = BankStatementService(data_dir="../data")
+# 创建服务实例，使用统一配置的数据目录路径
+bank_statement_service = BankStatementService(data_dir=settings.data_dir)

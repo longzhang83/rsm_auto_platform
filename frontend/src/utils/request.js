@@ -49,8 +49,9 @@ async function fetchWithAuth(url, options = {}) {
   try {
     const response = await fetch(fullUrl, options)
 
-    // 统一处理401未授权错误
-    if (response.status === 401) {
+    // 统一处理受保护接口的401。登录等认证接口需要保留原始错误，便于页面展示原因。
+    const isAuthEndpoint = typeof url === 'string' && url.startsWith('/auth/')
+    if (response.status === 401 && !isAuthEndpoint) {
       console.warn('Token已过期或无效，跳转到登录页')
       removeToken()
       // 跳转到登录页

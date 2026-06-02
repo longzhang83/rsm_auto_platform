@@ -95,8 +95,9 @@ class AuthService:
         Raises:
             HTTPException: 用户名或密码错误
         """
-        # 查找用户
-        user = db.query(User).filter(User.username == login_data.username).first()
+        # 查找用户。注册页会把邮箱前缀作为用户名，例如 louis.zhang。
+        identifier = login_data.username.strip()
+        user = db.query(User).filter(User.username == identifier).first()
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

@@ -85,6 +85,28 @@ npm run dev
 
 ---
 
+## 🚢 生产部署
+
+### RSM 服务器一键部署
+
+当前 `rsm` 服务器部署已固化为脚本：
+
+```bash
+bash scripts/deploy-rsm.sh
+```
+
+默认部署到：
+
+- SSH 主机：`rsm`
+- 远端目录：`/home/louis/code/rsm_auto_platform`
+- 访问地址：`http://10.31.0.4:18080/`
+
+脚本会保留远端 `.env`、`data/`、`logs/`、`backups/`，并在部署前备份 SQLite 数据库和当前静态文件。
+
+详细说明见：**[RSM 服务器部署指南](docs/RSM_DEPLOYMENT.md)**
+
+---
+
 ## 📁 数据文件
 
 在 `data/` 目录下准备以下文件：
@@ -180,6 +202,7 @@ python main.py \
 - **[GLM模型配置](docs/GLM_MODEL_CONFIG.md)** - 智谱AI API配置指南
 - **[多账户翻译](docs/MULTI_ACCOUNT_TRANSLATION.md)** - 负载均衡和错误处理
 - **[Nginx部署](docs/NGINX_DEPLOYMENT.md)** - 生产环境部署指南
+- **[RSM服务器部署](docs/RSM_DEPLOYMENT.md)** - `ssh rsm` 一键部署流程
 
 ---
 

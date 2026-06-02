@@ -44,7 +44,7 @@
           <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form"
             @keyup.enter="handleLogin">
             <el-form-item prop="username">
-              <el-input v-model="loginForm.username" placeholder="用户名" size="large" prefix-icon="User" clearable />
+              <el-input v-model="loginForm.username" placeholder="用户名（邮箱前缀，如 louis.zhang）" size="large" prefix-icon="User" clearable />
             </el-form-item>
 
             <el-form-item prop="password">
@@ -101,7 +101,7 @@ const loginForm = reactive({
 const loginRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '用户名长度在 3 到 50 个字符', trigger: 'blur' }
+    { min: 2, max: 50, message: '用户名长度在 2 到 50 个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },

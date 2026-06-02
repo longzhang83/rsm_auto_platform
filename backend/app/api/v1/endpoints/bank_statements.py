@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.services.bank_statement_service import bank_statement_service
+from app.core.config import settings
 from app.schemas.bank_statement import (
     BankStatementGenerateResponse,
     CustomersResponse,
@@ -509,7 +510,7 @@ async def download_bank_statement_file(filename: str):
     """下载银行流水转凭证文件"""
     try:
         # 构建文件路径
-        output_dir = Path("data") / "output" / "银行流水转凭证"
+        output_dir = settings.output_dir / "银行流水转凭证"
 
         # 查找包含指定文件名的文件（可能在客户子目录中）
         matching_files = list(output_dir.rglob(f"*{filename}*"))

@@ -16,6 +16,14 @@ class EmailService:
     """邮件服务"""
 
     @staticmethod
+    def _is_development_mode() -> bool:
+        return settings.environment.lower() in {"development", "testing", "test", "local"}
+
+    @staticmethod
+    def _smtp_configured() -> bool:
+        return bool(settings.smtp_username and settings.smtp_password)
+
+    @staticmethod
     def send_verification_code(email: str, code: str) -> bool:
         """
         发送验证码邮件
@@ -27,10 +35,14 @@ class EmailService:
         Returns:
             是否发送成功
         """
-        if not settings.smtp_username or not settings.smtp_password:
-            logger.warning("SMTP配置未完成，验证码发送已禁用")
-            logger.info(f"[开发模式] 验证码: {code}")
-            return True
+        if not EmailService._smtp_configured():
+            if EmailService._is_development_mode():
+                logger.warning("SMTP配置未完成，验证码发送已禁用")
+                logger.info(f"[开发模式] 验证码: {code}")
+                return True
+
+            logger.error("SMTP配置未完成，生产环境无法发送验证码邮件")
+            return False
 
         try:
             # 创建邮件
@@ -116,10 +128,14 @@ class EmailService:
         Returns:
             是否发送成功
         """
-        if not settings.smtp_username or not settings.smtp_password:
-            logger.warning("SMTP配置未完成，验证码发送已禁用")
-            logger.info(f"[开发模式] 密码重置验证码: {code}")
-            return True
+        if not EmailService._smtp_configured():
+            if EmailService._is_development_mode():
+                logger.warning("SMTP配置未完成，验证码发送已禁用")
+                logger.info(f"[开发模式] 密码重置验证码: {code}")
+                return True
+
+            logger.error("SMTP配置未完成，生产环境无法发送密码重置验证码邮件")
+            return False
 
         try:
             # 创建邮件
